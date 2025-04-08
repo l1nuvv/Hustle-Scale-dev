@@ -9,8 +9,6 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float speedMultiplier = 2f;
     
     private Vector2 _moveInput;
-    private float _horizontalInput;
-    private float _verticalInput;
     
     private void Update()
     {
@@ -30,15 +28,13 @@ public class PlayerController : MonoBehaviour
         if (keyboard.aKey.isPressed) _moveInput.x -= 1;
         if (keyboard.dKey.isPressed) _moveInput.x += 1;
         
-        _moveInput = _moveInput.normalized;
+        if(keyboard.leftShiftKey.wasPressedThisFrame) Sprint();
+        if(keyboard.leftShiftKey.wasReleasedThisFrame) StopSprint();
     }
     
     private void MovePlayer()
     {
-        _verticalInput = Input.GetAxis("Vertical");
-        _horizontalInput = Input.GetAxis("Horizontal");
-        
-        Vector3 movement = new Vector3(_horizontalInput, 0, _verticalInput).normalized;
+        Vector3 movement = new Vector3(_moveInput.x, 0, _moveInput.y).normalized;
         if (movement.magnitude > 0)
         {
             Vector3 moveDirection = movement * (movementSpeed * Time.deltaTime);
@@ -46,7 +42,7 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    /*private void Sprint()
+    private void Sprint()
     {
         movementSpeed *= speedMultiplier;
     }
@@ -54,5 +50,5 @@ public class PlayerController : MonoBehaviour
     private void StopSprint()
     {
         movementSpeed /= speedMultiplier;
-    }*/
+    }
 }
