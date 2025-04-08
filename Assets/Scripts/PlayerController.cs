@@ -5,9 +5,9 @@ using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
 {
     [Header("Movement Settings")]
-    [SerializeField] private float movementSpeed = 10f; // Base movement speed of the player
+    [SerializeField] private float _movementSpeed = 10f; // Base movement speed of the player
     [Header("Sprint Settings")]
-    [SerializeField, Range(1f, 5f)] private float speedMultiplier = 2f; // Multiplier for sprinting speed
+    [SerializeField, Range(1f, 5f)] private float _speedMultiplier = 2f; // Multiplier for sprinting speed
     
     // For ToggleSprint()
     private bool _isSprinting = false; // Indicates whether the player is currently sprinting
@@ -44,7 +44,7 @@ public class PlayerController : MonoBehaviour
                                                                                   // vector for consistent speed
         if (movement.magnitude > 0)
         {
-            Vector3 moveDirection = movement * (movementSpeed * Time.deltaTime);
+            Vector3 moveDirection = movement * (_movementSpeed * Time.deltaTime);
             transform.Translate(moveDirection, Space.World); 
             // Move the player in the world space
         }
@@ -55,12 +55,12 @@ public class PlayerController : MonoBehaviour
     {
         if (sprinting && !_isSprinting)
         {
-            movementSpeed *= speedMultiplier; // Increase speed when sprinting
+            _movementSpeed *= _speedMultiplier; // Increase speed when sprinting
             _isSprinting = true; // Set sprinting state
         }
         else if (!sprinting && _isSprinting)
         {
-            movementSpeed /= speedMultiplier; // Reset to original speed when sprinting is deactivated
+            _movementSpeed /= _speedMultiplier; // Reset to original speed when sprinting is deactivated
             _isSprinting = false; // Reset sprinting state
         }
     }
