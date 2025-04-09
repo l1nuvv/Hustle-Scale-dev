@@ -1,15 +1,18 @@
 using Player.Inventory;
 using UnityEngine;
 
-public class PlayerEquipment : MonoBehaviour
+namespace Player
 {
-    public Transform handSlot;
-    private GameObject currentItem;
-
-    public void Equip(Item item)
+    public class PlayerEquipment : MonoBehaviour
     {
-        if (currentItem != null) Destroy(currentItem);
+        public Transform handSlot;
+        private GameObject currentItem;
+
+        public void Equip(Item item)
+        {
+            if (currentItem != null) Destroy(currentItem);
         
-        if (item.heldPrefab != null) currentItem = Instantiate(item.heldPrefab, handSlot);
+            if (item.heldPrefab != null) currentItem = Instantiate(item.heldPrefab, handSlot);
+        }
     }
 }
