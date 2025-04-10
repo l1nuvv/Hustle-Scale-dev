@@ -1,12 +1,15 @@
+using Inventory.InventoryScriptableObjects;
+using UnityEngine;
+
 namespace Inventory
 {
     [System.Serializable]
-    public class InventorySlot
+    public class InventorySlot : MonoBehaviour
     {
-        public IItem item;
+        public Item item;
         public int amount;
 
         public bool IsEmpty => item == null;
-        public bool CanAddStack(IItem itemToAdd) => !IsEmpty && item.Id == itemToAdd.Id && amount < item.MaxStack;
+        public bool CanAddStack(Item itemToAdd) => !IsEmpty && item.id == itemToAdd.id && amount < item.maxStack;
     }
 }

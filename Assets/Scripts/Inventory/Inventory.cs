@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Inventory.InventoryScriptableObjects;
 using UnityEngine;
 
 namespace Inventory
@@ -15,7 +16,7 @@ namespace Inventory
             else Destroy(gameObject);
         }
 
-        public bool AddItem(IItem item, int amount = 1)
+        public bool AddItem(Item item, int amount = 1)
         {
             foreach (var slot in slots)
             {

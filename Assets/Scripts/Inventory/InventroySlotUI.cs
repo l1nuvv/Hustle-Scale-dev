@@ -9,7 +9,7 @@ namespace Inventory
 
         public void Setup(InventorySlot slot)
         {
-            icon.sprite = slot.item.Icon;
+            icon.sprite = slot.item.icon;
             icon.enabled = true;
             amountText.text = slot.amount > 1 ? slot.amount.ToString() : "";
         }

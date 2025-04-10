@@ -1,3 +1,4 @@
+using Inventory.InventoryScriptableObjects;
 using UnityEngine;
 
 namespace Inventory
@@ -9,7 +10,7 @@ namespace Inventory
 
         private void Start()
         {
-            Inventory.instance.AddItem(new Item(), 3);
+            Inventory.instance.AddItem(ScriptableObject.CreateInstance<Item>(), 3);
             UpdateUI();
         }
 
