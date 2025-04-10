@@ -1,4 +1,4 @@
-using Player.Inventory;
+using Inventory;
 using UnityEngine;
 
 namespace Interactables
@@ -11,7 +11,7 @@ namespace Interactables
         {
             if (other.CompareTag("Player"))
             {
-                bool wasPickedUp = Inventory.instance.AddItem(item);
+                bool wasPickedUp = Inventory.Inventory.instance.AddItem(item);
                 if (wasPickedUp) Destroy(gameObject);
             }
         }

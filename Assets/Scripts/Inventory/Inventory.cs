@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Player.Inventory
+namespace Inventory
 {
     public class Inventory : MonoBehaviour
     {
@@ -15,7 +15,7 @@ namespace Player.Inventory
             else Destroy(gameObject);
         }
 
-        public bool AddItem(Item item, int amount = 1)
+        public bool AddItem(IItem item, int amount = 1)
         {
             foreach (var slot in slots)
             {

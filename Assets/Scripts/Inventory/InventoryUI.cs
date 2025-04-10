@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Player.Inventory
+namespace Inventory
 {
     public class InventoryUI : MonoBehaviour
     {
@@ -9,7 +9,7 @@ namespace Player.Inventory
 
         private void Start()
         {
-            global::Player.Inventory.Inventory.instance.AddItem(new Item(), 3);
+            Inventory.instance.AddItem(new Item(), 3);
             UpdateUI();
         }
 
@@ -17,7 +17,7 @@ namespace Player.Inventory
         {
             foreach (Transform child in slotsParent) Destroy(child.gameObject);
 
-            foreach (var slot in global::Player.Inventory.Inventory.instance.slots)
+            foreach (var slot in Inventory.instance.slots)
             {
                 var slotUI = Instantiate(slotPrefab, slotsParent).GetComponent<InventorySlotUI>();
                 slotUI.Setup(slot);

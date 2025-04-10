@@ -1,16 +1,15 @@
-using UnityEngine;
 using UnityEngine.UI;
 
-namespace Player.Inventory
+namespace Inventory
 {
-    public class InventorySlotUI : MonoBehaviour
+    public class InventorySlotUI
     {
         public Image icon;
         public Text amountText;
 
         public void Setup(InventorySlot slot)
         {
-            icon.sprite = slot.item.sprite;
+            icon.sprite = slot.item.Icon;
             icon.enabled = true;
             amountText.text = slot.amount > 1 ? slot.amount.ToString() : "";
         }
