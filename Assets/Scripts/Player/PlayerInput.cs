@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System;
 
 namespace Player
 {
@@ -9,7 +10,45 @@ namespace Player
                 // For ToggleSprint()
                 public bool isSprinting { get; private set; } // Indicates whether the player is currently sprinting
                 private Vector2 _moveInput; // Stores the player's movement input
-                public ref Vector2 MoveInput => ref _moveInput;  // Public property to use movement input with reference access
+                public ref Vector2 MoveInput => ref _moveInput;  // Public property to use movement input with
+                                                                 // reference access
+
+                // Events for different actions
+                public event Action OnInteract;
+                public event Action OnToggleInventory;
+
+                private void OnEnable()
+                {
+                        // Subscribe to the new Input System events
+                        var playerInput = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+                        if (playerInput != null)
+                        {
+                                playerInput.actions["Interact"].performed += OnInteractPerformed;
+                                playerInput.actions["ToggleInventory"].performed += OnToggleInventoryPerformed;
+                        }
+                }
+
+                private void OnDisable()
+                {
+                        // Unsubscribe from the new Input System events
+                        var playerInput = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+                        if (playerInput != null)
+                        {
+                                playerInput.actions["Interact"].performed -= OnInteractPerformed;
+                                playerInput.actions["ToggleInventory"].performed -= OnToggleInventoryPerformed;
+                        }
+                }
+
+                private void OnInteractPerformed(InputAction.CallbackContext context)
+                {
+                        OnInteract?.Invoke();
+                }
+
+                private void OnToggleInventoryPerformed(InputAction.CallbackContext context)
+                {
+                        OnToggleInventory?.Invoke();
+                }
+
                 private void Update()
                 {
                         var keyboard = Keyboard.current;
