@@ -1,4 +1,3 @@
-using Inventory;
 using Inventory.InventoryScriptableObjects;
 using UnityEngine;
 

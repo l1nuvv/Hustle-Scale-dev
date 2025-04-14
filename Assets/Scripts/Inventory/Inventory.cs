@@ -29,7 +29,7 @@ namespace Inventory
 
             if (slots.Count < maxSlots)
             {
-                slots.Add(new InventorySlot { item = item, amount = amount });
+                slots.Add(gameObject.AddComponent<InventorySlot>());
                 return true;
             }
         

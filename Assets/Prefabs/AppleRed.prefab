@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4476669130910273081}
   - component: {fileID: 2093118046700876247}
   - component: {fileID: 3610352347830739176}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Icosphere
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -97,7 +97,8 @@ GameObject:
   - component: {fileID: 8778896403924116923}
   - component: {fileID: 6014489283590949301}
   - component: {fileID: 848992138922229813}
-  m_Layer: 0
+  - component: {fileID: 93021015966216188}
+  m_Layer: 3
   m_Name: AppleRed
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -114,7 +115,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 2, y: 2, z: 2}
+  m_LocalScale: {x: 10, y: 10, z: 10}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5116161444944056540}
@@ -136,7 +137,7 @@ SphereCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -169,6 +170,20 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &93021015966216188
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8334472512033397773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef315ce104e710a459b86234a8884968, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  item: {fileID: 11400000, guid: 4feed8de3454106488a20e6c793c8dc9, type: 2}
+  amount: 1
 --- !u!1 &8626916739037556639
 GameObject:
   m_ObjectHideFlags: 0
@@ -180,7 +195,7 @@ GameObject:
   - component: {fileID: 5116161444944056540}
   - component: {fileID: 8340921443197003436}
   - component: {fileID: 935257377975510162}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Cone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
