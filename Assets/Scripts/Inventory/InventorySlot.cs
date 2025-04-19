@@ -14,9 +14,9 @@ namespace Inventory
         public GameObject iconGameObject;
         public TMP_Text itemAmountText;
         public Image iconImage;
-        
+
         private bool _isEmpty = true; // Состояние слота
-        
+
         public bool IsEmpty
         {
             get => _isEmpty || item == null;
@@ -44,9 +44,9 @@ namespace Inventory
                     {
                         Debug.LogError($"Слот {name}: Дочерний объект иконки не найден!");
                     }
-                    
+
                     // Получаем текстовое поле для количества
-                    GameObject textObj = transform.GetChild(1).gameObject;
+                    var textObj = transform.GetChild(1).gameObject;
                     if (textObj != null)
                     {
                         itemAmountText = textObj.GetComponent<TMP_Text>();
@@ -62,9 +62,10 @@ namespace Inventory
                 }
                 else
                 {
-                    Debug.LogError($"Слот {name}: Недостаточно дочерних объектов! Ожидается минимум 2, найдено {transform.childCount}");
+                    Debug.LogError(
+                        $"Слот {name}: Недостаточно дочерних объектов! Ожидается минимум 2, найдено {transform.childCount}");
                 }
-                
+
                 // Инициализируем пустой слот
                 ClearSlot();
             }
@@ -93,33 +94,44 @@ namespace Inventory
                 Debug.LogError($"Не удалось установить иконку для слота {name}");
             }
         }
-        
+
         public void ClearSlot()
         {
             // Очищаем слот
             item = null;
             amount = 0;
             IsEmpty = true;
-            
+
             // Сбрасываем отображение
             if (iconImage != null)
             {
                 iconImage.sprite = null;
                 iconImage.color = new Color(1, 1, 1, 0); // Полностью прозрачный
             }
-            
+
             if (itemAmountText != null)
             {
                 itemAmountText.text = "";
             }
         }
-        
+
         public bool CanAddStack(Item itemToAdd)
         {
-            if (itemToAdd == null) return false;
-            if (IsEmpty) return false;
-            if (item == null) return false;
-            
+            if (itemToAdd == null)
+            {
+                return false;
+            }
+
+            if (IsEmpty)
+            {
+                return false;
+            }
+
+            if (item == null)
+            {
+                return false;
+            }
+
             return item.id == itemToAdd.id && amount < item.maxStack;
         }
     }

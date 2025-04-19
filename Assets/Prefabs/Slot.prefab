@@ -230,6 +230,7 @@ MonoBehaviour:
   amount: 0
   iconGameObject: {fileID: 0}
   itemAmountText: {fileID: 0}
+  iconImage: {fileID: 0}
 --- !u!1 &5233622664332075577
 GameObject:
   m_ObjectHideFlags: 0

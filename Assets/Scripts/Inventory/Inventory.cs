@@ -6,14 +6,20 @@ namespace Inventory
 {
     public class Inventory : MonoBehaviour
     {
-        public static Inventory instance;
-        public List<InventorySlot> slots = new List<InventorySlot>();
+        public static Inventory Instance;
+        public List<InventorySlot> slots = new();
         public int maxSlots = 10;
 
         private void Awake()
         {
-            if (instance == null) instance = this;
-            else Destroy(gameObject);
+            if (Instance == null)
+            {
+                Instance = this;
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
         }
 
         public bool AddItem(Item item, int amount = 1)
@@ -32,19 +38,23 @@ namespace Inventory
                 slots.Add(gameObject.AddComponent<InventorySlot>());
                 return true;
             }
-        
+
             Debug.LogWarning("Inventory is full!");
             return false;
         }
 
         public void RemoveItem(int slotIndex, int amount = 1)
         {
-            if (slotIndex < 0 || slotIndex >= slots.Count) return;
-        
+            if (slotIndex < 0 || slotIndex >= slots.Count)
+            {
+                return;
+            }
+
             slots[slotIndex].amount -= amount;
-            if(slots[slotIndex].amount <= 0) slots.RemoveAt(slotIndex);
+            if (slots[slotIndex].amount <= 0)
+            {
+                slots.RemoveAt(slotIndex);
+            }
         }
-    
-   
     }
 }

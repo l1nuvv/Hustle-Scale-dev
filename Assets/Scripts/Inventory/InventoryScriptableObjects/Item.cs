@@ -2,14 +2,13 @@ using UnityEngine;
 
 namespace Inventory.InventoryScriptableObjects
 {
-    
     public enum ItemType
     {
         Default,
         Food,
         Weapon
     }
-    
+
     public class Item : ScriptableObject
     {
         public int id;

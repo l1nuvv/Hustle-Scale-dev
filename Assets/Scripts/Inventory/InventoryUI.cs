@@ -10,15 +10,18 @@ namespace Inventory
 
         private void Start()
         {
-            Inventory.instance.AddItem(ScriptableObject.CreateInstance<Item>(), 3);
+            Inventory.Instance.AddItem(ScriptableObject.CreateInstance<Item>(), 3);
             UpdateUI();
         }
 
         public void UpdateUI()
         {
-            foreach (Transform child in slotsParent) Destroy(child.gameObject);
+            foreach (Transform child in slotsParent)
+            {
+                Destroy(child.gameObject);
+            }
 
-            foreach (var slot in Inventory.instance.slots)
+            foreach (var slot in Inventory.Instance.slots)
             {
                 var slotUI = Instantiate(slotPrefab, slotsParent).GetComponent<InventorySlotUI>();
                 slotUI.Setup(slot);

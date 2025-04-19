@@ -6,13 +6,19 @@ namespace Player
     public class PlayerEquipment : MonoBehaviour
     {
         public Transform handSlot;
-        private GameObject currentItem;
+        private GameObject _currentItem;
 
         public void Equip(Item item)
         {
-            if (currentItem != null) Destroy(currentItem);
-        
-            if (item.heldPrefab != null) currentItem = Instantiate(item.heldPrefab, handSlot);
+            if (_currentItem != null)
+            {
+                Destroy(_currentItem);
+            }
+
+            if (item.heldPrefab != null)
+            {
+                _currentItem = Instantiate(item.heldPrefab, handSlot);
+            }
         }
     }
 }

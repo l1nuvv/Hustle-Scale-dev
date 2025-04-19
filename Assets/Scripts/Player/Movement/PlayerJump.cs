@@ -1,9 +1,9 @@
 using Player.Movement;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class PlayerJump : PlayerController
 {
-    [Header("Jump Settings")]
-    [SerializeField] private float _jumpForce;
-    
+    [FormerlySerializedAs("_jumpForce")] [Header("Jump Settings")] [SerializeField]
+    private float jumpForce;
 }
