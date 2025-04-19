@@ -15,8 +15,12 @@ namespace Player.Movement
         [FormerlySerializedAs("_cameraTransform")] [Header("Camera Settings")] [SerializeField]
         private Transform cameraTransform;
 
-        [FormerlySerializedAs("_cameraOffset")] [SerializeField] private Vector3 cameraOffset = new(0, 1.8f, 0.05f); // Позиция глаз персонажа (поднята выше)
-        [FormerlySerializedAs("_mouseSensitivity")] [SerializeField] private float mouseSensitivity = 2f;
+        [FormerlySerializedAs("_cameraOffset")] [SerializeField]
+        private Vector3 cameraOffset = new(0, 1.8f, 0.05f); // Позиция глаз персонажа (поднята выше)
+
+        [FormerlySerializedAs("_mouseSensitivity")] [SerializeField]
+        private float mouseSensitivity = 2f;
+
         private bool _cameraControlEnabled = true;
         private float _currentMovementSpeed; // Actual speed after all modifiers
         private bool _cursorLocked = true;

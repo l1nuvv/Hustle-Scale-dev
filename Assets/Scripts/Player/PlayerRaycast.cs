@@ -7,15 +7,23 @@ namespace Player
 {
     public class PlayerRaycast : MonoBehaviour
     {
-        [FormerlySerializedAs("_camera")] [SerializeField] private Camera camera;
-        [FormerlySerializedAs("_layerMask")] [SerializeField] private LayerMask layerMask;
-        [FormerlySerializedAs("_raycastDistance")] [SerializeField] private float raycastDistance = 5f; // Увеличиваем дистанцию с 2 до 5 метров
+        [FormerlySerializedAs("_camera")] [SerializeField]
+        private Camera camera;
 
-        [FormerlySerializedAs("_inventoryManager")] [Header("Inventory")] [SerializeField] private InventoryManager inventoryManager;
+        [FormerlySerializedAs("_layerMask")] [SerializeField]
+        private LayerMask layerMask;
 
-        [FormerlySerializedAs("_showDebugRay")] [Header("Debug")] [SerializeField] private bool showDebugRay = true;
+        [FormerlySerializedAs("_raycastDistance")] [SerializeField]
+        private float raycastDistance = 5f; // Увеличиваем дистанцию с 2 до 5 метров
 
-        [FormerlySerializedAs("_verboseLogging")] [SerializeField] private bool verboseLogging = true;
+        [FormerlySerializedAs("_inventoryManager")] [Header("Inventory")] [SerializeField]
+        private InventoryManager inventoryManager;
+
+        [FormerlySerializedAs("_showDebugRay")] [Header("Debug")] [SerializeField]
+        private bool showDebugRay = true;
+
+        [FormerlySerializedAs("_verboseLogging")] [SerializeField]
+        private bool verboseLogging = true;
 
         private PlayerInput _playerInput;
 
