@@ -18,6 +18,7 @@ namespace Interactables
             if (item == null)
             {
                 Debug.LogError($"ItemPickup на объекте {gameObject.name} не имеет назначенного предмета Item!");
+                return;
             }
 
             // Находим InventoryManager в сцене
