@@ -725,3 +725,12 @@ sysinfo.txt
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/csharp,rider,unity,visualstudio
+# Preserve Unity package dependencies; override the earlier generic packages rule.
+!/Packages/
+!/Packages/manifest.json
+!/Packages/packages-lock.json
+
+# Local installed agent skills, supplied reference archives and stray Git hooks.
+/.agents/
+/references/*.zip
+/dev/null/

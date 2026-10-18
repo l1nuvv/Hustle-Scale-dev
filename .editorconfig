@@ -163,3 +163,10 @@ indent_size = 2
 indent_style = space
 indent_size = 4
 tab_width = 4
+
+# Preserve existing Rider conventions; never blanket-reformat Unity serialized files.
+[*.{unity,prefab,asset,meta,mat,controller,anim}]
+trim_trailing_whitespace = false
+
+[*.{md,markdown}]
+trim_trailing_whitespace = false
