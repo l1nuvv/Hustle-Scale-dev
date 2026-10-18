@@ -26,6 +26,7 @@ namespace Inventory
         {
             if (balance < 0) throw new ArgumentOutOfRangeException(nameof(balance));
             Balance = balance;
+            InitialBalance = balance;
             Units = Array.AsReadOnly(units);
             IsFirstDeal = firstDeal;
             if (firstDeal) foreach (var unit in units) unit.Location = FlashlightLocation.Seller;
@@ -104,10 +105,12 @@ namespace Inventory
 
         public bool BuyBattery(out string message)
         {
+            if (ShiftEnded) return Reject("Смена завершена. Начни заново для новой попытки.", out message);
             if (IsPaused) return Reject("Close the menu first.", out message);
             if (Balance < 50) return Reject("Not enough money: battery costs $50.", out message);
             if (SpareBatteries == int.MaxValue) return Reject("Battery stock is full.", out message);
             Balance -= 50;
+            Expenses += 50;
             SpareBatteries++;
             return Complete("Battery purchased: -$50. It remains in stock until used.", out message);
         }

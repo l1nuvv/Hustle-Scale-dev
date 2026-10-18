@@ -19,6 +19,12 @@ namespace Interactables
         [SerializeField] private GameObject sellerButtons;
         [SerializeField] private GameObject orderButtons;
         [SerializeField] private Button closeButton;
+        [SerializeField] private GameObject outcomeButtons;
+        [SerializeField] private Button finishButton;
+        [SerializeField] private Button restartButton;
+        [SerializeField] private Button summaryButton;
+        private enum OutcomeScreen { None, Summary, ConfirmAbandon, Finished }
+        private OutcomeScreen outcome;
         private bool hasFocus = true;
         private string menuMessage = "";
         public bool MenuOpen => menu.activeSelf;
@@ -89,6 +95,8 @@ namespace Interactables
 
         public void OpenMenu(bool seller, bool pauseOnly = false)
         {
+            if (workshop.Session.ShiftEnded) { OpenSummary(); return; }
+            outcome = OutcomeScreen.None;
             menuMessage = "";
             menu.SetActive(true);
             sellerButtons.SetActive(seller && !pauseOnly);
@@ -103,6 +111,8 @@ namespace Interactables
 
         public void CloseMenu()
         {
+            if (workshop.Session.ShiftEnded) { OpenSummary(); return; }
+            outcome = OutcomeScreen.None;
             menu.SetActive(false);
             workshop.Session.SetPaused(false);
             player.SetMovementEnabled(true);
@@ -112,6 +122,7 @@ namespace Interactables
 
         public void Purchase(bool battery)
         {
+            if (workshop.Session.ShiftEnded) return;
             CloseMenu();
             string message;
             if (battery) workshop.Session.BuyBattery(out message);
@@ -132,10 +143,74 @@ namespace Interactables
         public void Accept(int index) => ChangeOrder(index, false);
         public void Decline(int index) => ChangeOrder(index, true);
 
+        public void SellBack()
+        {
+            if (workshop.Session.ShiftEnded) return;
+            // The seller menu was opened through the physical E interaction.
+            CloseMenu();
+            var s = workshop.Session;
+            var ids = new List<string>();
+            foreach (var unit in s.Units)
+                if (unit.Location == FlashlightLocation.Hands || (s.IsCrateCarried && unit.Location == FlashlightLocation.Crate)) ids.Add(unit.InstanceId);
+            s.SellBack(ids, out var message);
+            workshop.ShowMessage(message);
+            OpenMenu(true);
+            menuMessage = message;
+            RefreshMenu();
+        }
+
+        public void OpenSummary()
+        {
+            outcome = workshop.Session.ShiftEnded ? OutcomeScreen.Finished : OutcomeScreen.Summary;
+            menuMessage = "";
+            menu.SetActive(true);
+            sellerButtons.SetActive(false);
+            orderButtons.SetActive(false);
+            workshop.Session.SetPaused(true);
+            player.SetMovementEnabled(false);
+            player.SetCameraControlEnabled(false);
+            player.SetCursorLocked(false);
+            RefreshMenu();
+            EventSystem.current.SetSelectedGameObject((workshop.Session.ShiftEnded ? restartButton : closeButton).gameObject);
+        }
+
+        public void FinishShift()
+        {
+            if (outcome != OutcomeScreen.Summary && outcome != OutcomeScreen.ConfirmAbandon) return;
+            if (!workshop.Session.HasPrimarySale && outcome != OutcomeScreen.ConfirmAbandon)
+            {
+                outcome = OutcomeScreen.ConfirmAbandon;
+                RefreshMenu();
+                EventSystem.current.SetSelectedGameObject(closeButton.gameObject);
+                return;
+            }
+            workshop.Session.EndShift(outcome == OutcomeScreen.ConfirmAbandon, out _);
+            OpenSummary();
+        }
+
+        public void RestartShift()
+        {
+            if (!workshop.Session.ShiftEnded) return;
+            UnityEngine.SceneManagement.SceneManager.LoadScene(gameObject.scene.name);
+        }
+
         private void RefreshMenu()
         {
             if (!MenuOpen) return;
             var session = workshop.Session;
+            outcomeButtons.SetActive(outcome != OutcomeScreen.None);
+            finishButton.gameObject.SetActive(outcome != OutcomeScreen.Finished);
+            restartButton.gameObject.SetActive(outcome == OutcomeScreen.Finished);
+            summaryButton.gameObject.SetActive(outcome == OutcomeScreen.None);
+            closeButton.gameObject.SetActive(!session.ShiftEnded);
+            finishButton.GetComponentInChildren<Text>().text = outcome == OutcomeScreen.ConfirmAbandon ? "Да, отказаться и завершить" : "Завершить смену";
+            if (outcome != OutcomeScreen.None)
+            {
+                menuText.text = FirstDealText.Summary(session);
+                if (outcome == OutcomeScreen.ConfirmAbandon)
+                    menuText.text += "\n\nОсновной продажи нет. Завершить неудачную попытку? Кнопка продолжения вернёт в игру без потерь.";
+                return;
+            }
             menuText.text = "ПЕРВАЯ ПАРТИЯ · ПАУЗА · $" + session.Balance + " · Время " + WorkshopView.Clock(session.ElapsedSeconds) +
                 "\nТы начинающий торговец. Купи партию, проверь товар и выбери выгодную сделку.\n" +
                 "1. Прочитай заказы на синей доске. У продавца снаружи купи 3 фонаря за $180.\n" +
@@ -151,6 +226,8 @@ namespace Interactables
             }
             menuText.text += "\nРемонт: батарея у продавца $50 и +04:00, затем новый тест. Ремонт необязателен.\n" +
                 "Повтор Б открывается один раз после Б. Принятие не продлевает срок.\n" +
+                "Выкуп у продавца: исправный $60 / неисправный $35, только после проверки.\n" +
+                (session.BuybackAvailable ? "Выкуп открыт. Принеси остатки в руках или ящике; кнопка продажи передаёт все принесённые.\n" : "Откроется после продажи A / Б или в 18:00. Итоги доступны кнопкой ниже.\n") +
                 "WASD — ходить · мышь — смотреть · E — действие · Esc — пауза · стрелки / Enter — меню.";
             if (menuMessage.Length > 0) menuText.text += "\n" + FirstDealText.Message(menuMessage);
         }

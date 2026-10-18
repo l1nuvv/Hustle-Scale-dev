@@ -54,6 +54,17 @@ namespace Interactables
         private void Refresh()
         {
             var s = workshop.Session;
+            if (s.ShiftEnded)
+            { Show("СМЕНА ЗАВЕРШЕНА", "Итоги зафиксированы. Новая попытка доступна на итоговом экране.", null); return; }
+            if (s.HasPrimarySale || s.BuybackAvailable)
+            {
+                var nextRepeat = s.Order(DealOrderId.RepeatB).State;
+                var destination = s.OwnedLampCount == 0 ? null : nextRepeat == DealOrderState.Available ? board :
+                    nextRepeat == DealOrderState.Accepted ? buyerB : seller;
+                Show("ПОСЛЕДСТВИЯ И СЛЕДУЮЩИЙ ШАГ", "Деньги: $" + s.Balance + "; осталось фонарей: " + s.OwnedLampCount + ". " +
+                    FirstDealText.NextOpportunity(s) + " Esc → «Итоги»: продолжить или завершить.", destination);
+                return;
+            }
             if (!deal.OffersRead)
             { Show("1. РАЗБЕРИСЬ В ПРЕДЛОЖЕНИЯХ", "Подойди к синей доске «ЗАКАЗЫ». Наведи на неё прицел и нажми E. Чтение останавливает время.", board); return; }
             if (!s.LotPurchased)
@@ -95,7 +106,7 @@ namespace Interactables
             { Show("5. ВЫБЕРИ СДЕЛКУ", "Есть проверенные исправные: " + working + ". На доске прими A или Б. A: два за $260 до 09:00. Б: один за $125 до 18:00. Затем забери ящик и отнеси покупателю.", board); return; }
             if (unknown > 0)
             { Show("4. ДОСТАНЬ ОДИН ФОНАРЬ", "У ящика три маленькие кнопки 1 / 2 / 3. Наведи на одну и нажми E. Затем поставь фонарь на стол через E и запусти «ПРОВЕРИТЬ».", crate); return; }
-            Show("ПРОВЕРЬ ОСТАВШИЕСЯ ВОЗМОЖНОСТИ", "Проданные фонари больше не твои. Доска показывает состояние заказов. Неисправный остаток можно починить; завершение смены и обратный выкуп пока не реализованы.", board);
+            Show("ПРОВЕРЬ ОСТАВШИЕСЯ ВОЗМОЖНОСТИ", FirstDealText.NextOpportunity(s) + " Esc → «Итоги»: продолжить или завершить.", board);
         }
 
         private static void ApplyColors()

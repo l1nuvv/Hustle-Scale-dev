@@ -115,6 +115,7 @@ public static class FirstDealPresentation
         PlayerSettings.defaultScreenHeight = 900;
         PlayerSettings.resizableWindow = true;
         PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
+        FirstDealOutcomeBuilder.ApplyCurrent();
         EditorSceneManager.SaveScene(scene);
         Debug.Log("T04 PRESENTATION APPLIED: Russian guidance, readable props, T04 build scene, 1600x900 resizable window.");
     }

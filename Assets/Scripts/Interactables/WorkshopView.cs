@@ -128,7 +128,7 @@ namespace Interactables
             for (var i = 0; i < lamps.Length; i++)
             {
                 var unit = session.Units[i];
-                var sold = unit.Location == FlashlightLocation.BuyerA || unit.Location == FlashlightLocation.BuyerB;
+                var sold = unit.Location == FlashlightLocation.BuyerA || unit.Location == FlashlightLocation.BuyerB || unit.Location == FlashlightLocation.BoughtBack;
                 lamps[i].gameObject.SetActive(!sold);
                 if (sold) { indicators[i].enabled = false; continue; }
                 var parent = unit.Location == FlashlightLocation.Crate || unit.Location == FlashlightLocation.Seller ? storageSlots[i] :
@@ -143,7 +143,8 @@ namespace Interactables
                 status.text = "ПЕРВАЯ ПАРТИЯ · $" + session.Balance + " · " + Clock(session.ElapsedSeconds) +
                     (!session.ShiftStarted ? " · время ещё не идёт" : session.IsPaused ? " · ПАУЗА" : "") +
                     "\nA: " + FirstDealText.State(session.Order(DealOrderId.A).State) + " (до 09:00) · Б: " + FirstDealText.State(session.Order(DealOrderId.B).State) + " (до 18:00)" +
-                    "\nЗапасных батарей: " + session.SpareBatteries + "\n" + FirstDealText.Message(lastMessage);
+                    "\nДо срока A: " + Clock(System.Math.Max(0, 540 - session.ElapsedSeconds)) + " · Б: " + Clock(System.Math.Max(0, 1080 - session.ElapsedSeconds)) +
+                    "\nЗапас: " + session.OwnedLampCount + " фон. · батарей: " + session.SpareBatteries + " · Esc: итоги\n" + FirstDealText.Message(lastMessage);
                 return;
             }
             status.text = "T03 WORKSHOP | Post-purchase fixture: $120 and 3 owned lamps\n" +

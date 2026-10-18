@@ -45,6 +45,7 @@ namespace Inventory
 
         private bool CanHandleItems(out string message)
         {
+            if (ShiftEnded) return Reject("Смена завершена. Начни заново для новой попытки.", out message);
             if (IsPaused) return Reject("Close the menu first.", out message);
             if (IsFirstDeal && !LotPurchased) return Reject("Buy the seller's lot first: three lamps for $180.", out message);
             message = "";
@@ -53,11 +54,13 @@ namespace Inventory
 
         public bool PurchaseLot(out string message)
         {
+            if (ShiftEnded) return Reject("Смена завершена. Начни заново для новой попытки.", out message);
             if (!IsFirstDeal) return Reject("The workshop fixture already owns its lamps.", out message);
             if (IsPaused) return Reject("Close the menu first.", out message);
             if (LotPurchased) return Reject("This single lot has already been purchased.", out message);
             if (Balance < 180) return Reject("Not enough money: the lot costs $180.", out message);
             Balance -= 180;
+            Expenses += 180;
             LotPurchased = true;
             foreach (var unit in units) unit.Location = FlashlightLocation.Crate;
             return Complete("Purchased three lamps: -$180. Carry the crate back to the workshop.", out message);
@@ -65,13 +68,14 @@ namespace Inventory
 
         public void StartShift()
         {
-            if (!IsFirstDeal || ShiftStarted || IsPaused) return;
+            if (!IsFirstDeal || ShiftStarted || IsPaused || ShiftEnded) return;
             ShiftStarted = true;
             Changed?.Invoke();
         }
 
         public void SetPaused(bool paused)
         {
+            if (ShiftEnded) return;
             if (IsPaused == paused) return;
             IsPaused = paused;
             Changed?.Invoke();
@@ -81,7 +85,7 @@ namespace Inventory
         {
             if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0)
                 throw new ArgumentOutOfRangeException(nameof(seconds));
-            if (!IsFirstDeal || !ShiftStarted || IsPaused || seconds == 0) return;
+            if (!IsFirstDeal || !ShiftStarted || IsPaused || ShiftEnded || seconds == 0) return;
             var before = Math.Floor(ElapsedSeconds);
             AddElapsedSeconds(seconds);
             if (Math.Floor(ElapsedSeconds) != before) Changed?.Invoke();
@@ -101,7 +105,7 @@ namespace Inventory
         public bool AcceptOrder(DealOrderId id, out string message)
         {
             var order = Order(id);
-            if (!IsFirstDeal || order.State != DealOrderState.Available)
+            if (!IsFirstDeal || ShiftEnded || order.State != DealOrderState.Available)
                 return Reject("This offer is not available.", out message);
             if (ElapsedSeconds >= order.DeadlineSeconds) return Reject("The deadline has passed.", out message);
             order.State = DealOrderState.Accepted;
@@ -111,7 +115,7 @@ namespace Inventory
         public bool CloseOrder(DealOrderId id, out string message)
         {
             var order = Order(id);
-            if (!IsFirstDeal || (order.State != DealOrderState.Available && order.State != DealOrderState.Accepted))
+            if (!IsFirstDeal || ShiftEnded || (order.State != DealOrderState.Available && order.State != DealOrderState.Accepted))
                 return Reject("This order is already closed or locked.", out message);
             order.State = order.State == DealOrderState.Accepted ? DealOrderState.Cancelled : DealOrderState.Declined;
             return Complete("Order " + id + ": " + order.State + ". No money or items changed.", out message);
@@ -144,6 +148,7 @@ namespace Inventory
             if (Balance > int.MaxValue - order.Payment) return Reject("Wallet limit reached.", out message);
             foreach (var unit in selected) unit.Location = id == DealOrderId.A ? FlashlightLocation.BuyerA : FlashlightLocation.BuyerB;
             Balance += order.Payment;
+            Revenue += order.Payment;
             order.State = DealOrderState.Completed;
             if (id == DealOrderId.B) orders[2].State = DealOrderState.Available;
             return Complete("Delivered " + id + ": +$" + order.Payment + ". " +

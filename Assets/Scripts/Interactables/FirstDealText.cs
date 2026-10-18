@@ -5,6 +5,38 @@ namespace Interactables
     // Small, scenario-specific presentation vocabulary; the domain keeps its existing messages.
     public static class FirstDealText
     {
+        public static string NextOpportunity(WorkshopSession s)
+        {
+            if (s.ShiftEnded) return "Смена завершена. Можно начать новую попытку.";
+            if (s.OwnedLampCount == 0 && s.LotPurchased) return "Все фонари проданы. Посмотри итоги и заверши смену по своему выбору.";
+            var repeat = s.Order(DealOrderId.RepeatB);
+            if (repeat.State == DealOrderState.Available || repeat.State == DealOrderState.Accepted)
+                return "Повтор Б: ещё один проверенный исправный за $110 строго до 18:00. Принеси товар; повтор доступен один раз.";
+            if (s.BuybackAvailable) return "Продавец выкупает проверенные остатки: исправный $60, неисправный $35. Принеси их в руках или ящике; ремонт необязателен.";
+            return "Доска: A — 2 за $260 до 09:00; Б — 1 за $125 до 18:00. Проверка обязательна. В 18:00 откроется выкуп $60 / $35.";
+        }
+
+        public static string Summary(WorkshopSession s)
+        {
+            var text = (s.ShiftEnded ? "ИТОГИ ЗАВЕРШЁННОЙ СМЕНЫ" : "ИТОГИ И СЛЕДУЮЩИЙ ШАГ · ПАУЗА") +
+                "\nНачальные деньги: $" + s.InitialBalance + " · Деньги сейчас: $" + s.Balance +
+                "\nВыручка: $" + s.Revenue + " · Расходы: $" + s.Expenses +
+                " · Изменение денег: " + (s.Balance - (long)s.InitialBalance).ToString("+$0;−$0;$0") +
+                "\nЭто движение денег, не оценка прибыли с учётом оставшегося товара." +
+                "\nВремя: " + WorkshopView.Clock(s.ElapsedSeconds) + " · Осталось фонарей: " + s.OwnedLampCount +
+                " · Запасных батарей: " + s.SpareBatteries + "\n";
+            for (var i = 0; i < s.Units.Count; i++)
+                if (WorkshopSession.IsOwned(s.Units[i]))
+                    text += "Фонарь " + (i + 1) + ": " + Condition(s.Units[i]) + "\n";
+            foreach (DealOrderId id in System.Enum.GetValues(typeof(DealOrderId)))
+                text += (id == DealOrderId.A ? "A" : id == DealOrderId.B ? "Б" : "Повтор Б") + ": " + State(s.Order(id).State) + "\n";
+            text += "Контакт Б: " + (s.ContactBOpened ? "открыт; один повторный заказ за $110 до 18:00." : "пока не открыт.") +
+                "\n\n" + NextOpportunity(s);
+            if (!s.ShiftEnded) text += s.HasPrimarySale ? "\nМожно продолжить торговлю или завершить смену по своему выбору." :
+                "\nМожно продолжить или явно отказаться от продолжения без основной продажи.";
+            return text;
+        }
+
         public static string Condition(FlashlightUnit unit) => !unit.IsTested ? "не проверен" : unit.LastTestPassed ? "исправен, проверен" : "неисправен: батарея";
         public static string State(DealOrderState state)
         {
