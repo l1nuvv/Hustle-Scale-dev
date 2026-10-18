@@ -3,8 +3,8 @@ using System.Collections.Generic;
 
 namespace Inventory
 {
-    // T03 starts after the lot purchase. T04 will supply purchase, wallet and clock integration.
-    public sealed class WorkshopSession
+    // The T03 fixture and the complete T04 trade use the same item and wallet authority.
+    public sealed partial class WorkshopSession
     {
         private readonly FlashlightUnit[] units =
         {
@@ -22,11 +22,13 @@ namespace Inventory
         public FlashlightUnit InHands => Find(FlashlightLocation.Hands);
         public FlashlightUnit OnBench => Find(FlashlightLocation.Bench);
 
-        public WorkshopSession(int balance = 120)
+        public WorkshopSession(int balance = 120, bool firstDeal = false)
         {
             if (balance < 0) throw new ArgumentOutOfRangeException(nameof(balance));
             Balance = balance;
             Units = Array.AsReadOnly(units);
+            IsFirstDeal = firstDeal;
+            if (firstDeal) foreach (var unit in units) unit.Location = FlashlightLocation.Seller;
         }
 
         private FlashlightUnit Find(FlashlightLocation location)
@@ -50,14 +52,17 @@ namespace Inventory
 
         public bool ToggleCrate(out string message)
         {
+            if (!CanHandleItems(out message)) return false;
             if (InHands != null) return Reject("Return the lamp before carrying the crate.", out message);
             IsCrateCarried = !IsCrateCarried;
+            if (IsCrateCarried) HasTransportedCrate = true;
             return Complete(IsCrateCarried ? "Crate in hands. All stored lamps move with it." :
                 "Crate returned to its dock.", out message);
         }
 
         public bool ToggleUnit(int index, out string message)
         {
+            if (!CanHandleItems(out message)) return false;
             if (index < 0 || index >= units.Length) return Reject("Unknown lamp.", out message);
             if (IsCrateCarried) return Reject("Dock the crate first.", out message);
             var unit = units[index];
@@ -66,7 +71,7 @@ namespace Inventory
                 unit.Location = FlashlightLocation.Crate;
                 return Complete("Lamp returned to the crate.", out message);
             }
-            if (unit.Location != FlashlightLocation.Crate) return Reject("This lamp is on the bench.", out message);
+            if (unit.Location != FlashlightLocation.Crate) return Reject("This lamp is not in your crate.", out message);
             if (InHands != null) return Reject("Hands occupied. Store or place that lamp first.", out message);
             unit.Location = FlashlightLocation.Hands;
             return Complete("Lamp in hands: " + unit.KnownCondition, out message);
@@ -74,6 +79,7 @@ namespace Inventory
 
         public bool ToggleBench(out string message)
         {
+            if (!CanHandleItems(out message)) return false;
             if (IsCrateCarried) return Reject("Dock the crate first.", out message);
             if (OnBench != null)
             {
@@ -88,6 +94,7 @@ namespace Inventory
 
         public bool Test(out string message)
         {
+            if (!CanHandleItems(out message)) return false;
             var unit = OnBench;
             if (unit == null) return Reject("Place a lamp on the bench first.", out message);
             unit.IsTested = true;
@@ -97,6 +104,7 @@ namespace Inventory
 
         public bool BuyBattery(out string message)
         {
+            if (IsPaused) return Reject("Close the menu first.", out message);
             if (Balance < 50) return Reject("Not enough money: battery costs $50.", out message);
             if (SpareBatteries == int.MaxValue) return Reject("Battery stock is full.", out message);
             Balance -= 50;
@@ -106,6 +114,7 @@ namespace Inventory
 
         public bool Repair(out string message)
         {
+            if (!CanHandleItems(out message)) return false;
             var unit = OnBench;
             if (unit == null) return Reject("Place a lamp on the bench first.", out message);
             if (!unit.IsTested) return Reject("Test the lamp before replacing its battery.", out message);
@@ -118,6 +127,7 @@ namespace Inventory
             unit.Condition = FlashlightCondition.Working;
             unit.IsTested = false;
             unit.LastTestPassed = false;
+            if (IsFirstDeal) AddElapsedSeconds(240);
             return Complete("Battery replaced. +04:00 game time. Run a new test.", out message);
         }
     }

@@ -3,7 +3,7 @@ using System;
 namespace Inventory
 {
     public enum FlashlightCondition { Working, BatteryFault }
-    public enum FlashlightLocation { Crate, Hands, Bench }
+    public enum FlashlightLocation { Crate, Hands, Bench, Seller, BuyerA, BuyerB }
 
     // Runtime identity and actual condition are separate from the player's knowledge.
     public sealed class FlashlightUnit
