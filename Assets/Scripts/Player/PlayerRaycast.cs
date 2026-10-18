@@ -46,6 +46,8 @@ namespace Player
         {
             FocusLabel = "";
             if (!TryHit(out var hit)) return;
+            var interaction = hit.collider.GetComponentInParent<IWorldInteraction>();
+            if (interaction != null) { FocusLabel = interaction.Prompt; return; }
             var target = hit.collider.GetComponentInParent<GrayboxInteractable>();
             if (target != null) FocusLabel = target.Prompt;
             else if (hit.collider.GetComponentInParent<ItemPickup>() != null) FocusLabel = "E - Pick up";
@@ -54,6 +56,8 @@ namespace Player
         {
             // The nearest solid hit blocks interaction, even if it is not interactable.
             if (!TryHit(out var hit)) return;
+            var interaction = hit.collider.GetComponentInParent<IWorldInteraction>();
+            if (interaction != null) { interaction.Interact(); return; }
             var target = hit.collider.GetComponentInParent<GrayboxInteractable>();
             if (target != null) { target.Interact(); return; }
             var pickup = hit.collider.GetComponentInParent<ItemPickup>();
