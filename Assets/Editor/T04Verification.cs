@@ -22,7 +22,8 @@ public static class T04Verification
     private static Transform[] lampVisuals;
     private static Keyboard keyboard;
     private static InputSettings previousSettings;
-    private static InputSettings testSettings;
+    private static InputSettings.BackgroundBehavior previousBackgroundBehavior;
+    private static InputSettings.EditorInputBehaviorInPlayMode previousEditorInputBehavior;
     private static bool previousBackground;
     private static bool failed;
     private static bool completed;
@@ -225,11 +226,12 @@ public static class T04Verification
             failed = completed = false; phase = 0; lastFrame = -1; phaseTime = Time.time;
             previousBackground = Application.runInBackground; Application.runInBackground = true;
             previousSettings = InputSystem.settings;
-            if (previousSettings.hideFlags == HideFlags.HideAndDontSave) previousSettings = UnityEngine.Object.Instantiate(previousSettings);
-            testSettings = UnityEngine.Object.Instantiate(previousSettings);
-            testSettings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
-            testSettings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
-            InputSystem.settings = testSettings;
+            previousBackgroundBehavior = previousSettings.backgroundBehavior;
+            previousEditorInputBehavior = previousSettings.editorInputBehaviorInPlayMode;
+            // Replacing a transient settings object destroys it, including the reference saved by
+            // Input System for its Editor restore. Preserve that object and restore only these values.
+            previousSettings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            previousSettings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
             started = EditorApplication.timeSinceStartup;
             Application.logMessageReceived += Error;
             EditorApplication.update += Tick;
@@ -238,15 +240,22 @@ public static class T04Verification
         {
             EditorApplication.update -= Tick; Application.runInBackground = previousBackground;
             if (keyboard != null && keyboard.added) InputSystem.RemoveDevice(keyboard);
-            InputSystem.settings = previousSettings;
-            if (testSettings != null) UnityEngine.Object.DestroyImmediate(testSettings);
+            previousSettings.backgroundBehavior = previousBackgroundBehavior;
+            previousSettings.editorInputBehaviorInPlayMode = previousEditorInputBehavior;
         }
         if (state == PlayModeStateChange.EnteredEditMode)
         {
-            Application.logMessageReceived -= Error; SessionState.SetBool(RunningKey, false);
-            var result = completed && !failed ? "T04 RESULT PASS" : "T04 RESULT FAIL";
-            File.AppendAllText(LogPath, result + "\n"); Debug.Log(result);
+            // Include late Input System callbacks in the result, not just in-play messages.
+            EditorApplication.update += Finish;
         }
+    }
+
+    private static void Finish()
+    {
+        EditorApplication.update -= Finish;
+        Application.logMessageReceived -= Error; SessionState.SetBool(RunningKey, false);
+        var result = completed && !failed ? "T04 RESULT PASS" : "T04 RESULT FAIL";
+        File.AppendAllText(LogPath, result + "\n"); Debug.Log(result);
     }
 
     private static void Error(string message, string stack, LogType type)
@@ -290,6 +299,14 @@ public static class T04Verification
                     player.GetComponent<Player.PlayerInput>().MouseInputEnabled = false;
                     keyboard = InputSystem.AddDevice<Keyboard>("T04Keyboard");
                     deal.SendMessage("OnApplicationFocus", true);
+                    Check(deal.MenuOpen && workshop.Session.IsPaused, "startup introduction pauses before first action");
+                    Check(GameObject.Find("Terms").GetComponent<Text>().text.Contains("Ты начинающий торговец"), "Russian introduction explains player role and complete interaction loop");
+                    Check(UnityEngine.Object.FindAnyObjectByType<FirstDealGuide>() != null && GameObject.Find("Next action").GetComponent<Text>().text.Contains("ПРЕДЛОЖЕНИЯХ"), "contextual guide starts at offers board");
+                    Check(PlayerSettings.resizableWindow && PlayerSettings.defaultScreenWidth == 1600 && PlayerSettings.defaultScreenHeight == 900,
+                        "standalone defaults use a resizable 1600 by 900 window");
+                    Check(EditorBuildSettings.scenes.Count(s => s.enabled) == 1 && EditorBuildSettings.scenes.Any(s => s.enabled && s.path == FirstDealTradeBuilder.ScenePath),
+                        "build list starts the playable T04 scenario");
+                    GameObject.Find("Resume / leave without buying").GetComponent<Button>().onClick.Invoke();
                     Check(workshop.Session.Balance == 300 && !workshop.Session.ShiftStarted, "scene initializes at $300 inside workshop before clock starts");
                     AimAt("OFFERS BOARD", new Vector3(-4, 0.05f, 4.5f));
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.E)); Next(); break;
@@ -303,7 +320,14 @@ public static class T04Verification
                         " inputMode=" + InputSystem.settings.updateMode + "\n");
                     Check(deal.MenuOpen && workshop.Session.IsPaused && !player.CanInteract, "E opens fullscreen offers and blocks gameplay");
                     GameObject.Find("Accept RepeatB").GetComponent<Button>().onClick.Invoke();
-                    Check(GameObject.Find("Terms").GetComponent<Text>().text.Contains("This offer is not available"), "locked-offer refusal appears inside the paused terms screen");
+                    Check(GameObject.Find("Terms").GetComponent<Text>().text.Contains("Это предложение пока недоступно"), "locked-offer refusal appears inside the paused terms screen");
+                    Canvas.ForceUpdateCanvases();
+                    var terms = GameObject.Find("Terms").GetComponent<Text>();
+                    Check(terms.preferredHeight <= terms.rectTransform.rect.height + 1, "Russian terms and refusal fit without clipping at current Game View size");
+                    Check(UnityEngine.Object.FindObjectsByType<TextMesh>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                        .All(t => t.fontSize >= 96 && t.GetComponent<Renderer>().bounds.size.x <= 2.5f &&
+                            t.transform.Find("Readable.Dark.Sign backing").lossyScale.x <= 2.6f),
+                        "high resolution world labels retain bounded physical size and contrasting backings");
                     ScreenCapture.CaptureScreenshot("Logs/T04-offers.png");
                     pausedAt = workshop.Session.ElapsedSeconds;
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState()); Next(); break;
@@ -320,6 +344,7 @@ public static class T04Verification
                     Check(deal.MenuOpen && workshop.Session.ShiftStarted, "first workshop exit starts shift and seller E opens confirmation");
                     GameObject.Find("Confirm lot - $180").GetComponent<Button>().onClick.Invoke();
                     Check(workshop.Session.Balance == 120 && workshop.Session.LotPurchased && !deal.MenuOpen, "seller confirmation buys one lot using shared wallet");
+                    Check(GameObject.Find("Next action").GetComponent<Text>().text.Contains("ЗАБЕРИ СВОЙ ЯЩИК"), "guide follows purchase with physical crate pickup instructions");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                     AimAt("Crate visual", new Vector3(-1.8f, 0.05f, -3.7f)); Next(); break;
                 case 4:
@@ -335,6 +360,8 @@ public static class T04Verification
                         " keyboard=" + keyboard.eKey.isPressed + " hud=" + GameObject.Find("Workshop state").GetComponent<Text>().text + "\n");
                     Check(workshop.Session.IsCrateCarried && GameObject.Find("Carry crate").transform.parent == Camera.main.transform,
                         "E physically picks seller crate up with all lamps");
+                    Check(!GameObject.Find("Carry crate").transform.Find("Crate selector 0").gameObject.activeSelf,
+                        "carried crate hides selectors so inactive buttons do not obstruct the view");
                     Check(workshop.Session.ElapsedSeconds > 0, "active real frame time advances the shared shift clock");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                     AimAt("Carry / dock crate", new Vector3(-2.5f, 0.05f, 1.3f)); Next(); break;
@@ -343,6 +370,8 @@ public static class T04Verification
                 case 7:
                     Check(!workshop.Session.IsCrateCarried && Vector3.Distance(GameObject.Find("Carry crate").transform.position, new Vector3(-2.5f, 0.7f, 3.5f)) < 0.01f,
                         "E docks carried crate at workshop without replacing identities");
+                    Check(GameObject.Find("Next action").GetComponent<Text>().text.Contains("ДОСТАНЬ ОДИН ФОНАРЬ"), "guide explains selectors after docking");
+                    Check(GameObject.Find("Crate selector 0").GetComponent<Collider>().enabled, "docking restores visible usable selectors");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                     TestUnit(workshop.Session, 0); TestUnit(workshop.Session, 2); TestUnit(workshop.Session, 1, true);
                     workshop.Session.ToggleCrate(out _);

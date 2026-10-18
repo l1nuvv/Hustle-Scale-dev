@@ -22,12 +22,14 @@ namespace Interactables
         private bool hasFocus = true;
         private string menuMessage = "";
         public bool MenuOpen => menu.activeSelf;
+        public bool OffersRead { get; private set; }
 
         private void Start()
         {
             workshop.Session.Changed += RefreshMenu;
             menu.SetActive(false);
-            workshop.ShowMessage("Read the offers board. Seller outside; shift starts when you leave through the passage.");
+            workshop.ShowMessage("Прочитай заказы на синей доске. Продавец снаружи; время начнётся, когда выйдешь из мастерской.");
+            OpenMenu(false, true);
         }
 
         private void OnDestroy()
@@ -67,7 +69,7 @@ namespace Interactables
             // E can open a paused seller screen in the same frame that the player exits.
             // Record the exit before pausing, rather than waiting for this adapter's Update.
             if (player.transform.position.z < 0.8f) workshop.Session.StartShift();
-            if (action == FirstDealActionKind.Offers) { OpenMenu(false); return; }
+            if (action == FirstDealActionKind.Offers) { OffersRead = true; OpenMenu(false); return; }
             if (action == FirstDealActionKind.Seller) { OpenMenu(true); return; }
             var id = action == FirstDealActionKind.DeliverA ? DealOrderId.A :
                 action == FirstDealActionKind.DeliverB ? DealOrderId.B : DealOrderId.RepeatB;
@@ -134,21 +136,23 @@ namespace Interactables
         {
             if (!MenuOpen) return;
             var session = workshop.Session;
-            menuText.text = "FIRST DEAL | PAUSED | $" + session.Balance + " | Shift " + WorkshopView.Clock(session.ElapsedSeconds) +
-                "\nOne lot: 3 used lamps for $180. Spare battery: $50. No credit.\n" +
-                "Test each lamp on the workshop bench. Buyers require tested working lamps.\n" +
-                "Repair consumes one battery and adds 04:00; retest afterwards.\n" +
-                "Carry the crate for a two-lamp delivery. No partial payment.\n\n";
+            menuText.text = "ПЕРВАЯ ПАРТИЯ · ПАУЗА · $" + session.Balance + " · Время " + WorkshopView.Clock(session.ElapsedSeconds) +
+                "\nТы начинающий торговец. Купи партию, проверь товар и выбери выгодную сделку.\n" +
+                "1. Прочитай заказы на синей доске. У продавца снаружи купи 3 фонаря за $180.\n" +
+                "2. Нажми E на ящике и принеси его к кнопке «ПОСТАВИТЬ ЯЩИК» в мастерской.\n" +
+                "3. Кнопка 1 / 2 / 3 берёт фонарь. E на столе ставит его. «ПРОВЕРИТЬ» запускает тест.\n" +
+                "4. Верни фонарь: E на столе, затем E на той же кнопке у ящика.\n" +
+                "5. На доске прими заказ. Принеси ящик покупателю и нажми E на его стойке.\n\n";
             foreach (DealOrderId id in System.Enum.GetValues(typeof(DealOrderId)))
             {
                 var order = session.Order(id);
-                menuText.text += id + " | " + order.State + " | " + order.Quantity + " tested working | $" + order.Payment +
-                    " | strictly before " + WorkshopView.Clock(order.DeadlineSeconds) + "\n";
+                menuText.text += (id == DealOrderId.A ? "A" : id == DealOrderId.B ? "Б" : "Повтор Б") + " · " + FirstDealText.State(order.State) + " · " + order.Quantity + " исправных, проверенных · $" + order.Payment +
+                    " · строго до " + WorkshopView.Clock(order.DeadlineSeconds) + "\n";
             }
-            menuText.text += "\nRepeat B opens once after B. Accepting never extends a deadline.\n" +
-                "Cancelling an accepted order records a broken commitment.\n" +
-                "Time stops here. Esc / Resume returns to play. Arrows + Enter navigate.";
-            if (menuMessage.Length > 0) menuText.text += "\n" + menuMessage;
+            menuText.text += "\nРемонт: батарея у продавца $50 и +04:00, затем новый тест. Ремонт необязателен.\n" +
+                "Повтор Б открывается один раз после Б. Принятие не продлевает срок.\n" +
+                "WASD — ходить · мышь — смотреть · E — действие · Esc — пауза · стрелки / Enter — меню.";
+            if (menuMessage.Length > 0) menuText.text += "\n" + FirstDealText.Message(menuMessage);
         }
     }
 }

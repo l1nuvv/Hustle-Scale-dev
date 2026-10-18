@@ -38,6 +38,19 @@ namespace Interactables
 
         public string GetPrompt(WorkshopActionKind action, int index)
         {
+            if (firstDeal)
+            {
+                switch (action)
+                {
+                    case WorkshopActionKind.Crate: return session.IsCrateCarried ? "E — Поставить ящик в мастерской" : "E — Взять ящик со всеми фонарями";
+                    case WorkshopActionKind.Unit: return "E — Фонарь " + (index + 1) + ": " + FirstDealText.Condition(session.Units[index]) +
+                        (session.Units[index].Location == FlashlightLocation.Hands ? " · вернуть в ящик" : " · взять из ящика");
+                    case WorkshopActionKind.Bench: return session.OnBench == null ? "E — Поставить фонарь из рук на стол" : "E — Забрать фонарь со стола";
+                    case WorkshopActionKind.Test: return "E — Проверить фонарь на столе";
+                    case WorkshopActionKind.Repair: return "E — Заменить батарею: 1 запасная, +04:00; затем проверить снова";
+                    case WorkshopActionKind.BuyBattery: return "E — Купить батарею за $50";
+                }
+            }
             switch (action)
             {
                 case WorkshopActionKind.Crate: return session.IsCrateCarried ? "E - Dock crate" : "E - Carry crate";
@@ -102,9 +115,16 @@ namespace Interactables
             { StopCoroutine(feedback); feedback = null; blinkIndex = -1; }
             var restingDock = firstDeal && !session.HasTransportedCrate ? sellerDock : dock;
             Attach(crate, session.IsCrateCarried ? hand : restingDock, session.IsCrateCarried ?
-                new Vector3(0, -0.65f, 0.85f) : Vector3.zero);
+                (firstDeal ? new Vector3(0, -1, 1.2f) : new Vector3(0, -0.65f, 0.85f)) : Vector3.zero);
             if (firstDeal)
+            {
+                for (var i = 0; i < 3; i++)
+                {
+                    var selector = crate.Find("Crate selector " + i);
+                    if (selector != null) selector.gameObject.SetActive(!session.IsCrateCarried);
+                }
                 foreach (var collider in crate.GetComponentsInChildren<Collider>()) collider.enabled = !session.IsCrateCarried;
+            }
             for (var i = 0; i < lamps.Length; i++)
             {
                 var unit = session.Units[i];
@@ -118,21 +138,17 @@ namespace Interactables
                 if (feedback == null || i != blinkIndex) indicators[i].enabled = unit.IsTested && unit.LastTestPassed;
             }
             if (status == null) return;
-            status.text = (firstDeal ? "FIRST DEAL | $300 start | One lot: 3 lamps for $180\n" :
-                "T03 WORKSHOP | Post-purchase fixture: $120 and 3 owned lamps\n") +
-                "Balance $" + session.Balance + " | Spare batteries " + session.SpareBatteries +
-                " | Repair time added " + (session.RepairSeconds / 60).ToString("00") + ":00\n";
             if (firstDeal)
             {
-                status.text += "Shift " + Clock(session.ElapsedSeconds) +
-                    (!session.ShiftStarted ? " | Starts on first exit from workshop" : session.IsPaused ? " | PAUSED" : " | Running") + "\n";
-                foreach (DealOrderId id in System.Enum.GetValues(typeof(DealOrderId)))
-                {
-                    var order = session.Order(id);
-                    status.text += id + ": " + order.State + " | " + order.Quantity + " tested working | $" + order.Payment +
-                        " | before " + Clock(order.DeadlineSeconds) + " | left " + Clock(System.Math.Max(0, order.DeadlineSeconds - session.ElapsedSeconds)) + "\n";
-                }
+                status.text = "ПЕРВАЯ ПАРТИЯ · $" + session.Balance + " · " + Clock(session.ElapsedSeconds) +
+                    (!session.ShiftStarted ? " · время ещё не идёт" : session.IsPaused ? " · ПАУЗА" : "") +
+                    "\nA: " + FirstDealText.State(session.Order(DealOrderId.A).State) + " (до 09:00) · Б: " + FirstDealText.State(session.Order(DealOrderId.B).State) + " (до 18:00)" +
+                    "\nЗапасных батарей: " + session.SpareBatteries + "\n" + FirstDealText.Message(lastMessage);
+                return;
             }
+            status.text = "T03 WORKSHOP | Post-purchase fixture: $120 and 3 owned lamps\n" +
+                "Balance $" + session.Balance + " | Spare batteries " + session.SpareBatteries +
+                " | Repair time added " + (session.RepairSeconds / 60).ToString("00") + ":00\n";
             for (var i = 0; i < session.Units.Count; i++)
                 status.text += "Lamp " + (i + 1) + ": " + session.Units[i].KnownCondition +
                     " | " + session.Units[i].Location + "\n";

@@ -107,7 +107,7 @@ public static class FirstDealTradeBuilder
         Ref(deal, "closeButton", resume);
         menu.SetActive(false);
         EditorSceneManager.SaveScene(scene);
-        // Only this new scene and its referenced UI actions were created; build settings stay as-is.
+        FirstDealPresentation.Apply();
         Debug.Log("T04 SCENE CREATED " + ScenePath);
     }
 
