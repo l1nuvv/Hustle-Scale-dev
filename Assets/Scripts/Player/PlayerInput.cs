@@ -22,15 +22,6 @@ namespace Player
 
         public bool MouseInputEnabled { get; set; } = true;
 
-        private void Awake()
-        {
-            // Убедимся, что обработчики событий не null
-            if (OnToggleInventory == null)
-            {
-                Debug.LogWarning("OnToggleInventory is null in Awake");
-            }
-        }
-
         private void Update()
         {
             var keyboard = Keyboard.current;

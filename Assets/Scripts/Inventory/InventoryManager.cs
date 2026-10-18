@@ -32,13 +32,6 @@ namespace Inventory
             {
                 return;
             }
-
-            // Find the player controller if not assigned
-            if (playerController == null)
-            {
-                // Находим компонент PlayerController в сцене
-                playerController = FindFirstObjectByType<PlayerController>();
-            }
         }
 
         void Start()
@@ -90,6 +83,20 @@ namespace Inventory
         // Отдельный метод для поиска PlayerInput и подписки на события
         private void SetupPlayerInputEvents()
         {
+            // A scene can retain a reference to a disabled prototype player.
+            if (playerController == null || !playerController.isActiveAndEnabled)
+            {
+                playerController = null;
+                foreach (var controller in FindObjectsByType<PlayerController>())
+                {
+                    if (controller.isActiveAndEnabled)
+                    {
+                        playerController = controller;
+                        break;
+                    }
+                }
+            }
+
             if (playerController != null)
             {
                 // Важно: получаем PlayerInput из объекта, содержащего PlayerController
