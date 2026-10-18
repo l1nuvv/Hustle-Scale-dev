@@ -1,0 +1,3 @@
+# Default ripgrep searches should focus on project-authored content.
+# Inspect explicitly with rg -u / rg --no-ignore for TMP integration tasks.
+/Assets/TextMesh Pro/

@@ -1,7 +1,7 @@
 # Define macros (only works in top-level gitattributes files)
 [attr]lfs               filter=lfs diff=lfs merge=lfs -text
 [attr]unity-json        eol=lf linguist-language=json
-[attr]unity-yaml        merge=unityyamlmerge eol=lf linguist-language=yaml
+[attr]unity-yaml        merge=unityyamlmerge eol=lf linguist-language=yaml whitespace=-blank-at-eol
 
 # Optionally collapse Unity-generated files on GitHub diffs
 # [attr]unity-yaml        merge=unityyamlmerge text linguist-language=yaml linguist-generated
@@ -53,6 +53,7 @@
 *.spriteatlasv2         unity-yaml
 *.terrainlayer          unity-yaml
 *.unity                 unity-yaml
+*.wlt                   whitespace=-blank-at-eol
 
 # "physic" for 3D but "physics" for 2D
 *.physicMaterial        unity-yaml

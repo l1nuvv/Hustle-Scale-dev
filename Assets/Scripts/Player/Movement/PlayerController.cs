@@ -1,56 +1,99 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
 namespace Player.Movement
 {
-    [RequireComponent(typeof(PlayerInput))] //Check PlayerInput Component exists
+    [RequireComponent(typeof(PlayerInput))]
     public class PlayerController : MonoBehaviour
     {
-        [Header("Movement Settings")]
-        [SerializeField] private float _baseMovementSpeed = 10f; // Standart movement speed of the player
-        
-        [Header("Sprint Settings")]
-        [SerializeField, Range(1f, 5f)] private float _speedMultiplier = 2f; // Multiplier for sprinting speed
-
-        private PlayerInput _playerInput; // Reference to input handler class
-        private bool _isSprinting; // Current sprint state
-        private float _currentMovementSpeed; // Actual speed after all modifiers
+        [FormerlySerializedAs("_baseMovementSpeed"), SerializeField, Min(0.1f)]
+        private float baseMovementSpeed = 4f;
+        [FormerlySerializedAs("_speedMultiplier"), SerializeField, Range(1f, 5f)]
+        private float speedMultiplier = 1.5f;
+        [FormerlySerializedAs("_cameraTransform"), SerializeField]
+        private Transform cameraTransform;
+        [FormerlySerializedAs("_cameraOffset"), SerializeField]
+        private Vector3 cameraOffset = new Vector3(0, 1.65f, 0);
+        [FormerlySerializedAs("_mouseSensitivity"), SerializeField, Min(0.01f)]
+        private float mouseSensitivity = 0.12f;
+        private PlayerInput _input;
+        private CharacterController _body;
+        private bool _movementEnabled = true;
+        private bool _cameraControlEnabled = true;
+        private bool _cursorLocked;
+        private float _pitch;
+        private float _verticalSpeed;
+        public bool CanInteract => _movementEnabled && _cameraControlEnabled && _cursorLocked;
 
         private void Awake()
         {
-            _playerInput = GetComponent<PlayerInput>(); // Get input component from PlayerInput.cs
-            _currentMovementSpeed = _baseMovementSpeed; // Initialize speed
+            _input = GetComponent<PlayerInput>();
+            _body = GetComponent<CharacterController>();
+            // Existing prototype instances predate this requirement.
+            if (_body == null)
+            {
+                _body = gameObject.AddComponent<CharacterController>();
+                _body.height = 1.8f;
+                _body.radius = 0.3f;
+                _body.center = Vector3.up * 0.9f;
+            }
+            if (cameraTransform == null && Camera.main != null) cameraTransform = Camera.main.transform;
+            if (cameraTransform == null)
+            {
+                Debug.LogError("PlayerController requires a camera.", this);
+                enabled = false;
+                return;
+            }
+            SetCursorLocked(true);
         }
 
         private void Update()
         {
-            UpdateSprintState(); // Check for sprint changes
-            MovePlayer(); // Move the player based on input
-        }
-    
-        // Move player based on input vector
-        public void MovePlayer()
-        {
-            Vector2 moveInput = _playerInput.MoveInput;
-            Vector3 movement = new Vector3(moveInput.x, 0, moveInput.y).normalized; // Normalize movement vector for
-            // consistent speed and convert to 3D
-            if (movement.magnitude > 0)
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+                SetCursorLocked(false);
+            if (!_cursorLocked && _movementEnabled && _cameraControlEnabled &&
+                Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+                SetCursorLocked(true);
+            if (_cursorLocked && _cameraControlEnabled)
             {
-                // Apply movement with current speed
-                transform.Translate(movement * (_currentMovementSpeed * Time.deltaTime), Space.World);
+                transform.Rotate(0, _input.MouseInput.x * mouseSensitivity, 0);
+                _pitch = Mathf.Clamp(_pitch - _input.MouseInput.y * mouseSensitivity, -85f, 85f);
             }
+            MovePlayer();
         }
 
-        private void UpdateSprintState()
+        private void LateUpdate()
         {
-            bool shouldSprint = _playerInput.isSprinting; // Get current input state
-        
-            if (shouldSprint != _isSprinting) 
-            {
-                _isSprinting = shouldSprint;
-                _currentMovementSpeed = _isSprinting 
-                    ? _baseMovementSpeed * _speedMultiplier // Apply speed boost
-                    : _baseMovementSpeed; // Back to normal speed
-            }
+            if (cameraTransform == null) return;
+            cameraTransform.SetPositionAndRotation(transform.TransformPoint(cameraOffset),
+                transform.rotation * Quaternion.Euler(_pitch, 0, 0));
         }
+
+        public void MovePlayer()
+        {
+            if (_body == null || !_body.enabled) return;
+            var input = _movementEnabled && _cursorLocked ? Vector2.ClampMagnitude(_input.MoveInput, 1f) : Vector2.zero;
+            var speed = baseMovementSpeed * (_input.IsSprinting ? speedMultiplier : 1f);
+            var velocity = (transform.forward * input.y + transform.right * input.x) * speed;
+            if (_body.isGrounded && _verticalSpeed < 0) _verticalSpeed = -2f;
+            _verticalSpeed = Mathf.Max(_verticalSpeed + Physics.gravity.y * Time.deltaTime, -40f);
+            velocity.y = _verticalSpeed;
+            _body.Move(velocity * Time.deltaTime);
+        }
+
+        private void OnApplicationFocus(bool focused)
+        {
+            if (!focused) SetCursorLocked(false);
+        }
+        private void OnDisable() => SetCursorLocked(false);
+        public void SetCursorLocked(bool locked)
+        {
+            _cursorLocked = locked;
+            Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !locked;
+        }
+        public void SetCameraControlEnabled(bool cameraEnabled) => _cameraControlEnabled = cameraEnabled;
+        public void SetMovementEnabled(bool movementEnabled) => _movementEnabled = movementEnabled;
     }
 }
