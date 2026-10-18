@@ -8,6 +8,7 @@ namespace Player
     {
         // Для отладки состояния инвентаря
         private bool _isInventoryOpen;
+        private int _lastInventoryToggleFrame = -1;
         // reference access
 
         // Новые свойства для ввода мыши
@@ -130,6 +131,13 @@ namespace Player
         // Отдельный метод для вызова события
         private void ToggleInventoryEvent()
         {
+            // The action callback and keyboard fallback can fire in the same frame.
+            if (_lastInventoryToggleFrame == Time.frameCount)
+            {
+                return;
+            }
+
+            _lastInventoryToggleFrame = Time.frameCount;
             if (OnToggleInventory != null)
             {
                 _isInventoryOpen = !_isInventoryOpen;

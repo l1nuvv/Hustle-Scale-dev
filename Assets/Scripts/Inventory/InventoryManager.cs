@@ -73,7 +73,7 @@ namespace Inventory
         private void Update()
         {
             // Прямое управление инвентарем кнопкой Tab для отладки
-            if (Input.GetKeyDown(toggleInventoryKey))
+            if (_playerInput == null && Input.GetKeyDown(toggleInventoryKey))
             {
                 ToggleInventoryManually();
             }
