@@ -4,11 +4,11 @@
 
 Status: locally integrated repository policy, 2026-10-18; adapted from archive v0.3.1 to the actual working tree. Actual code, Git state, and confirmed test results remain the technical source of truth.
 
-**Later checkpoint, 2026-10-18:** the owner authorized committing the remaining working-tree baseline. Unity 6000.6.0f1, the existing package manifests, migrated settings and asset metadata are now adopted without upgrading packages or the Editor. The earlier observations about an unfinished migration and untracked manifests below describe the pre-checkpoint state; any further migration still needs a separate task. Local installed `.agents/` skills, supplied `/references/*.zip` archives and stray `/dev/null/` hook copies are ignored. Required Unity assets, their `.meta` files and dependency manifests remain versioned. FIRST DEAL is enabled in the global build scene list; check that list before a requested build.
+**Current baseline, 2026-10-18:** Unity 6000.6.0f1, package manifests, migrated settings and asset metadata are versioned. Any further migration needs a separate task. Local installed `.agents/` skills and supplied `/references/*.zip` archives are ignored. FIRST DEAL is enabled in the global build scene list.
 
 ## 1. Working priority
 
-1. Verify the actual project state (T01), dependency manifests and scene references. The archive's 6000.0.38f1 baseline is historical; this working tree already records 6000.6.0f1 and contains migration-related changes. Preserve them: neither rollback nor continued migration is authorized by this policy. Any version decision requires a separately approved task.
+1. Verify the actual project state (T01), dependency manifests and scene references. The current version is 6000.6.0f1. Preserve the adopted settings; neither rollback nor further migration is authorized by this policy. Any version decision requires a separately approved task.
 2. Implement a minimal playable FIRST DEAL using the separately approved gameplay rules. Do not expand scope merely because another system could eventually be useful.
 3. Verify the complete loop in the Unity Editor and playtest before progressing to a vertical slice.
 
@@ -77,7 +77,7 @@ Before committing: review `git diff --check`, `git diff --stat`, diff content, a
 | `AGENTS.md` | Durable constraints and agent workflow | Keep concise. Do not paste full GDD, complete architecture, or repeating checklists |
 | `README.md` | Entry point, factual state, setup and navigation | Clearly distinguish verified working features from planned ones |
 
-**Verified local state (2026-10-18):** the original `.gitignore` contains `**/[Pp]ackages/*`, which suppressed Unity package manifests. Root exceptions now preserve `Packages/manifest.json` and `Packages/packages-lock.json`. Both files exist locally but are not tracked at HEAD; the archive's missing-folder observation describes a historical snapshot. The ignore fix does not validate their contents or authorize staging them. Verify their provenance and actual Unity package state in T01; do not fabricate package versions.
+**Verified baseline (2026-10-18):** `Packages/manifest.json` and `Packages/packages-lock.json` are tracked. Root exceptions override the generic package ignore rule. Preserve both files and verify their actual contents when investigating dependencies.
 
 The current `.gitattributes` uses Git LFS for many media/binary file types and `merge=unityyamlmerge` for serialized Unity assets. Review actual Git LFS initialization before adding content. A declared merge driver is not proof the driver is configured on the machine.
 
