@@ -16,8 +16,10 @@ Verified local working tree on 2026-10-18, Unity **6000.6.0f1**:
 ## Immediate milestone
 
 1. T01 local technical verification is complete. Separately approve and checkpoint the existing engine/package migration before treating this working tree as a reproducible clean-clone baseline.
-2. Implement **FIRST DEAL** as a small, complete playable scenario, using the separately approved scenario specification rather than assumptions made from this README.
+2. T02 provides `Assets/Scenes/FirstDealGraybox.unity`: a 20 x 16 metre enclosed blockout, a 1.4 metre passage, work area/counter placeholders, collision crate, 0.2 metre steps and an interactive test light. The FPS capsule is 1.8 metres tall / 0.6 metres wide, eye height 1.65 metres, walk speed 4 m/s, sprint 6 m/s, interaction reach 2.5 metres. Controls: WASD, mouse, Left Shift, E; Escape releases the cursor and a left click resumes capture. This scene is opened directly in the Editor; existing build scene settings are preserved.
 3. Test behavior, economy invariants, player interactions, and the feel of the game before expanding scope.
+
+**T02 verification (2026-10-18, Unity 6000.6.0f1):** compilation and the Editor-driven Play Mode suite passed 23 checks, including gravity, eye height, prompt, single E while held, repeat E, wall occlusion, reach, walking/diagonal/sprint, capsule collision and steps, mouse yaw/pitch, control lock and cursor release/resume. A regression check in `SampleScene` also confirmed Tab open/close and exactly one item quantity added by E against the original trigger-collider pickup. Repeat with **Tools > T02 > Verify Graybox**; local output: `Logs/Codex-T02-verification.log`. These are integration checks using virtual Input System devices, not a formal NUnit suite, player build or human playtest. Test light behavior only proves interaction; T03 item identity/diagnosis/repair and T04 economy/orders are not implemented by T02. Their detailed rules still require the approved FIRST DEAL specification.
 
 Avoid upgrading the Unity Editor or installing packages until a specific migration/restoration task determines what is needed. Asset files use Git LFS according to `.gitattributes`; a checkout intended for editing must have the required LFS objects available.
 

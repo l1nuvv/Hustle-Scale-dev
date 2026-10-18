@@ -4,141 +4,53 @@ using UnityEngine.InputSystem;
 
 namespace Player
 {
+    [DefaultExecutionOrder(-100)]
     public class PlayerInput : MonoBehaviour
     {
-        // Для отладки состояния инвентаря
-        private bool _isInventoryOpen;
-        private int _lastInventoryToggleFrame = -1;
-        // reference access
-
-        // Новые свойства для ввода мыши
+        private InputActionMap _actions;
+        private InputAction _move;
+        private InputAction _sprint;
+        private InputAction _interact;
+        private InputAction _inventory;
+        private Vector2 _moveInput;
         private Vector2 _mouseInput;
-        private Vector2 _moveInput; // Stores the player's movement input
-
-        // For ToggleSprint()
-        public bool IsSprinting { get; private set; } // Indicates whether the player is currently sprinting
-        public ref Vector2 MoveInput => ref _moveInput; // Public property to use movement input with
+        public ref Vector2 MoveInput => ref _moveInput;
         public ref Vector2 MouseInput => ref _mouseInput;
-
+        public bool IsSprinting { get; private set; }
         public bool MouseInputEnabled { get; set; } = true;
-
-        private void Update()
-        {
-            var keyboard = Keyboard.current;
-            if (keyboard == null)
-            {
-                return;
-            }
-
-            MoveInput = Vector2.zero; // Reset movement input
-
-            // Process WASD input for movement
-            if (keyboard.wKey.isPressed)
-            {
-                MoveInput.y += 1;
-            }
-
-            if (keyboard.sKey.isPressed)
-            {
-                MoveInput.y -= 1;
-            }
-
-            if (keyboard.aKey.isPressed)
-            {
-                MoveInput.x -= 1;
-            }
-
-            if (keyboard.dKey.isPressed)
-            {
-                MoveInput.x += 1;
-            }
-
-            // Process LShift input for sprinting
-            IsSprinting = keyboard.leftShiftKey.isPressed;
-
-            // Fallback input for inventory toggle (if the new input system doesn't work)
-            if (keyboard.tabKey.wasPressedThisFrame)
-            {
-                Debug.Log("Tab key pressed as fallback");
-                ToggleInventoryEvent();
-            }
-
-            if (MouseInputEnabled)
-            {
-                _mouseInput = new Vector2(
-                    Input.GetAxis("Mouse X"),
-                    Input.GetAxis("Mouse Y")
-                );
-            }
-            else
-            {
-                _mouseInput = Vector2.zero;
-            }
-        }
-
-        private void OnEnable()
-        {
-            // Subscribe to the new Input System events
-            var playerInput = GetComponent<UnityEngine.InputSystem.PlayerInput>();
-            if (playerInput != null)
-            {
-                playerInput.actions["Interact"].performed += OnInteractPerformed;
-                playerInput.actions["ToggleInventory"].performed += OnToggleInventoryPerformed;
-                Debug.Log("Subscribed to PlayerInput actions");
-            }
-            else
-            {
-                Debug.LogWarning("PlayerInput component not found! Using fallback input system.");
-            }
-        }
-
-        private void OnDisable()
-        {
-            // Unsubscribe from the new Input System events
-            var playerInput = GetComponent<UnityEngine.InputSystem.PlayerInput>();
-            if (playerInput != null)
-            {
-                playerInput.actions["Interact"].performed -= OnInteractPerformed;
-                playerInput.actions["ToggleInventory"].performed -= OnToggleInventoryPerformed;
-            }
-        }
-
-        // Events for different actions
         public event Action OnInteract;
         public event Action OnToggleInventory;
 
-        private void OnInteractPerformed(InputAction.CallbackContext context)
+        private void Awake()
         {
-            Debug.Log("Interact performed");
-            OnInteract?.Invoke();
+            // Own this map so scene PlayerInput components cannot dispatch a second E/Tab.
+            _actions = new InputActionMap("Prototype Player");
+            _move = _actions.AddAction("Movement", InputActionType.Value);
+            _move.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/w").With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a").With("Right", "<Keyboard>/d");
+            _sprint = _actions.AddAction("Sprint", InputActionType.Button, "<Keyboard>/leftShift");
+            _interact = _actions.AddAction("Interact", InputActionType.Button, "<Keyboard>/e");
+            _inventory = _actions.AddAction("ToggleInventory", InputActionType.Button, "<Keyboard>/tab");
         }
-
-        private void OnToggleInventoryPerformed(InputAction.CallbackContext context)
+        private void OnEnable() => _actions.Enable();
+        private void OnDisable()
         {
-            Debug.Log("Toggle Inventory performed через Input System");
-            ToggleInventoryEvent();
+            _actions.Disable();
+            _moveInput = _mouseInput = Vector2.zero;
+            IsSprinting = false;
         }
+        private void OnDestroy() => _actions.Dispose();
 
-        // Отдельный метод для вызова события
-        private void ToggleInventoryEvent()
+        private void Update()
         {
-            // The action callback and keyboard fallback can fire in the same frame.
-            if (_lastInventoryToggleFrame == Time.frameCount)
-            {
-                return;
-            }
-
-            _lastInventoryToggleFrame = Time.frameCount;
-            if (OnToggleInventory != null)
-            {
-                _isInventoryOpen = !_isInventoryOpen;
-                OnToggleInventory.Invoke();
-                Debug.Log($"Событие OnToggleInventory вызвано. Новое состояние: {_isInventoryOpen}");
-            }
-            else
-            {
-                Debug.LogError("Событие OnToggleInventory не имеет подписчиков!");
-            }
+            _moveInput = _move.ReadValue<Vector2>();
+            IsSprinting = _sprint.IsPressed();
+            // Mouse delta is already per-frame; do not multiply by deltaTime.
+            _mouseInput = MouseInputEnabled && Mouse.current != null
+                ? Mouse.current.delta.ReadValue() : Vector2.zero;
+            if (_inventory.WasPressedThisFrame()) OnToggleInventory?.Invoke();
+            if (_interact.WasPressedThisFrame()) OnInteract?.Invoke();
         }
     }
 }

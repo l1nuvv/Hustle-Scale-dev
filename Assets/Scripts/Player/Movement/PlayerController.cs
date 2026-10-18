@@ -1,172 +1,99 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 
 namespace Player.Movement
 {
-    [RequireComponent(typeof(PlayerInput))] //Check PlayerInput Component exists
+    [RequireComponent(typeof(PlayerInput))]
     public class PlayerController : MonoBehaviour
     {
-        [FormerlySerializedAs("_baseMovementSpeed")] [Header("Movement Settings")] [SerializeField]
-        private float baseMovementSpeed = 10f; // Standart movement speed of the player
-
-        [FormerlySerializedAs("_speedMultiplier")] [Header("Sprint Settings")] [SerializeField] [Range(1f, 5f)]
-        private float speedMultiplier = 2f; // Multiplier for sprinting speed
-
-        [FormerlySerializedAs("_cameraTransform")] [Header("Camera Settings")] [SerializeField]
+        [FormerlySerializedAs("_baseMovementSpeed"), SerializeField, Min(0.1f)]
+        private float baseMovementSpeed = 4f;
+        [FormerlySerializedAs("_speedMultiplier"), SerializeField, Range(1f, 5f)]
+        private float speedMultiplier = 1.5f;
+        [FormerlySerializedAs("_cameraTransform"), SerializeField]
         private Transform cameraTransform;
-
-        [FormerlySerializedAs("_cameraOffset")] [SerializeField]
-        private Vector3 cameraOffset = new(0, 1.8f, 0.05f); // Позиция глаз персонажа (поднята выше)
-
-        [FormerlySerializedAs("_mouseSensitivity")] [SerializeField]
-        private float mouseSensitivity = 2f;
-
+        [FormerlySerializedAs("_cameraOffset"), SerializeField]
+        private Vector3 cameraOffset = new Vector3(0, 1.65f, 0);
+        [FormerlySerializedAs("_mouseSensitivity"), SerializeField, Min(0.01f)]
+        private float mouseSensitivity = 0.12f;
+        private PlayerInput _input;
+        private CharacterController _body;
+        private bool _movementEnabled = true;
         private bool _cameraControlEnabled = true;
-        private float _currentMovementSpeed; // Actual speed after all modifiers
-        private bool _cursorLocked = true;
-        private bool _isSprinting; // Current sprint state
-        private bool _movementEnabled = true; // Новый флаг для управления движением
-
-        private PlayerInput _playerInput; // Reference to input handler class
-
-        private float _verticalLookRotation;
+        private bool _cursorLocked;
+        private float _pitch;
+        private float _verticalSpeed;
+        public bool CanInteract => _movementEnabled && _cameraControlEnabled && _cursorLocked;
 
         private void Awake()
         {
-            _playerInput = GetComponent<PlayerInput>(); // Get input component from PlayerInput.cs
-            _currentMovementSpeed = baseMovementSpeed; // Initialize speed
-
-            // If camera transform is not assigned, try to find main camera
-            if (cameraTransform == null && Camera.main != null)
+            _input = GetComponent<PlayerInput>();
+            _body = GetComponent<CharacterController>();
+            // Existing prototype instances predate this requirement.
+            if (_body == null)
             {
-                cameraTransform = Camera.main.transform;
-                Debug.Log("Камера найдена и привязана к персонажу");
+                _body = gameObject.AddComponent<CharacterController>();
+                _body.height = 1.8f;
+                _body.radius = 0.3f;
+                _body.center = Vector3.up * 0.9f;
             }
-            else if (cameraTransform == null)
+            if (cameraTransform == null && Camera.main != null) cameraTransform = Camera.main.transform;
+            if (cameraTransform == null)
             {
-                Debug.LogError("Камера не найдена! Невозможно настроить вид от первого лица.");
+                Debug.LogError("PlayerController requires a camera.", this);
+                enabled = false;
+                return;
             }
-
-            // Заблокировать и скрыть курсор в начале для FPS управления
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-        }
-
-        private void Start()
-        {
-            // Убедимся, что камера правильно позиционирована в начале игры
-            if (cameraTransform != null)
-            {
-                UpdateCameraPosition();
-                Debug.Log($"Начальная позиция камеры: {cameraTransform.position}, смещение: {cameraOffset}");
-            }
-
-            // Установим начальное вращение камеры немного вниз
-            _verticalLookRotation = 0f;
-            UpdateCameraRotation();
+            SetCursorLocked(true);
         }
 
         private void Update()
         {
-            if (!enabled)
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+                SetCursorLocked(false);
+            if (!_cursorLocked && _movementEnabled && _cameraControlEnabled &&
+                Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+                SetCursorLocked(true);
+            if (_cursorLocked && _cameraControlEnabled)
             {
-                return;
+                transform.Rotate(0, _input.MouseInput.x * mouseSensitivity, 0);
+                _pitch = Mathf.Clamp(_pitch - _input.MouseInput.y * mouseSensitivity, -85f, 85f);
             }
-
-            if (_movementEnabled)
-            {
-                UpdateSprintState(); // Check for sprint changes
-                MovePlayer(); // Move the player based on input
-            }
-
-            UpdateCameraRotation(); // Вращение камеры мышью
-            UpdateCameraPosition(); // Update the camera position to follow player
+            MovePlayer();
         }
 
-        // Move player based on input vector
+        private void LateUpdate()
+        {
+            if (cameraTransform == null) return;
+            cameraTransform.SetPositionAndRotation(transform.TransformPoint(cameraOffset),
+                transform.rotation * Quaternion.Euler(_pitch, 0, 0));
+        }
+
         public void MovePlayer()
         {
-            if (!_movementEnabled)
-            {
-                return;
-            }
-
-            var moveInput = _playerInput.MoveInput;
-            // Используем направление камеры для движения вперед
-            var forward = new Vector3(cameraTransform.forward.x, 0, cameraTransform.forward.z).normalized;
-            var right = new Vector3(cameraTransform.right.x, 0, cameraTransform.right.z).normalized;
-
-            var movement = (forward * moveInput.y + right * moveInput.x).normalized;
-
-            if (movement.magnitude > 0)
-            {
-                // Apply movement with current speed
-                transform.Translate(movement * (_currentMovementSpeed * Time.deltaTime), Space.World);
-            }
+            if (_body == null || !_body.enabled) return;
+            var input = _movementEnabled && _cursorLocked ? Vector2.ClampMagnitude(_input.MoveInput, 1f) : Vector2.zero;
+            var speed = baseMovementSpeed * (_input.IsSprinting ? speedMultiplier : 1f);
+            var velocity = (transform.forward * input.y + transform.right * input.x) * speed;
+            if (_body.isGrounded && _verticalSpeed < 0) _verticalSpeed = -2f;
+            _verticalSpeed = Mathf.Max(_verticalSpeed + Physics.gravity.y * Time.deltaTime, -40f);
+            velocity.y = _verticalSpeed;
+            _body.Move(velocity * Time.deltaTime);
         }
 
-        private void UpdateSprintState()
+        private void OnApplicationFocus(bool focused)
         {
-            var shouldSprint = _playerInput.IsSprinting; // Get current input state
-
-            if (shouldSprint != _isSprinting)
-            {
-                _isSprinting = shouldSprint;
-                _currentMovementSpeed = _isSprinting
-                    ? baseMovementSpeed * speedMultiplier // Apply speed boost
-                    : baseMovementSpeed; // Back to normal speed
-            }
+            if (!focused) SetCursorLocked(false);
         }
-
-        private void UpdateCameraPosition()
-        {
-            if (cameraTransform != null)
-            {
-                // Position the camera at the player position plus the offset (на уровне глаз персонажа)
-                cameraTransform.position = transform.position + cameraOffset;
-            }
-        }
-
-        private void UpdateCameraRotation()
-        {
-            if (!_cursorLocked || cameraTransform == null || !_cameraControlEnabled)
-            {
-                return;
-            }
-
-            // Получение ввода мыши через PlayerInput
-            var mouseInput = _playerInput.MouseInput;
-            var mouseX = mouseInput.x * mouseSensitivity;
-            var mouseY = mouseInput.y * mouseSensitivity;
-
-            // Поворот персонажа вокруг Y оси (горизонтальное вращение)
-            transform.Rotate(Vector3.up, mouseX);
-
-            // Вращение камеры вокруг X оси (вертикальное вращение)
-            _verticalLookRotation -= mouseY;
-            // Ограничение угла наклона камеры
-            _verticalLookRotation = Mathf.Clamp(_verticalLookRotation, -90f, 90f);
-            cameraTransform.localRotation = Quaternion.Euler(_verticalLookRotation, 0f, 0f);
-        }
-
-        // Метод для управления блокировкой курсора (можно вызывать при открытии/закрытии инвентаря)
+        private void OnDisable() => SetCursorLocked(false);
         public void SetCursorLocked(bool locked)
         {
             _cursorLocked = locked;
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
         }
-
-        // Новый метод для управления камерой
-        public void SetCameraControlEnabled(bool cameraEnabled)
-        {
-            _cameraControlEnabled = cameraEnabled;
-        }
-
-        // Новый метод для управления движением
-        public void SetMovementEnabled(bool cameraEnabled)
-        {
-            _movementEnabled = cameraEnabled;
-        }
+        public void SetCameraControlEnabled(bool cameraEnabled) => _cameraControlEnabled = cameraEnabled;
+        public void SetMovementEnabled(bool movementEnabled) => _movementEnabled = movementEnabled;
     }
 }
