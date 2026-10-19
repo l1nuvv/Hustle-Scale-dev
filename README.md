@@ -43,6 +43,10 @@ Recorded verification on 2026-10-18 in Unity 6000.6.0f1: T02 **23**, T03 **51**,
 
 Scene construction/presentation utilities remain in `Assets/Editor/`. **Tools > T04 > Apply Playable Presentation** includes outcome setup; **Tools > T05 > Apply Outcomes** reapplies the outcome UI.
 
+V1 environment, 2026-10-20: the trade scene has a 2m workshop passage, route markings, a workshop entrance, a roofed seller stall and distinct buyer counters with square A / round Б signs. Four original Unity prefabs and their materials live in `Assets/Prefabs/FirstDealEnvironment/`; no downloaded art was imported. World text now respects walls and sign backs. **Tools > V1 > Apply Workshop and Yard** reapplies this layout and is included in the T04 presentation utility.
+
+Fresh Unity 6000.6.0f1 verification: **Tools > V1 > Verify Routes and Interactions** passed **72** checks for CharacterController routes, crate/loose-lamp transport, 2.5m interaction reach and A plus buyback at $415. Evidence: `Logs/Codex-V1-verification.log` and `Logs/V1-*.png`. The older T04 verifier stopped at its outdated introduction-text assertion; its complete run is not counted as passing. Art acceptance and independent player observation remain pending; see the roadmap for the limited Editor rendering measurement and remaining performance acceptance.
+
 ### T06 verification and player playtest
 
 **Tools > T06 > Verify Invariants and Routes** runs seven explicit trade routes and 64 deterministic seeds of 256 mixed domain actions. It checks the cash ledger, item identities and capacity, diagnosis, strict active deadlines, rejection atomicity, change notifications, irreversible sales/closed orders and the frozen final state. Failures include the seed and step; evidence is written to `Logs/Codex-T06-verification.log`. Run T02, T03, T04 and T05 separately for scene/input/UI coverage. These are Editor verification harnesses, not NUnit test cases.
