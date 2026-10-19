@@ -27,8 +27,30 @@ namespace Interactables
         private OutcomeScreen outcome;
         private bool hasFocus = true;
         private string menuMessage = "";
+        private Button lotButton;
+        private Button batteryButton;
+        private readonly Button[] acceptButtons = new Button[3];
+        private readonly Button[] declineButtons = new Button[3];
         public bool MenuOpen => menu.activeSelf;
         public bool OffersRead { get; private set; }
+
+        private void Awake()
+        {
+            // Reuse the existing serialized button groups without changing scene GUIDs.
+            lotButton = sellerButtons.transform.Find("Confirm lot - $180").GetComponent<Button>();
+            batteryButton = sellerButtons.transform.Find("Buy battery - $50").GetComponent<Button>();
+            var buttons = orderButtons.GetComponentsInChildren<Button>(true);
+            for (var i = 0; i < 3; i++)
+            {
+                var id = ((DealOrderId)i).ToString();
+                // Names containing '/' are not Transform.Find paths.
+                foreach (var button in buttons)
+                {
+                    if (button.name == "Accept " + id) acceptButtons[i] = button;
+                    if (button.name == "Decline / cancel " + id) declineButtons[i] = button;
+                }
+            }
+        }
 
         private void Start()
         {
@@ -123,11 +145,35 @@ namespace Interactables
         public void Purchase(bool battery)
         {
             if (workshop.Session.ShiftEnded) return;
-            CloseMenu();
+            var sellerWasOpen = MenuOpen;
+            // Domain purchases require an unpaused session. Keep the screen visible until
+            // the operation succeeds, and restore its paused state on rejection.
+            workshop.Session.SetPaused(false);
             string message;
-            if (battery) workshop.Session.BuyBattery(out message);
-            else workshop.Session.PurchaseLot(out message);
+            var success = battery ? workshop.Session.BuyBattery(out message) : workshop.Session.PurchaseLot(out message);
+            if (success) CloseMenu();
+            else if (sellerWasOpen)
+            {
+                workshop.Session.SetPaused(true);
+                menuMessage = message;
+                RefreshMenu();
+                EventSystem.current.SetSelectedGameObject(closeButton.gameObject);
+            }
             workshop.ShowMessage(message);
+        }
+
+        public string GetPrompt(FirstDealActionKind action)
+        {
+            var s = workshop.Session;
+            if (action == FirstDealActionKind.Offers) return "E — Открыть заказы (время остановится)";
+            if (action == FirstDealActionKind.Seller) return s.LotPurchased ?
+                "E — Продавец: партия уже куплена · батарея / выкуп" : "E — Продавец: партия $180 / батарея $50";
+            var id = action == FirstDealActionKind.DeliverA ? DealOrderId.A :
+                action == FirstDealActionKind.DeliverB ? DealOrderId.B : DealOrderId.RepeatB;
+            var reason = s.OrderUnavailableReason(id);
+            if (reason.Length > 0) return reason;
+            if (s.Order(id).State == DealOrderState.Available) return "Сначала прими заказ на доске · E — проверить условия";
+            return "E — Передать: " + s.Order(id).Quantity + " исправных, проверенных фон. (в руках или ящике)";
         }
 
         public void ChangeOrder(int index, bool close)
@@ -198,6 +244,16 @@ namespace Interactables
         {
             if (!MenuOpen) return;
             var session = workshop.Session;
+            lotButton.interactable = !session.LotPurchased && session.Balance >= 180 && !session.ShiftEnded;
+            lotButton.GetComponentInChildren<Text>().text = session.LotPurchased ? "Партия уже куплена" :
+                session.Balance < 180 ? "Партия $180 · мало денег" : "Купить партию · $180";
+            batteryButton.interactable = session.Balance >= 50 && !session.ShiftEnded;
+            for (var i = 0; i < 3; i++)
+            {
+                var order = session.Order((DealOrderId)i);
+                acceptButtons[i].interactable = !session.ShiftEnded && order.State == DealOrderState.Available;
+                declineButtons[i].interactable = session.CanPursueOrder((DealOrderId)i);
+            }
             outcomeButtons.SetActive(outcome != OutcomeScreen.None);
             finishButton.gameObject.SetActive(outcome != OutcomeScreen.Finished);
             restartButton.gameObject.SetActive(outcome == OutcomeScreen.Finished);
@@ -212,22 +268,24 @@ namespace Interactables
                 return;
             }
             menuText.text = "ПЕРВАЯ ПАРТИЯ · ПАУЗА · $" + session.Balance + " · Время " + WorkshopView.Clock(session.ElapsedSeconds) +
-                "\nТы начинающий торговец. Купи партию, проверь товар и выбери выгодную сделку.\n" +
-                "1. Прочитай заказы на синей доске. У продавца снаружи купи 3 фонаря за $180.\n" +
-                "2. Нажми E на ящике и принеси его к кнопке «ПОСТАВИТЬ ЯЩИК» в мастерской.\n" +
-                "3. Кнопка 1 / 2 / 3 берёт фонарь. E на столе ставит его. «ПРОВЕРИТЬ» запускает тест.\n" +
-                "4. Верни фонарь: E на столе, затем E на той же кнопке у ящика.\n" +
-                "5. На доске прими заказ. Принеси ящик покупателю и нажми E на его стойке.\n\n";
+                "\nТы начинающий торговец. Проверь товар и выбери выгодную сделку.\n" +
+                (session.LotPurchased ? "Партия уже куплена. Повторной закупки нет. Осталось фонарей: " + session.OwnedLampCount + ".\n" :
+                    "Единственная партия: 3 фонаря за $180 у продавца снаружи.\n") +
+                "E — взять ящик; поставь его в мастерской. Кнопки 1 / 2 / 3 — взять / вернуть фонарь.\n" +
+                "E на столе — поставить / забрать; «ПРОВЕРИТЬ» — тест.\n" +
+                "Прими заказ на доске; принеси товар в руках или ящике покупателю и нажми E.\n\n";
             foreach (DealOrderId id in System.Enum.GetValues(typeof(DealOrderId)))
             {
                 var order = session.Order(id);
                 menuText.text += (id == DealOrderId.A ? "A" : id == DealOrderId.B ? "Б" : "Повтор Б") + " · " + FirstDealText.State(order.State) + " · " + order.Quantity + " исправных, проверенных · $" + order.Payment +
                     " · строго до " + WorkshopView.Clock(order.DeadlineSeconds) + "\n";
+                if (order.State == DealOrderState.Unavailable) menuText.text += session.OrderUnavailableReason(id) + "\n";
             }
             menuText.text += "\nРемонт: батарея у продавца $50 и +04:00, затем новый тест. Ремонт необязателен.\n" +
-                "Повтор Б открывается один раз после Б. Принятие не продлевает срок.\n" +
+                "Повтор Б: один раз после Б, пока есть товар. Срок не продлевается.\n" +
                 "Выкуп у продавца: исправный $60 / неисправный $35, только после проверки.\n" +
                 (session.BuybackAvailable ? "Выкуп открыт. Принеси остатки в руках или ящике; кнопка продажи передаёт все принесённые.\n" : "Откроется после продажи A / Б или в 18:00. Итоги доступны кнопкой ниже.\n") +
+                FirstDealText.NextOpportunity(session) + "\nEsc → «Итоги»: можно завершить смену.\n" +
                 "WASD — ходить · мышь — смотреть · E — действие · Esc — пауза · стрелки / Enter — меню.";
             if (menuMessage.Length > 0) menuText.text += "\n" + FirstDealText.Message(menuMessage);
         }

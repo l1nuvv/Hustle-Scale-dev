@@ -56,11 +56,12 @@ namespace Interactables
             var s = workshop.Session;
             if (s.ShiftEnded)
             { Show("СМЕНА ЗАВЕРШЕНА", "Итоги зафиксированы. Новая попытка доступна на итоговом экране.", null); return; }
-            if (s.HasPrimarySale || s.BuybackAvailable)
+            if (s.HasPrimarySale || s.BuybackAvailable ||
+                (s.LotPurchased && !s.CanPursueOrder(DealOrderId.A) && !s.CanPursueOrder(DealOrderId.B)))
             {
                 var nextRepeat = s.Order(DealOrderId.RepeatB).State;
                 var destination = s.OwnedLampCount == 0 ? null : nextRepeat == DealOrderState.Available ? board :
-                    nextRepeat == DealOrderState.Accepted ? buyerB : seller;
+                    nextRepeat == DealOrderState.Accepted ? crate : seller;
                 Show("ПОСЛЕДСТВИЯ И СЛЕДУЮЩИЙ ШАГ", "Деньги: $" + s.Balance + "; осталось фонарей: " + s.OwnedLampCount + ". " +
                     FirstDealText.NextOpportunity(s) + " Esc → «Итоги»: продолжить или завершить.", destination);
                 return;
@@ -102,8 +103,8 @@ namespace Interactables
             }
             if (working > 0 && (a.State == DealOrderState.Accepted || b.State == DealOrderState.Accepted || repeat.State == DealOrderState.Accepted))
             { Show("ПОДГОТОВЬ ДОСТАВКУ", "Есть проверенные исправные: " + working + ". Возьми ящик кнопкой E. Для A нужны два сразу; для Б — один. Можно проверить оставшиеся фонари или вложиться в ремонт.", crate); return; }
-            if (working > 0)
-            { Show("5. ВЫБЕРИ СДЕЛКУ", "Есть проверенные исправные: " + working + ". На доске прими A или Б. A: два за $260 до 09:00. Б: один за $125 до 18:00. Затем забери ящик и отнеси покупателю.", board); return; }
+            if (working > 0 && (s.CanPursueOrder(DealOrderId.A) || s.CanPursueOrder(DealOrderId.B)))
+            { Show("5. ВЫБЕРИ СДЕЛКУ", "Есть проверенные исправные: " + working + ". " + FirstDealText.NextOpportunity(s), board); return; }
             if (unknown > 0)
             { Show("4. ДОСТАНЬ ОДИН ФОНАРЬ", "У ящика три маленькие кнопки 1 / 2 / 3. Наведи на одну и нажми E. Затем поставь фонарь на стол через E и запусти «ПРОВЕРИТЬ».", crate); return; }
             Show("ПРОВЕРЬ ОСТАВШИЕСЯ ВОЗМОЖНОСТИ", FirstDealText.NextOpportunity(s) + " Esc → «Итоги»: продолжить или завершить.", board);

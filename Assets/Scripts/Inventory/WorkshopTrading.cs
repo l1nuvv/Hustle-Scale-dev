@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Inventory
 {
     public enum DealOrderId { A, B, RepeatB }
-    public enum DealOrderState { Locked, Available, Accepted, Completed, Expired, Failed, Declined, Cancelled }
+    public enum DealOrderState { Locked, Available, Accepted, Completed, Expired, Failed, Declined, Cancelled, Unavailable }
 
     public sealed class DealOrder
     {
@@ -41,6 +41,30 @@ namespace Inventory
         {
             if ((int)id < 0 || (int)id >= orders.Length) throw new ArgumentOutOfRangeException(nameof(id));
             return orders[(int)id];
+        }
+
+        // Before purchase the single seller lot can still supply the initial offers.
+        // Afterwards ownership only decreases; an exhausted offer cannot become feasible again.
+        private void UpdateStockAvailability()
+        {
+            if (!IsFirstDeal || !LotPurchased) return;
+            foreach (var order in orders)
+                if ((order.State == DealOrderState.Available || order.State == DealOrderState.Accepted) &&
+                    OwnedLampCount < order.Quantity) order.State = DealOrderState.Unavailable;
+        }
+
+        public bool CanPursueOrder(DealOrderId id) => !ShiftEnded &&
+            (Order(id).State == DealOrderState.Available || Order(id).State == DealOrderState.Accepted);
+
+        public string OrderUnavailableReason(DealOrderId id)
+        {
+            var order = Order(id);
+            if (order.State == DealOrderState.Unavailable)
+                return "Недостаточно товара: нужно " + order.Quantity + ", осталось " + OwnedLampCount + ". Пополнения партии нет.";
+            if (ShiftEnded) return "Смена завершена.";
+            if (order.State == DealOrderState.Locked) return "Это предложение пока недоступно: сначала выполни Б.";
+            if (order.State == DealOrderState.Expired || order.State == DealOrderState.Failed) return "Срок заказа истёк.";
+            return CanPursueOrder(id) ? "" : "Заказ уже закрыт.";
         }
 
         private bool CanHandleItems(out string message)
@@ -105,6 +129,7 @@ namespace Inventory
         public bool AcceptOrder(DealOrderId id, out string message)
         {
             var order = Order(id);
+            if (order.State == DealOrderState.Unavailable) return Reject(OrderUnavailableReason(id), out message);
             if (!IsFirstDeal || ShiftEnded || order.State != DealOrderState.Available)
                 return Reject("This offer is not available.", out message);
             if (ElapsedSeconds >= order.DeadlineSeconds) return Reject("The deadline has passed.", out message);
@@ -126,6 +151,7 @@ namespace Inventory
         {
             var order = Order(id);
             if (!CanHandleItems(out message)) return false;
+            if (order.State == DealOrderState.Unavailable) return Reject(OrderUnavailableReason(id), out message);
             if (order.State != DealOrderState.Accepted) return Reject("Accept this order before delivering; closed orders cannot pay again.", out message);
             if (ElapsedSeconds >= order.DeadlineSeconds) return Reject("The deadline has passed. No payment.", out message);
             if (presentedIds == null || presentedIds.Count != order.Quantity)
@@ -151,8 +177,9 @@ namespace Inventory
             Revenue += order.Payment;
             order.State = DealOrderState.Completed;
             if (id == DealOrderId.B) orders[2].State = DealOrderState.Available;
+            UpdateStockAvailability();
             return Complete("Delivered " + id + ": +$" + order.Payment + ". " +
-                (id == DealOrderId.B ? "One repeat B offer is now available until 18:00." : "Stock and balance updated."), out message);
+                (id == DealOrderId.B && CanPursueOrder(DealOrderId.RepeatB) ? "One repeat B offer is now available until 18:00." : "Stock and balance updated."), out message);
         }
     }
 }

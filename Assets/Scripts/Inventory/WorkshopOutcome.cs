@@ -50,6 +50,7 @@ namespace Inventory
             foreach (var unit in selected) unit.Location = FlashlightLocation.BoughtBack;
             Balance += payment;
             Revenue += payment;
+            UpdateStockAvailability();
             return Complete("Выкуп: +$" + payment + ". Передано фонарей: " + selected.Count + ". Остаток: " + OwnedLampCount + ".", out message);
         }
 

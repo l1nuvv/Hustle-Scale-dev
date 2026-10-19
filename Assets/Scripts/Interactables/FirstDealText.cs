@@ -13,7 +13,11 @@ namespace Interactables
             if (repeat.State == DealOrderState.Available || repeat.State == DealOrderState.Accepted)
                 return "Повтор Б: ещё один проверенный исправный за $110 строго до 18:00. Принеси товар; повтор доступен один раз.";
             if (s.BuybackAvailable) return "Продавец выкупает проверенные остатки: исправный $60, неисправный $35. Принеси их в руках или ящике; ремонт необязателен.";
-            return "Доска: A — 2 за $260 до 09:00; Б — 1 за $125 до 18:00. Проверка обязательна. В 18:00 откроется выкуп $60 / $35.";
+            var offers = "";
+            if (s.CanPursueOrder(DealOrderId.A)) offers += "A — 2 за $260 до 09:00. ";
+            if (s.CanPursueOrder(DealOrderId.B)) offers += "Б — 1 за $125 до 18:00. ";
+            return offers.Length > 0 ? "Доска: " + offers + "Нужны исправные проверенные фонари." :
+                "Выполнимых заказов нет. Выкуп откроется в 18:00; итоги и завершение доступны через Esc.";
         }
 
         public static string Summary(WorkshopSession s)
@@ -29,8 +33,9 @@ namespace Interactables
                 if (WorkshopSession.IsOwned(s.Units[i]))
                     text += "Фонарь " + (i + 1) + ": " + Condition(s.Units[i]) + "\n";
             foreach (DealOrderId id in System.Enum.GetValues(typeof(DealOrderId)))
-                text += (id == DealOrderId.A ? "A" : id == DealOrderId.B ? "Б" : "Повтор Б") + ": " + State(s.Order(id).State) + "\n";
-            text += "Контакт Б: " + (s.ContactBOpened ? "открыт; один повторный заказ за $110 до 18:00." : "пока не открыт.") +
+                text += (id == DealOrderId.A ? "A" : id == DealOrderId.B ? "Б" : "Повтор Б") + ": " + State(s.Order(id).State) +
+                    (s.Order(id).State == DealOrderState.Unavailable ? " (нужно " + s.Order(id).Quantity + ", осталось " + s.OwnedLampCount + "; пополнения нет)" : "") + "\n";
+            text += "Контакт Б: " + (s.ContactBOpened ? "открыт; повтор зависит от остатка и срока 18:00." : "пока не открыт.") +
                 "\n\n" + NextOpportunity(s);
             if (!s.ShiftEnded) text += s.HasPrimarySale ? "\nМожно продолжить торговлю или завершить смену по своему выбору." :
                 "\nМожно продолжить или явно отказаться от продолжения без основной продажи.";
@@ -49,6 +54,7 @@ namespace Interactables
                 case DealOrderState.Expired: return "срок истёк";
                 case DealOrderState.Failed: return "сорван";
                 case DealOrderState.Declined: return "отклонён";
+                case DealOrderState.Unavailable: return "недоступен: недостаточно товара";
                 default: return "отменён";
             }
         }
@@ -60,7 +66,8 @@ namespace Interactables
             if (text.StartsWith("Accepted ")) return "Заказ принят. Проверь условия на доске и принеси исправные проверенные фонари до срока.";
             if (text.StartsWith("Delivered A")) return "Заказ A выполнен: +$260. Два фонаря переданы покупателю.";
             if (text.StartsWith("Delivered RepeatB")) return "Повторный заказ Б выполнен: +$110. Фонарь передан покупателю.";
-            if (text.StartsWith("Delivered B")) return "Заказ Б выполнен: +$125. На доске появился один повторный заказ за $110.";
+            if (text.StartsWith("Delivered B")) return "Заказ Б выполнен: +$125. Фонарь передан покупателю. " +
+                (text.Contains("One repeat B offer") ? "На доске доступен повтор за $110." : "Товар исчерпан; можно завершить смену через Esc → «Итоги».");
             if (text.StartsWith("Order ")) return "Заказ закрыт. Деньги и фонари не изменились; отмена принятого заказа отмечается как нарушение.";
             if (text.StartsWith("Battery purchased")) return "Батарея куплена: −$50. Расходуется только при ремонте на столе.";
             if (text.StartsWith("Present exactly")) return "Нужен полный комплект проверенных исправных фонарей. Для A принеси два сразу в ящике; для Б — один.";

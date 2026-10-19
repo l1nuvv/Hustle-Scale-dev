@@ -29,6 +29,7 @@ public static class T05Verification
     private static double started;
     private static float phaseTime;
     private static Transform[] visuals;
+    private static Light[] indicators;
     private static double frozen;
 
     static T05Verification() => EditorApplication.playModeStateChanged += PlayState;
@@ -183,6 +184,7 @@ public static class T05Verification
         EditorApplication.update -= Finish; Application.logMessageReceived -= Error; SessionState.SetBool(RunningKey, false);
         var result = completed && !failed ? "T05 RESULT PASS" : "T05 RESULT FAIL";
         File.AppendAllText(LogPath, result + "\n"); Debug.Log(result);
+        if (Application.isBatchMode) EditorApplication.Exit(completed && !failed ? 0 : 1);
     }
     private static void Bind()
     {
@@ -218,7 +220,20 @@ public static class T05Verification
                     Click("Finish shift"); Check(!workshop.Session.ShiftEnded && Terms.text.Contains("Завершить неудачную попытку?"), "no-sale finish asks explicit abandonment");
                     Fits("abandonment confirmation fits"); Click("Resume / leave without buying");
                     Check(!deal.MenuOpen && !workshop.Session.ShiftEnded && player.CanInteract, "cancel abandonment continues without blocking controls");
-                    workshop.Session.PurchaseLot(out _); Test(workshop.Session, 0); Test(workshop.Session, 1); Test(workshop.Session, 2);
+                    deal.OpenMenu(true);
+                    Check(GameObject.Find("Confirm lot - $180").GetComponent<Button>().interactable, "first lot purchase button is enabled");
+                    Click("Confirm lot - $180");
+                    Check(!deal.MenuOpen && workshop.Session.LotPurchased && workshop.Session.Balance == 120, "successful purchase closes seller and debits once");
+                    Test(workshop.Session, 0); Test(workshop.Session, 1); Test(workshop.Session, 2);
+                    deal.OpenMenu(true);
+                    var purchased = Snapshot(workshop.Session);
+                    Check(!GameObject.Find("Confirm lot - $180").GetComponent<Button>().interactable &&
+                        GameObject.Find("Confirm lot - $180").GetComponentInChildren<Text>().text.Contains("уже куплена"), "purchased lot button disabled and explicitly labelled");
+                    Click("Confirm lot - $180"); // Invoke a stale callback even though normal UI blocks it.
+                    Check(deal.MenuOpen && workshop.Session.IsPaused && !player.CanInteract && Snapshot(workshop.Session) == purchased &&
+                        Terms.text.Contains("Эта единственная партия уже куплена"), "rejected duplicate purchase keeps paused seller visible and preserves diagnostics");
+                    Fits("purchased lot refusal fits");
+                    deal.CloseMenu();
                     workshop.Session.StartShift(); workshop.Session.AdvanceActiveSeconds(1080); workshop.Session.ToggleCrate(out _);
                     var body = player.GetComponent<CharacterController>(); body.enabled = false;
                     var from = new Vector3(0, 0.05f, -4); player.transform.position = from; body.enabled = true;
@@ -235,6 +250,8 @@ public static class T05Verification
                     Check(Terms.text.Contains("+$155") && Terms.text.Contains("Остаток: 0"), "seller feedback displays payment and remaining stock");
                     Fits("seller success terms fit"); Click("Sell brought lamps");
                     Check(workshop.Session.Balance == 275 && Terms.text.Contains("Принеси остатки"), "repeat seller action rejects visibly without payout");
+                    Check(deal.GetPrompt(FirstDealActionKind.Seller).Contains("уже куплена") &&
+                        workshop.GetPrompt(WorkshopActionKind.Unit, 0).Contains("уже продан"), "seller and sold selectors do not imply new or previously diagnosed stock");
                     Click("Shift summary");
                     Check(Terms.text.Contains("$275") && Terms.text.Contains("Выручка: $155") && Terms.text.Contains("Расходы: $180") && Terms.text.Contains("−$25") && Terms.text.Contains("срок истёк"), "reserve summary reconciles cash, revenue, expenses, loss and expired offers");
                     Fits("reserve summary fits"); ScreenCapture.CaptureScreenshot("Logs/T05-reserve-summary.png"); frozen = workshop.Session.ElapsedSeconds;
@@ -271,8 +288,41 @@ public static class T05Verification
                 case 8:
                     Check(!deal.MenuOpen && !workshop.Session.ShiftEnded, "Escape continues primary route from summary");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                    // Spend the remainder at another buyer after the repeat has been offered.
+                    workshop.Session.ToggleCrate(out _); // dock before workbench operations
+                    Test(workshop.Session, 1, true); Test(workshop.Session, 2);
+                    workshop.Session.AcceptOrder(DealOrderId.RepeatB, out _);
+                    workshop.Session.AcceptOrder(DealOrderId.A, out _); workshop.Session.ToggleCrate(out _);
+                    Check(workshop.Session.DeliverOrder(DealOrderId.A, Ids(workshop.Session, 1, 2), out _), "B then A consumes remainder in running scene");
+                    deal.OpenMenu(false);
+                    Check(!GameObject.Find("Accept RepeatB").GetComponent<Button>().interactable &&
+                        !GameObject.Find("Decline / cancel RepeatB").GetComponent<Button>().interactable &&
+                        Terms.text.Contains("Пополнения партии нет") && Terms.text.Contains("Осталось фонарей: 0"), "board disables exhausted repeat and explains no replenishment");
+                    Check(deal.GetPrompt(FirstDealActionKind.DeliverRepeatB).Contains("Недостаточно товара") &&
+                        GameObject.Find("Next action").GetComponent<Text>().text.Contains("Все фонари проданы"), "world prompt and guide explain exhausted stock");
+                    Fits("exhausted board fits"); ScreenCapture.CaptureScreenshot("Logs/T06-exhausted-board.png");
+                    deal.CloseMenu();
                     deal.OpenSummary(); Click("Finish shift");
                     Check(workshop.Session.ShiftEnded && GameObject.Find("Restart shift") != null, "primary sale finishes voluntarily with restart available");
+                    Click("Restart shift"); Next(); break;
+                case 9:
+                    Bind(); deal.CloseMenu(); workshop.Session.PurchaseLot(out _);
+                    indicators = (Light[])typeof(WorkshopView).GetField("indicators", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(workshop);
+                    workshop.Session.ToggleUnit(0, out _); workshop.Session.ToggleBench(out _);
+                    workshop.Perform(WorkshopActionKind.Test, 0);
+                    Check(indicators[0].enabled && workshop.Session.OnBench.LastTestPassed, "workbench interaction lights tested working lamp");
+                    workshop.Session.ToggleBench(out _); workshop.Session.ToggleUnit(0, out _);
+                    workshop.Session.ToggleUnit(1, out _); workshop.Session.ToggleBench(out _);
+                    workshop.Perform(WorkshopActionKind.Test, 0);
+                    Check(indicators[1].enabled && !workshop.Session.OnBench.LastTestPassed, "faulty lamp starts visible blink through workshop interaction");
+                    Next(); break;
+                case 10:
+                    if (Time.time - phaseTime < 1) return;
+                    Check(!indicators[1].enabled && workshop.Session.OnBench.IsTested, "faulty lamp blink ends with light off and diagnosis retained");
+                    workshop.Session.BuyBattery(out _); workshop.Perform(WorkshopActionKind.Repair, 0);
+                    Check(!workshop.Session.OnBench.IsTested && !indicators[1].enabled, "repair clears diagnosis and requires retest");
+                    workshop.Perform(WorkshopActionKind.Test, 0);
+                    Check(workshop.Session.OnBench.LastTestPassed && indicators[1].enabled, "repaired lamp lights steadily after retest");
                     completed = true; EditorApplication.isPlaying = false; break;
             }
         }

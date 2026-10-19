@@ -25,6 +25,7 @@ public static class T04Verification
     private static InputSettings.BackgroundBehavior previousBackgroundBehavior;
     private static InputSettings.EditorInputBehaviorInPlayMode previousEditorInputBehavior;
     private static bool previousBackground;
+    private static float previousCaptureDeltaTime;
     private static bool failed;
     private static bool completed;
     private static int phase;
@@ -151,7 +152,7 @@ public static class T04Verification
         combined.ToggleCrate(out _);
         Check(combined.DeliverOrder(DealOrderId.A, Ids(combined, 0, 2), out _) && combined.DeliverOrder(DealOrderId.B, Ids(combined, 1), out _) &&
             combined.Balance == 455 && combined.Units.All(u => u.Location == FlashlightLocation.BuyerA || u.Location == FlashlightLocation.BuyerB), "A plus B with repair ends $455 and no owned stock");
-        Check(combined.Order(DealOrderId.RepeatB).State == DealOrderState.Available, "B success opens exactly one repeat offer");
+        Check(combined.Order(DealOrderId.RepeatB).State == DealOrderState.Unavailable, "T06 exhausted A plus B cannot offer repeat B");
         combined.AcceptOrder(DealOrderId.RepeatB, out _);
         RejectUnchanged(combined, () => combined.DeliverOrder(DealOrderId.RepeatB, Ids(combined, 1), out _), "repeat offer cannot reuse sold B lamp");
         var b = Purchased(); TestUnit(b, 0); TestUnit(b, 2); b.ToggleCrate(out _);
@@ -162,8 +163,9 @@ public static class T04Verification
         Check(b.DeliverOrder(DealOrderId.RepeatB, Ids(b, 2), out _) && b.Balance == 355, "B repeat route ends $355");
         RejectUnchanged(b, () => b.AcceptOrder(DealOrderId.RepeatB, out _), "repeat B cannot reopen");
         RejectUnchanged(b, () => b.DeliverOrder(DealOrderId.B, Ids(b, 2), out _), "initial B cannot pay twice");
-        Check(b.CloseOrder(DealOrderId.A, out _) && b.Order(DealOrderId.A).State == DealOrderState.Declined, "unaccepted A decline recorded");
-        RejectUnchanged(b, () => b.AcceptOrder(DealOrderId.A, out _), "declined order stays closed");
+        Check(b.Order(DealOrderId.A).State == DealOrderState.Unavailable, "insufficient remainder closes unaccepted A without a deadline penalty");
+        RejectUnchanged(b, () => b.AcceptOrder(DealOrderId.A, out _), "exhausted A stays unavailable");
+        VerifyStockRegressions();
         var cancelled = Purchased(); cancelled.AcceptOrder(DealOrderId.A, out _);
         Check(cancelled.CloseOrder(DealOrderId.A, out _) && cancelled.Order(DealOrderId.A).State == DealOrderState.Cancelled, "cancelled commitment recorded");
 
@@ -218,6 +220,37 @@ public static class T04Verification
         Check(missing == 0, "trade scene has no missing scripts or broken serialized references");
     }
 
+    private static void VerifyStockRegressions()
+    {
+        foreach (var acceptRepeat in new[] { false, true })
+        {
+            var s = Purchased(); TestUnit(s, 0); TestUnit(s, 1, true); TestUnit(s, 2);
+            s.AcceptOrder(DealOrderId.A, out _); s.AcceptOrder(DealOrderId.B, out _); s.ToggleCrate(out _);
+            Check(s.DeliverOrder(DealOrderId.B, Ids(s, 0), out _) && s.CanPursueOrder(DealOrderId.RepeatB), "B opens repeat with two owned lamps");
+            if (acceptRepeat) Check(s.AcceptOrder(DealOrderId.RepeatB, out _), "repeat can be accepted before competing sale");
+            Check(s.DeliverOrder(DealOrderId.A, Ids(s, 1, 2), out _) && s.OwnedLampCount == 0 && s.Balance == 455,
+                "B then A preserves all payments and exhausts stock");
+            Check(s.Order(DealOrderId.RepeatB).State == DealOrderState.Unavailable &&
+                s.OrderUnavailableReason(DealOrderId.RepeatB).Contains("Пополнения партии нет"), "available or accepted repeat becomes unavailable with explicit reason");
+            RejectUnchanged(s, () => s.AcceptOrder(DealOrderId.RepeatB, out _), "cannot accept exhausted repeat");
+            RejectUnchanged(s, () => s.DeliverOrder(DealOrderId.RepeatB, Ids(s, 0), out _), "cannot sell transferred identity twice");
+            RejectUnchanged(s, () => s.PurchaseLot(out _), "repeat purchase after all sales preserves identities diagnostics and wallet");
+            Check(FirstDealText.NextOpportunity(s).Contains("заверши смену") && s.EndShift(false, out _), "exhausted route offers voluntary finish");
+        }
+        var back = Purchased(); TestUnit(back, 0); TestUnit(back, 1); TestUnit(back, 2);
+        back.AcceptOrder(DealOrderId.B, out _); back.ToggleCrate(out _); back.DeliverOrder(DealOrderId.B, Ids(back, 0), out _);
+        back.AcceptOrder(DealOrderId.RepeatB, out _);
+        Check(back.SellBack(Ids(back, 1, 2), out _) && back.Order(DealOrderId.RepeatB).State == DealOrderState.Unavailable,
+            "seller buyback also invalidates accepted repeat");
+        var diagnosis = Purchased(); TestUnit(diagnosis, 0); TestUnit(diagnosis, 1); TestUnit(diagnosis, 2);
+        RejectUnchanged(diagnosis, () => diagnosis.PurchaseLot(out _), "repeat purchase preserves passed and faulty diagnostics before sales");
+        var partial = Purchased(); TestUnit(partial, 0); TestUnit(partial, 2); partial.ToggleCrate(out _);
+        partial.AcceptOrder(DealOrderId.B, out _); partial.DeliverOrder(DealOrderId.B, Ids(partial, 0), out _);
+        partial.AcceptOrder(DealOrderId.RepeatB, out _); partial.DeliverOrder(DealOrderId.RepeatB, Ids(partial, 2), out _);
+        Check(partial.OwnedLampCount == 1 && partial.Order(DealOrderId.A).State == DealOrderState.Unavailable &&
+            !FirstDealText.NextOpportunity(partial).Contains("A —"), "other orders and guidance respect insufficient remainder");
+    }
+
     private static void PlayState(PlayModeStateChange state)
     {
         if (!SessionState.GetBool(RunningKey, false)) return;
@@ -225,6 +258,10 @@ public static class T04Verification
         {
             failed = completed = false; phase = 0; lastFrame = -1; phaseTime = Time.time;
             previousBackground = Application.runInBackground; Application.runInBackground = true;
+            previousCaptureDeltaTime = Time.captureDeltaTime;
+            // Bound simulated movement per frame so batch rendering stalls cannot skip
+            // a waypoint's 0.35m arrival radius before the next steering update.
+            Time.captureDeltaTime = 1f / 60;
             previousSettings = InputSystem.settings;
             previousBackgroundBehavior = previousSettings.backgroundBehavior;
             previousEditorInputBehavior = previousSettings.editorInputBehaviorInPlayMode;
@@ -239,6 +276,7 @@ public static class T04Verification
         if (state == PlayModeStateChange.ExitingPlayMode)
         {
             EditorApplication.update -= Tick; Application.runInBackground = previousBackground;
+            Time.captureDeltaTime = previousCaptureDeltaTime;
             if (keyboard != null && keyboard.added) InputSystem.RemoveDevice(keyboard);
             previousSettings.backgroundBehavior = previousBackgroundBehavior;
             previousSettings.editorInputBehaviorInPlayMode = previousEditorInputBehavior;
@@ -256,6 +294,7 @@ public static class T04Verification
         Application.logMessageReceived -= Error; SessionState.SetBool(RunningKey, false);
         var result = completed && !failed ? "T04 RESULT PASS" : "T04 RESULT FAIL";
         File.AppendAllText(LogPath, result + "\n"); Debug.Log(result);
+        if (Application.isBatchMode) EditorApplication.Exit(completed && !failed ? 0 : 1);
     }
 
     private static void Error(string message, string stack, LogType type)
@@ -391,7 +430,7 @@ public static class T04Verification
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.E)); Next(); break;
                 case 11:
                     Check(workshop.Session.Balance == 455 && workshop.Session.Order(DealOrderId.B).State == DealOrderState.Completed &&
-                        workshop.Session.Order(DealOrderId.RepeatB).State == DealOrderState.Available, "B E completes combined route at $455 and opens repeat offer");
+                        workshop.Session.Order(DealOrderId.RepeatB).State == DealOrderState.Unavailable, "B E completes combined route at $455 without an impossible repeat offer");
                     Check(GameObject.Find("Workshop state").GetComponent<Text>().text.Contains("$455"), "HUD receives updated trade wallet");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState()); Next(); break;
                 case 12:
@@ -429,7 +468,14 @@ public static class T04Verification
                     player.transform.rotation = Quaternion.LookRotation(offset);
                     player.SetCursorLocked(true);
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W));
-                    if (Time.time - walkStarted > 60) throw new Exception("Walking route blocked near waypoint " + waypoint + " at " + player.transform.position);
+                    if (Time.time - walkStarted > 60)
+                    {
+                        File.AppendAllText(LogPath, "INFO route state: paused=" + workshop.Session.IsPaused + " menu=" + deal.MenuOpen +
+                            " interact=" + player.CanInteract + " input=" + player.GetComponent<Player.PlayerInput>().MoveInput +
+                            " colliders=" + string.Join(";", Physics.OverlapSphere(player.transform.position + Vector3.up * 0.9f, 2)
+                                .Select(c => c.name + " " + c.bounds)) + "\n");
+                        throw new Exception("Walking route blocked near waypoint " + waypoint + " at " + player.transform.position);
+                    }
                     break;
             }
         }
