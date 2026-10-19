@@ -15205,7 +15205,7 @@ MonoBehaviour:
   m_ScrollWheelAction: {fileID: 523155655}
   m_TrackedDevicePositionAction: {fileID: 1967716753}
   m_TrackedDeviceOrientationAction: {fileID: 1886558724}
-  m_DeselectOnBackgroundClick: 1
+  m_DeselectOnBackgroundClick: 0
   m_PointerBehavior: 0
   m_CursorLockBehavior: 0
   m_ScrollDeltaPerTick: 6

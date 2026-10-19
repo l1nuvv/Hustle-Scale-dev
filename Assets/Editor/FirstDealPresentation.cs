@@ -145,6 +145,10 @@ public static class FirstDealPresentation
 
     public static void ApplyOfferCards()
     {
+        // Empty menu space must not strand keyboard navigation after using the mouse.
+        var input = UnityEngine.Object.FindAnyObjectByType<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+        input.deselectOnBackgroundClick = false;
+        EditorUtility.SetDirty(input);
         var deal = UnityEngine.Object.FindAnyObjectByType<FirstDealView>();
         var menu = FindAll("Trade menu").transform;
         var orders = FindAll("Order choices").GetComponent<RectTransform>();

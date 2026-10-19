@@ -75,6 +75,7 @@ public static class FirstDealTradeBuilder
         canvas.AddComponent<GraphicRaycaster>();
         var events = new GameObject("T04 EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         events.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
+        events.GetComponent<InputSystemUIInputModule>().deselectOnBackgroundClick = false;
         var menu = new GameObject("Trade menu", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         menu.transform.SetParent(canvas.transform, false);
         Stretch(menu.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
