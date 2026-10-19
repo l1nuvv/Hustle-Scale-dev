@@ -79,6 +79,7 @@ Repository cleanup removed the URP welcome/tutorial, unused template input actio
 - `AGENTS.md` - repository constraints and agent workflow.
 - `docs/DEVELOPMENT.md` - commits, focused verification and Unity asset handling.
 - `docs/ENGINEERING_STANDARD.md` - Unity/C# and gameplay architecture constraints.
+- `docs/ROADMAP.md` - staged game-development plan, dependencies, acceptance criteria and effort estimates.
 - `Assets/Scripts/`, `Assets/Scenes/`, `ProjectSettings/` - source, scenes and configuration.
 
 Approved FIRST DEAL rules were supplied externally; design documents are not automatically part of this checkout. No automatic engine/package migration, new paid services or release packaging.
