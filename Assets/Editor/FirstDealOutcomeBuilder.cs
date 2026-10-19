@@ -29,9 +29,11 @@ public static class FirstDealOutcomeBuilder
         var seller = Find("Seller choices");
         var lot = Find("Confirm lot - $180").GetComponent<Button>();
         var battery = Find("Buy battery - $50").GetComponent<Button>();
-        Layout(lot.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(0.32f, 1));
-        Layout(battery.GetComponent<RectTransform>(), new Vector2(0.34f, 0), new Vector2(0.66f, 1));
-        var buyback = seller.Find("Sell brought lamps");
+        if (lot.transform.parent == seller)
+            Layout(lot.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(0.32f, 1));
+        if (battery.transform.parent == seller)
+            Layout(battery.GetComponent<RectTransform>(), new Vector2(0.34f, 0), new Vector2(0.66f, 1));
+        var buyback = Find("Sell brought lamps");
         if (buyback == null)
         {
             var button = MakeButton(seller, "Sell brought lamps", "Продать принесённые\n$60 / $35", new Vector2(0.68f, 0), Vector2.one);

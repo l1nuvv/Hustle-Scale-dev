@@ -5,6 +5,66 @@ namespace Interactables
     // Small, scenario-specific presentation vocabulary; the domain keeps its existing messages.
     public static class FirstDealText
     {
+        public static string OrderName(DealOrderId id) => id == DealOrderId.A ? "A" : id == DealOrderId.B ? "Б" : "Повтор Б";
+
+        public static string OrderCard(WorkshopSession s, DealOrderId id)
+        {
+            var order = s.Order(id);
+            var reason = s.OrderUnavailableReason(id);
+            var next = reason.Length > 0 ? reason : order.State == DealOrderState.Accepted ?
+                DeliveryBlockReason(s, id) : "Прими заказ, затем принеси товар покупателю.";
+            if (next.Length == 0) next = "Товар готов: E у покупателя — передать.";
+            return "ЗАКАЗ " + OrderName(id) + " · $" + order.Payment +
+                "\nКоличество: " + order.Quantity + " фон." +
+                "\nТолько исправные, проверенные на столе." +
+                "\nСтрого до " + WorkshopView.Clock(order.DeadlineSeconds) +
+                "\nСтатус: " + State(order.State) + "\n\n" + next +
+                (order.State == DealOrderState.Accepted ? "\nОтмена окончательна и считается нарушением." :
+                    order.State == DealOrderState.Available ? "\nОтказ окончателен; деньги и товар сохранятся." : "");
+        }
+
+        // Read-only explanations of the physical delivery prerequisites. The session still
+        // validates every identity and performs the atomic transfer.
+        public static string DeliveryBlockReason(WorkshopSession s, DealOrderId id)
+        {
+            var reason = s.OrderUnavailableReason(id);
+            if (reason.Length > 0) return reason;
+            if (s.Order(id).State != DealOrderState.Accepted) return "Сначала прими заказ на доске.";
+            if (!s.LotPurchased) return "Сначала купи партию у продавца.";
+            var brought = 0;
+            var ready = 0;
+            var untested = 0;
+            foreach (var unit in s.Units)
+            {
+                if (unit.Location != FlashlightLocation.Hands && !(s.IsCrateCarried && unit.Location == FlashlightLocation.Crate)) continue;
+                brought++;
+                if (!unit.IsTested) untested++;
+                else if (unit.LastTestPassed && unit.Condition == FlashlightCondition.Working) ready++;
+            }
+            var needed = s.Order(id).Quantity;
+            if (ready >= needed) return "";
+            if (brought < needed) return "Принесено: " + brought + ", нужно: " + needed +
+                (needed > 1 ? ". Возьми ящик с товаром." : ". Возьми фонарь или ящик.");
+            if (untested > 0) return "Готово: " + ready + " из " + needed + ". Проверь товар на столе; после ремонта нужен новый тест.";
+            return "Готово: " + ready + " из " + needed + ". Возьми исправные или замени батарею и проверь снова.";
+        }
+
+        public static string BuybackBlockReason(WorkshopSession s)
+        {
+            if (s.ShiftEnded) return "Смена завершена.";
+            if (!s.LotPurchased) return "Сначала купи партию.";
+            if (!s.BuybackAvailable) return "Откроется после продажи A / Б или в 18:00.";
+            if (s.OwnedLampCount == 0) return "Товар закончился: все фонари уже проданы.";
+            var brought = 0;
+            foreach (var unit in s.Units)
+            {
+                if (unit.Location != FlashlightLocation.Hands && !(s.IsCrateCarried && unit.Location == FlashlightLocation.Crate)) continue;
+                brought++;
+                if (!unit.IsTested) return "Проверь все принесённые фонари; после ремонта нужен новый тест.";
+            }
+            return brought == 0 ? "Принеси товар в руках или ящике." : "";
+        }
+
         public static string NextOpportunity(WorkshopSession s)
         {
             if (s.ShiftEnded) return "Смена завершена. Можно начать новую попытку.";
@@ -74,6 +134,9 @@ namespace Interactables
             switch (text)
             {
                 case "This offer is not available.": return "Это предложение пока недоступно или уже закрыто.";
+                case "This order is already closed or locked.": return "Этот заказ уже закрыт или ещё не открыт.";
+                case "Battery stock is full.": return "Запас батарей заполнен.";
+                case "Wallet limit reached.": return "Лимит денег достигнут; продажа не выполнена.";
                 case "This single lot has already been purchased.": return "Эта единственная партия уже куплена.";
                 case "Not enough money: the lot costs $180.": return "Недостаточно денег: партия стоит $180.";
                 case "Not enough money: battery costs $50.": return "Недостаточно денег: батарея стоит $50.";

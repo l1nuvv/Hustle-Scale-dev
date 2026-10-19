@@ -117,6 +117,7 @@ public static class FirstDealPresentation
         PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
         FirstDealOutcomeBuilder.ApplyCurrent();
         ApplyCompactHud();
+        ApplyOfferCards();
         EditorSceneManager.SaveScene(scene);
         Debug.Log("T04 PRESENTATION APPLIED: Russian guidance, readable props, T04 build scene, 1600x900 resizable window.");
     }
@@ -140,6 +141,61 @@ public static class FirstDealPresentation
         feedback.alignment = TextAnchor.LowerLeft;
         Ref(workshop, "feedbackLabel", feedback);
         EditorSceneManager.MarkSceneDirty(workshop.gameObject.scene);
+    }
+
+    public static void ApplyOfferCards()
+    {
+        var deal = UnityEngine.Object.FindAnyObjectByType<FirstDealView>();
+        var menu = FindAll("Trade menu").transform;
+        var orders = FindAll("Order choices").GetComponent<RectTransform>();
+        var seller = FindAll("Seller choices").GetComponent<RectTransform>();
+        Layout(orders, new Vector2(0.035f, 0.26f), new Vector2(0.965f, 0.84f));
+        Layout(seller, new Vector2(0.035f, 0.26f), new Vector2(0.965f, 0.84f));
+        var so = new SerializedObject(deal);
+        foreach (var field in new[] { "orderCards", "sellerCards" }) so.FindProperty(field).arraySize = 3;
+        for (var i = 0; i < 3; i++)
+        {
+            var orderCard = OfferCard(orders, "Order card " + i, i);
+            var sellerCard = OfferCard(seller, "Seller card " + i, i);
+            so.FindProperty("orderCards").GetArrayElementAtIndex(i).objectReferenceValue = orderCard;
+            so.FindProperty("sellerCards").GetArrayElementAtIndex(i).objectReferenceValue = sellerCard;
+            MoveButton("Accept " + ((Inventory.DealOrderId)i), orderCard.transform.parent, 0.17f, 0.28f);
+            MoveButton("Decline / cancel " + ((Inventory.DealOrderId)i), orderCard.transform.parent, 0.03f, 0.14f);
+            MoveButton(new[] { "Confirm lot - $180", "Buy battery - $50", "Sell brought lamps" }[i], sellerCard.transform.parent, 0.03f, 0.17f);
+        }
+        var feedback = menu.Find("Trade feedback")?.GetComponent<Text>();
+        if (feedback == null) feedback = Label(menu, "Trade feedback", new Vector2(0.035f, 0.14f), new Vector2(0.965f, 0.24f), 22);
+        feedback.text = "";
+        feedback.color = new Color(1, 0.85f, 0.45f);
+        so.FindProperty("menuFeedback").objectReferenceValue = feedback;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorSceneManager.MarkSceneDirty(deal.gameObject.scene);
+    }
+
+    private static Text OfferCard(Transform parent, string name, int index)
+    {
+        var panel = parent.Find(name);
+        if (panel == null)
+        {
+            panel = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)).transform;
+            panel.SetParent(parent, false);
+            panel.GetComponent<Image>().color = new Color(0.09f, 0.15f, 0.2f, 1);
+            panel.GetComponent<Image>().raycastTarget = false;
+        }
+        Layout((RectTransform)panel, new Vector2(index / 3f + 0.005f, 0), new Vector2((index + 1) / 3f - 0.005f, 1));
+        var text = panel.Find("Details")?.GetComponent<Text>();
+        if (text == null) text = Label(panel, "Details", new Vector2(0.05f, 0.33f), new Vector2(0.95f, 0.96f), 22);
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Truncate;
+        return text;
+    }
+
+    private static void MoveButton(string name, Transform parent, float minY, float maxY)
+    {
+        var button = FindAll(name).GetComponent<Button>();
+        button.transform.SetParent(parent, false);
+        Layout((RectTransform)button.transform, new Vector2(0.05f, minY), new Vector2(0.95f, maxY));
+        button.GetComponentInChildren<Text>(true).fontSize = 22;
     }
 
     private static void Fixtures()

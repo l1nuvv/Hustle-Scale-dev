@@ -63,7 +63,11 @@ namespace Inventory
                 return "Недостаточно товара: нужно " + order.Quantity + ", осталось " + OwnedLampCount + ". Пополнения партии нет.";
             if (ShiftEnded) return "Смена завершена.";
             if (order.State == DealOrderState.Locked) return "Это предложение пока недоступно: сначала выполни Б.";
-            if (order.State == DealOrderState.Expired || order.State == DealOrderState.Failed) return "Срок заказа истёк.";
+            if (order.State == DealOrderState.Expired) return "Срок истёк: заказ не был принят. Оплаты нет.";
+            if (order.State == DealOrderState.Failed) return "Срок принятого заказа истёк. Заказ сорван; оплаты нет.";
+            if (order.State == DealOrderState.Completed) return "Заказ выполнен и оплачен. Повторная сдача недоступна.";
+            if (order.State == DealOrderState.Declined) return "Ты отказался от предложения. Принять его снова нельзя.";
+            if (order.State == DealOrderState.Cancelled) return "Ты отменил принятый заказ. Это нарушение; восстановить заказ нельзя.";
             return CanPursueOrder(id) ? "" : "Заказ уже закрыт.";
         }
 
