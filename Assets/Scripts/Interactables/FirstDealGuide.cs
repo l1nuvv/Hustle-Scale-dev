@@ -62,25 +62,28 @@ namespace Interactables
                 var nextRepeat = s.Order(DealOrderId.RepeatB).State;
                 var destination = s.OwnedLampCount == 0 ? null : nextRepeat == DealOrderState.Available ? board :
                     nextRepeat == DealOrderState.Accepted ? crate : seller;
-                Show("ПОСЛЕДСТВИЯ И СЛЕДУЮЩИЙ ШАГ", "Деньги: $" + s.Balance + "; осталось фонарей: " + s.OwnedLampCount + ". " +
-                    FirstDealText.NextOpportunity(s) + " Esc → «Итоги»: продолжить или завершить.", destination);
+                Show("ВЫБЕРИ СЛЕДУЮЩИЙ ШАГ", s.OwnedLampCount == 0 ? "Товар продан. Esc → «Итоги»: завершить смену." :
+                    "Осталось: " + s.OwnedLampCount + ". Условия продолжения — на доске; выкуп — у продавца. Esc — итоги.", destination);
                 return;
             }
             if (!deal.OffersRead)
-            { Show("1. РАЗБЕРИСЬ В ПРЕДЛОЖЕНИЯХ", "Подойди к синей доске «ЗАКАЗЫ». Наведи на неё прицел и нажми E. Чтение останавливает время.", board); return; }
+            { Show("ПРОЧИТАЙ ЗАКАЗЫ", "Синяя доска: наведи прицел и нажми E. В меню время остановлено.", board); return; }
             if (!s.LotPurchased)
-            { Show("2. НАЙДИ ПРОДАВЦА", "Выйди через проход. У синей стойки продавца нажми E и подтверди покупку трёх фонарей за $180. Можно уйти без покупки.", seller); return; }
+            { Show("НАЙДИ ПРОДАВЦА", "Снаружи, у синей стойки: E — партия из трёх фонарей за $180.", seller); return; }
             if (!s.HasTransportedCrate)
-            { Show("3. ЗАБЕРИ СВОЙ ЯЩИК", "Фонари куплены. Наведи прицел на ящик рядом с продавцом и нажми E — все три поедут вместе.", crate); return; }
+            { Show("ЗАБЕРИ ЯЩИК", "Ящик рядом с продавцом: E — взять все фонари вместе.", crate); return; }
             if (s.OnBench != null)
             {
-                Show(s.OnBench.IsTested ? "ЗАБЕРИ ПРОВЕРЕННЫЙ ФОНАРЬ" : "4. ПРОВЕРЬ ФОНАРЬ",
-                    s.OnBench.IsTested ? "Наведи на стол и нажми E, затем на кнопку этого фонаря у ящика и снова E. Неисправный можно позже починить: батарея $50, время +04:00, затем новый тест." :
-                    "Нажми E на синей кнопке «ПРОВЕРИТЬ». Исправный светит постоянно, неисправный мигает и гаснет.", bench);
+                Show(s.OnBench.IsTested ? "ЗАБЕРИ ПРОВЕРЕННЫЙ ФОНАРЬ" : "ПРОВЕРЬ ФОНАРЬ",
+                    !s.OnBench.IsTested ? "E на синей кнопке «ПРОВЕРИТЬ»." : s.OnBench.LastTestPassed ?
+                    "Исправен. E на столе — забрать; E на его кнопке у ящика — вернуть." :
+                    "Батарея неисправна. Ремонт необязателен: $50 и +04:00, затем новый тест.", bench);
                 return;
             }
             if (s.InHands != null)
-            { Show("ПОСТАВЬ ФОНАРЬ НА СТОЛ", "Подойди к деревянному рабочему столу. Наведи прицел на его столешницу и нажми E.", bench); return; }
+            { Show(s.InHands.IsTested ? "ВЕРНИ ФОНАРЬ В ЯЩИК" : "ПОСТАВЬ ФОНАРЬ НА СТОЛ",
+                s.InHands.IsTested ? "E на его кнопке у ящика. Проверенный исправный товар можно доставить в руках." :
+                "E на деревянной столешнице — поставить фонарь для проверки.", s.InHands.IsTested ? crate : bench); return; }
             var working = 0;
             var unknown = 0;
             foreach (var unit in s.Units)
@@ -95,19 +98,19 @@ namespace Interactables
             if (s.IsCrateCarried)
             {
                 if (a.State == DealOrderState.Accepted && working >= 2)
-                    Show("ДОСТАВЬ ЗАКАЗ A", "Оранжевая стойка A: наведи прицел и нажми E. Передаются сразу два проверенных исправных фонаря. Можно выбрать другую сделку.", buyerA);
+                    Show("ДОСТАВЬ ЗАКАЗ A", "Оранжевая стойка: E — передать 2 исправных проверенных до 09:00.", buyerA);
                 else if ((b.State == DealOrderState.Accepted || repeat.State == DealOrderState.Accepted) && working >= 1)
-                    Show("ДОСТАВЬ ЗАКАЗ Б", "Зелёная стойка Б: E отдаёт один проверенный исправный фонарь. Для повторного заказа используй соседнюю кнопку «ПОВТОР Б».", buyerB);
-                else Show("ДОНЕСИ ЯЩИК ДО МАСТЕРСКОЙ", "У мастерской наведи прицел на оранжевую кнопку «ПОСТАВИТЬ ЯЩИК» и нажми E. Затем можно доставать фонари по одному.", dock);
+                    Show("ДОСТАВЬ ЗАКАЗ Б", "Зелёная стойка: E — передать 1 исправный проверенный до 18:00.", buyerB);
+                else Show("ПРИНЕСИ ЯЩИК В МАСТЕРСКУЮ", "E на оранжевой кнопке «ПОСТАВИТЬ ЯЩИК».", dock);
                 return;
             }
             if (working > 0 && (a.State == DealOrderState.Accepted || b.State == DealOrderState.Accepted || repeat.State == DealOrderState.Accepted))
-            { Show("ПОДГОТОВЬ ДОСТАВКУ", "Есть проверенные исправные: " + working + ". Возьми ящик кнопкой E. Для A нужны два сразу; для Б — один. Можно проверить оставшиеся фонари или вложиться в ремонт.", crate); return; }
+            { Show("ПОДГОТОВЬ ДОСТАВКУ", "Исправных проверенных: " + working + ". Для A нужны 2, для Б — 1. E на ящике — взять.", crate); return; }
             if (working > 0 && (s.CanPursueOrder(DealOrderId.A) || s.CanPursueOrder(DealOrderId.B)))
-            { Show("5. ВЫБЕРИ СДЕЛКУ", "Есть проверенные исправные: " + working + ". " + FirstDealText.NextOpportunity(s), board); return; }
+            { Show("ВЫБЕРИ СДЕЛКУ", "Исправных проверенных: " + working + ". E на доске — условия и принятие заказа.", board); return; }
             if (unknown > 0)
-            { Show("4. ДОСТАНЬ ОДИН ФОНАРЬ", "У ящика три маленькие кнопки 1 / 2 / 3. Наведи на одну и нажми E. Затем поставь фонарь на стол через E и запусти «ПРОВЕРИТЬ».", crate); return; }
-            Show("ПРОВЕРЬ ОСТАВШИЕСЯ ВОЗМОЖНОСТИ", FirstDealText.NextOpportunity(s) + " Esc → «Итоги»: продолжить или завершить.", board);
+            { Show("ДОСТАНЬ ФОНАРЬ", "E на одной из кнопок 1 / 2 / 3 у ящика.", crate); return; }
+            Show("ПРОВЕРЬ ВОЗМОЖНОСТИ", "E на доске — оставшиеся заказы. Esc → «Итоги» — завершение смены.", board);
         }
 
         private static void ApplyColors()

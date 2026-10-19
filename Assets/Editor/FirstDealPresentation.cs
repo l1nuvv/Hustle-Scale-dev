@@ -116,8 +116,30 @@ public static class FirstDealPresentation
         PlayerSettings.resizableWindow = true;
         PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
         FirstDealOutcomeBuilder.ApplyCurrent();
+        ApplyCompactHud();
         EditorSceneManager.SaveScene(scene);
         Debug.Log("T04 PRESENTATION APPLIED: Russian guidance, readable props, T04 build scene, 1600x900 resizable window.");
+    }
+
+    // Also called independently when updating an existing scene, preserving its fixtures.
+    public static void ApplyCompactHud()
+    {
+        var workshop = UnityEngine.Object.FindAnyObjectByType<WorkshopView>();
+        var status = FindAll("Workshop state").GetComponent<Text>();
+        Layout(status.rectTransform, new Vector2(0.025f, 0.89f), new Vector2(0.48f, 0.975f));
+        Layout(FindAll("Status background").GetComponent<RectTransform>(), new Vector2(0.015f, 0.88f), new Vector2(0.49f, 0.985f));
+        Layout(FindAll("Next action panel").GetComponent<RectTransform>(), new Vector2(0.51f, 0.78f), new Vector2(0.985f, 0.985f));
+        var goal = FindAll("Next action").GetComponent<Text>();
+        Layout(goal.rectTransform, new Vector2(0.035f, 0.27f), new Vector2(0.965f, 0.96f));
+        goal.fontSize = 22;
+        var direction = FindAll("Next action direction").GetComponent<Text>();
+        Layout(direction.rectTransform, new Vector2(0.035f, 0.03f), new Vector2(0.965f, 0.24f));
+        direction.fontSize = 20;
+        var feedback = FindAll("Controls").GetComponent<Text>();
+        feedback.text = "";
+        feedback.alignment = TextAnchor.LowerLeft;
+        Ref(workshop, "feedbackLabel", feedback);
+        EditorSceneManager.MarkSceneDirty(workshop.gameObject.scene);
     }
 
     private static void Fixtures()

@@ -16,11 +16,13 @@ namespace Interactables
         [SerializeField] private Transform[] storageSlots;
         [SerializeField] private Light[] indicators;
         [SerializeField] private Text status;
+        [SerializeField] private Text feedbackLabel;
         [SerializeField] private bool firstDeal;
         [SerializeField] private Transform sellerDock;
         private WorkshopSession session;
         private string lastMessage = "Take the crate or select one lamp, then place it on the workbench.";
         private Coroutine feedback;
+        private Coroutine messageExpiry;
         private int blinkIndex = -1;
         public WorkshopSession Session => session;
         public bool IsFirstDeal => firstDeal;
@@ -33,6 +35,9 @@ namespace Interactables
             session.Changed -= Refresh;
             if (feedback != null) StopCoroutine(feedback);
             feedback = null;
+            if (messageExpiry != null) StopCoroutine(messageExpiry);
+            messageExpiry = null;
+            if (feedbackLabel != null) feedbackLabel.text = "";
             foreach (var light in indicators) if (light != null) light.enabled = false;
         }
 
@@ -88,8 +93,7 @@ namespace Interactables
                 case WorkshopActionKind.Repair: success = session.Repair(out message); break;
                 default: return;
             }
-            lastMessage = (success ? "" : "Cannot: ") + message;
-            Refresh();
+            ShowMessage((success ? "" : "Cannot: ") + message);
             if (success && action == WorkshopActionKind.Test && !session.OnBench.LastTestPassed)
             {
                 if (feedback != null) StopCoroutine(feedback);
@@ -107,7 +111,20 @@ namespace Interactables
         public void ShowMessage(string message)
         {
             lastMessage = message;
+            if (firstDeal && feedbackLabel != null)
+            {
+                if (messageExpiry != null) StopCoroutine(messageExpiry);
+                feedbackLabel.text = FirstDealText.Message(message);
+                messageExpiry = StartCoroutine(ClearMessage());
+            }
             Refresh();
+        }
+
+        private IEnumerator ClearMessage()
+        {
+            yield return new WaitForSecondsRealtime(8f);
+            feedbackLabel.text = "";
+            messageExpiry = null;
         }
 
         private void Refresh()
@@ -142,11 +159,14 @@ namespace Interactables
             if (status == null) return;
             if (firstDeal)
             {
-                status.text = "ПЕРВАЯ ПАРТИЯ · $" + session.Balance + " · " + Clock(session.ElapsedSeconds) +
+                var crateCount = 0;
+                foreach (var unit in session.Units)
+                    if (unit.Location == FlashlightLocation.Crate) crateCount++;
+                var carried = session.IsCrateCarried ? "ящик · " + crateCount + " фон." :
+                    session.InHands != null ? "фонарь · " + FirstDealText.Condition(session.InHands) : "ничего";
+                status.text = "$" + session.Balance + " · " + Clock(session.ElapsedSeconds) +
                     (!session.ShiftStarted ? " · время ещё не идёт" : session.IsPaused ? " · ПАУЗА" : "") +
-                    "\nA: " + FirstDealText.State(session.Order(DealOrderId.A).State) + " (до 09:00) · Б: " + FirstDealText.State(session.Order(DealOrderId.B).State) + " (до 18:00)" +
-                    "\nДо срока A: " + Clock(System.Math.Max(0, 540 - session.ElapsedSeconds)) + " · Б: " + Clock(System.Math.Max(0, 1080 - session.ElapsedSeconds)) +
-                    "\nЗапас: " + session.OwnedLampCount + " фон. · батарей: " + session.SpareBatteries + " · Esc: итоги\n" + FirstDealText.Message(lastMessage);
+                    "\nВ руках: " + carried;
                 return;
             }
             status.text = "T03 WORKSHOP | Post-purchase fixture: $120 and 3 owned lamps\n" +

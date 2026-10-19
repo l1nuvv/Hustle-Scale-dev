@@ -267,6 +267,18 @@ namespace Interactables
                     menuText.text += "\n\nОсновной продажи нет. Завершить неудачную попытку? Кнопка продолжения вернёт в игру без потерь.";
                 return;
             }
+            if (!sellerButtons.activeSelf && !orderButtons.activeSelf)
+            {
+                menuText.text = "ПЕРВАЯ ПАРТИЯ · ПАУЗА\n\n" +
+                    "Проверь товар и выбери выгодную сделку.\n" +
+                    (session.LotPurchased ? "Продолжи с текущей целью в HUD. Условия сделок — на доске.\n" :
+                        "Начни с синей доски «ЗАКАЗЫ» в мастерской.\n") +
+                    (session.ShiftStarted ? "В меню время остановлено.\n\n" :
+                        "Время начнётся при выходе наружу; в меню оно остановлено.\n\n") +
+                    "WASD — ходить · мышь — смотреть\nE — действие под прицелом · Esc — пауза и итоги\n" +
+                    "Стрелки / Enter — выбор в меню.";
+                return;
+            }
             menuText.text = "ПЕРВАЯ ПАРТИЯ · ПАУЗА · $" + session.Balance + " · Время " + WorkshopView.Clock(session.ElapsedSeconds) +
                 "\nТы начинающий торговец. Проверь товар и выбери выгодную сделку.\n" +
                 (session.LotPurchased ? "Партия уже куплена. Повторной закупки нет. Осталось фонарей: " + session.OwnedLampCount + ".\n" :
