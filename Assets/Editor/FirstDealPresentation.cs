@@ -121,6 +121,7 @@ public static class FirstDealPresentation
         FirstDealEnvironmentBuilder.ApplyCurrent();
         FirstDealPropBuilder.ApplyCurrent();
         FirstDealLightingBuilder.ApplyCurrent();
+        FirstDealCharacterBuilder.ApplyCurrent();
         EditorSceneManager.SaveScene(scene);
         Debug.Log("T04 PRESENTATION APPLIED: Russian guidance, readable props, T04 build scene, 1600x900 resizable window.");
     }

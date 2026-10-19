@@ -86,6 +86,10 @@ V3 lighting and surroundings, 2026-10-20: a roof and beams enclose the workshop,
 
 Unity 6000.6.0f1: **Tools > V3 > Verify Light and Surroundings** passed **46** checks; V1 routes passed **72**, and V2 models/trade passed **110** after integration. Four views were visually inspected. Evidence: `Logs/Codex-V3-verification.log`, `Logs/V3-*.png`, and the V1/V2 logs. The roadmap records a limited Editor render measurement; owner art acceptance, independent player observation and Player performance remain pending. No Player build or archive was created.
 
+V4 characters, 2026-10-20: three original prefabs in `Assets/Prefabs/FirstDealCharacters/` replace the capsule traders. The seller has a cap/apron, A an order clipboard, and B a different arm pose. Shared materials and combined meshes use 9–10 renderers per character. Event-driven head/arm reactions read the existing session; pause, end-shift and component disable stop/reset reactions. Counter-front labels leave faces visible. Characters add no colliders or economy rules. **Tools > V4 > Apply Characters** reapplies them and is included in T04.
+
+Unity 6000.6.0f1: **Tools > V4 > Verify Characters and Integration** passed **129** checks; V1 routes passed **72**, and V2 models/trade passed **110** after integration. Three character views were visually inspected. Evidence: `Logs/Codex-V4-verification.log`, `Logs/V4-*.png`, and the V1/V2 logs. See the roadmap for the limited capsule/character Editor render comparison. Owner art acceptance, independent player observation and Player performance remain pending. No Player build or archive was created.
+
 ## Development
 
 - `AGENTS.md` - repository constraints and agent workflow.
