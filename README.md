@@ -78,6 +78,10 @@ Do not add another gameplay system until that playtest establishes the next bott
 
 Repository cleanup removed the URP welcome/tutorial, unused template input actions and obsolete root URP settings, unused food demos/prefabs/meshes, and four unreferenced legacy scripts. The original apple model and scene dependencies remain. TextMesh Pro resources, shaders and license/attribution files remain intact. Local caches, IDE files, reference archives and installed agent skills are ignored rather than versioned.
 
+V2 props, 2026-10-20: five original prefabs in `Assets/Prefabs/FirstDealProps/` replace the flashlight, crate, battery repair sample, workbench and tester visuals. Six shared materials and combined meshes keep each prefab to 2–5 renderers. **Tools > V2 > Apply Models and Materials** reapplies them and is included in the T04 presentation utility. Existing item identities, interaction colliders and diagnostic lights remain connected; the meter scale is decorative and the battery sample does not represent spare stock.
+
+Unity 6000.6.0f1: **Tools > V2 > Verify Models and Trade** passed **110** checks including repeat application/GUIDs, carry scale, repair/retest and A+B at $455; the V1 physical-route verifier passed **72** checks after integration. Evidence: `Logs/Codex-V2-verification.log`, `Logs/Codex-V1-verification.log`, `Logs/V2-*.png`. See the roadmap for the limited before/after Editor render measurement. Owner art acceptance, independent player observation and Player performance remain pending; no Player build or archive was created.
+
 ## Development
 
 - `AGENTS.md` - repository constraints and agent workflow.
