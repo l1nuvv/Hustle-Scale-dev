@@ -37,7 +37,7 @@ namespace Interactables
                     (s.Order(id).State == DealOrderState.Unavailable ? " (нужно " + s.Order(id).Quantity + ", осталось " + s.OwnedLampCount + "; пополнения нет)" : "") + "\n";
             text += "Контакт Б: " + (s.ContactBOpened ? "открыт; повтор зависит от остатка и срока 18:00." : "пока не открыт.") +
                 "\n\n" + NextOpportunity(s);
-            if (!s.ShiftEnded) text += s.HasPrimarySale ? "\nМожно продолжить торговлю или завершить смену по своему выбору." :
+            if (!s.ShiftEnded && (!s.LotPurchased || s.OwnedLampCount > 0)) text += s.HasPrimarySale ? "\nМожно продолжить торговлю или завершить смену по своему выбору." :
                 "\nМожно продолжить или явно отказаться от продолжения без основной продажи.";
             return text;
         }

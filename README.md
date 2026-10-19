@@ -1,6 +1,6 @@
 # Hustle and Scale
 
-A Unity first-person business-simulation prototype. The current playable scenario, **FIRST DEAL**, covers buying used lamps, diagnosis, repair, competing orders, delivery, seller buyback and shift outcomes. Independent human playtests and balance validation remain T06.
+A Unity first-person business-simulation prototype. The current playable scenario, **FIRST DEAL**, covers buying used lamps, diagnosis, repair, competing orders, delivery, seller buyback and shift outcomes. One human run is recorded under T06; further player routes and balance validation remain.
 
 ## Setup and launch
 
@@ -56,11 +56,14 @@ Expected route totals below exclude walking/reading time; timed deliveries must 
 | A, faulty remainder sold back | $415 | +$115 |
 | A + B with repair (either order) | $455 | +$155 |
 | B + repeat B, faulty remainder sold back | $390 | +$90 |
+| B + repeat B, repaired remainder sold back | $365 | +$65 |
 | Miss both deadlines, sell all back without repair | $275 | -$25 |
 | Repair, miss both deadlines, sell all back | $250 | -$50 |
 | Buy lot, abandon with all lamps unsold | $120 | -$180, three lamps retained |
 
-Independent human playtesting and balance acceptance are still pending. Use the current `FirstDealTrade` scene in Play Mode, without verification scripts driving the session:
+One manual player run reported on 2026-10-19 reached the summary at 06:03 with B and repeat B completed, no lamps remaining and $365 cash ($300 + $295 revenue - $230 expenses). The player reported no confusing step. The ledger is visible in the supplied screenshot; exact physical actions and end-shift confirmation were not independently observed. Further player routes and balance acceptance remain pending. Use the current `FirstDealTrade` scene in Play Mode, without verification scripts driving the session:
+
+That screenshot exposed a repeated continuation sentence on the sold-out summary. The summary now keeps the sold-out next step once; the 2026-10-19 T05 rerun passed **87** checks, including the initial and sold-out summary text.
 
 1. Give a new player only the on-screen instructions. Record time to first purchase, successful test and sale; note every request for help, wrong destination and unclear refusal. Let them choose a route and finish/restart voluntarily.
 2. On fresh attempts, check A plus buyback, repaired A+B, B plus repeat and buyback, missed deadlines/fallback, and abandonment. Check the displayed cash/stock against the table. Test both a loose lamp and the carried crate; attempt an untested delivery, repeat payout and post-repair delivery before retesting.

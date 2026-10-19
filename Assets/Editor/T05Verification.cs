@@ -217,6 +217,8 @@ public static class T05Verification
                     Fits("intro with buyback terms fits");
                     Click("Shift summary"); Check(deal.MenuOpen && workshop.Session.IsPaused && !player.CanInteract, "summary pauses and locks world");
                     Check(Terms.text.Contains("$300") && Terms.text.Contains("Осталось фонарей: 0"), "initial summary excludes seller-owned stock");
+                    Check(FirstDealText.Summary(workshop.Session).Contains("Можно продолжить или явно отказаться"),
+                        "unbought introduction still explains abandonment choice");
                     Click("Finish shift"); Check(!workshop.Session.ShiftEnded && Terms.text.Contains("Завершить неудачную попытку?"), "no-sale finish asks explicit abandonment");
                     Fits("abandonment confirmation fits"); Click("Resume / leave without buying");
                     Check(!deal.MenuOpen && !workshop.Session.ShiftEnded && player.CanInteract, "cancel abandonment continues without blocking controls");
@@ -298,6 +300,9 @@ public static class T05Verification
                     Check(!GameObject.Find("Accept RepeatB").GetComponent<Button>().interactable &&
                         !GameObject.Find("Decline / cancel RepeatB").GetComponent<Button>().interactable &&
                         Terms.text.Contains("Пополнения партии нет") && Terms.text.Contains("Осталось фонарей: 0"), "board disables exhausted repeat and explains no replenishment");
+                    Check(FirstDealText.Summary(workshop.Session).Contains("Все фонари проданы") &&
+                        !FirstDealText.Summary(workshop.Session).Contains("Можно продолжить торговлю"),
+                        "exhausted summary shows one clear next step");
                     Check(deal.GetPrompt(FirstDealActionKind.DeliverRepeatB).Contains("Недостаточно товара") &&
                         GameObject.Find("Next action").GetComponent<Text>().text.Contains("Все фонари проданы"), "world prompt and guide explain exhausted stock");
                     Fits("exhausted board fits"); ScreenCapture.CaptureScreenshot("Logs/T06-exhausted-board.png");
