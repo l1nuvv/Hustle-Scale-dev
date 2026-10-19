@@ -82,6 +82,10 @@ V2 props, 2026-10-20: five original prefabs in `Assets/Prefabs/FirstDealProps/` 
 
 Unity 6000.6.0f1: **Tools > V2 > Verify Models and Trade** passed **110** checks including repeat application/GUIDs, carry scale, repair/retest and A+B at $455; the V1 physical-route verifier passed **72** checks after integration. Evidence: `Logs/Codex-V2-verification.log`, `Logs/Codex-V1-verification.log`, `Logs/V2-*.png`. See the roadmap for the limited before/after Editor render measurement. Owner art acceptance, independent player observation and Player performance remain pending; no Player build or archive was created.
 
+V3 lighting and surroundings, 2026-10-20: a roof and beams enclose the workshop, two warm task lights illuminate the work area, and daylight with soft sun shadows distinguishes the yard. Wall shelves, closed storage boxes and an edge drain add restrained detail without colliders. Five shared materials live in `Assets/Prefabs/FirstDealLighting/`. **Tools > V3 > Apply Light and Surroundings** reapplies the scene dressing and is included in T04.
+
+Unity 6000.6.0f1: **Tools > V3 > Verify Light and Surroundings** passed **46** checks; V1 routes passed **72**, and V2 models/trade passed **110** after integration. Four views were visually inspected. Evidence: `Logs/Codex-V3-verification.log`, `Logs/V3-*.png`, and the V1/V2 logs. The roadmap records a limited Editor render measurement; owner art acceptance, independent player observation and Player performance remain pending. No Player build or archive was created.
+
 ## Development
 
 - `AGENTS.md` - repository constraints and agent workflow.
