@@ -12,6 +12,8 @@ namespace Player
         private InputAction _sprint;
         private InputAction _interact;
         private InputAction _inventory;
+        private InputAction _light, _place, _stow;
+        private readonly InputAction[] _slots = new InputAction[4];
         private Vector2 _moveInput;
         private Vector2 _mouseInput;
         public ref Vector2 MoveInput => ref _moveInput;
@@ -20,6 +22,10 @@ namespace Player
         public bool MouseInputEnabled { get; set; } = true;
         public event Action OnInteract;
         public event Action OnToggleInventory;
+        public event Action OnToggleLight;
+        public event Action OnPlaceItem;
+        public event Action OnStowItem;
+        public event Action<int> OnSelectSlot;
 
         private void Awake()
         {
@@ -32,6 +38,11 @@ namespace Player
             _sprint = _actions.AddAction("Sprint", InputActionType.Button, "<Keyboard>/leftShift");
             _interact = _actions.AddAction("Interact", InputActionType.Button, "<Keyboard>/e");
             _inventory = _actions.AddAction("ToggleInventory", InputActionType.Button, "<Keyboard>/tab");
+            _light = _actions.AddAction("ToggleLight", InputActionType.Button, "<Keyboard>/f");
+            _place = _actions.AddAction("PlaceItem", InputActionType.Button, "<Keyboard>/q");
+            _stow = _actions.AddAction("StowItem", InputActionType.Button, "<Keyboard>/g");
+            for (var i = 0; i < _slots.Length; i++)
+                _slots[i] = _actions.AddAction("InventorySlot" + (i + 1), InputActionType.Button, "<Keyboard>/" + (i + 1));
         }
         private void OnEnable() => _actions.Enable();
         private void OnDisable()
@@ -51,6 +62,11 @@ namespace Player
                 ? Mouse.current.delta.ReadValue() : Vector2.zero;
             if (_inventory.WasPressedThisFrame()) OnToggleInventory?.Invoke();
             if (_interact.WasPressedThisFrame()) OnInteract?.Invoke();
+            if (_light.WasPressedThisFrame()) OnToggleLight?.Invoke();
+            if (_place.WasPressedThisFrame()) OnPlaceItem?.Invoke();
+            if (_stow.WasPressedThisFrame()) OnStowItem?.Invoke();
+            for (var i = 0; i < _slots.Length; i++)
+                if (_slots[i].WasPressedThisFrame()) OnSelectSlot?.Invoke(i);
         }
     }
 }

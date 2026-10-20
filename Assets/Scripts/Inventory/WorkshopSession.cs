@@ -69,6 +69,7 @@ namespace Inventory
             var unit = units[index];
             if (unit.Location == FlashlightLocation.Hands)
             {
+                unit.IsPowered = false;
                 unit.Location = FlashlightLocation.Crate;
                 return Complete("Lamp returned to the crate.", out message);
             }
@@ -100,6 +101,7 @@ namespace Inventory
             if (unit == null) return Reject("Place a lamp on the bench first.", out message);
             unit.IsTested = true;
             unit.LastTestPassed = unit.Condition == FlashlightCondition.Working;
+            unit.IsPowered = unit.LastTestPassed;
             return Complete(unit.KnownCondition, out message);
         }
 
@@ -130,6 +132,7 @@ namespace Inventory
             unit.Condition = FlashlightCondition.Working;
             unit.IsTested = false;
             unit.LastTestPassed = false;
+            unit.IsPowered = false;
             if (IsFirstDeal) AddElapsedSeconds(240);
             return Complete("Battery replaced. +04:00 game time. Run a new test.", out message);
         }

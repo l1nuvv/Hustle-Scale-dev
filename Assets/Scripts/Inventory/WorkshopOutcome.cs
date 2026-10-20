@@ -23,7 +23,8 @@ namespace Inventory
         }
 
         public static bool IsOwned(FlashlightUnit unit) => unit.Location == FlashlightLocation.Hands ||
-            unit.Location == FlashlightLocation.Crate || unit.Location == FlashlightLocation.Bench;
+            unit.Location == FlashlightLocation.Crate || unit.Location == FlashlightLocation.Bench ||
+            unit.Location == FlashlightLocation.Pocket || unit.Location == FlashlightLocation.World;
 
         // Exact physically presented identities are validated together before any transfer.
         public bool SellBack(IReadOnlyList<string> presentedIds, out string message)

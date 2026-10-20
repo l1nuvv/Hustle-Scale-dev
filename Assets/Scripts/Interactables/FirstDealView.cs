@@ -35,11 +35,13 @@ namespace Interactables
         private Button buybackButton;
         private readonly Button[] acceptButtons = new Button[3];
         private readonly Button[] declineButtons = new Button[3];
+        private WorkshopCarryController carry;
         public bool MenuOpen => menu.activeSelf;
         public bool OffersRead { get; private set; }
 
         private void Awake()
         {
+            carry = workshop.GetComponent<WorkshopCarryController>();
             // Reuse the existing serialized button groups without changing scene GUIDs.
             foreach (var button in sellerButtons.GetComponentsInChildren<Button>(true))
             {
@@ -133,6 +135,7 @@ namespace Interactables
 
         public void OpenMenu(bool seller, bool pauseOnly = false)
         {
+            carry?.HideInventory();
             if (workshop.Session.ShiftEnded) { OpenSummary(); return; }
             outcome = OutcomeScreen.None;
             menuMessage = "";
@@ -149,6 +152,7 @@ namespace Interactables
 
         public void CloseMenu()
         {
+            carry?.HideInventory();
             if (workshop.Session.ShiftEnded) { OpenSummary(); return; }
             outcome = OutcomeScreen.None;
             menu.SetActive(false);

@@ -9,6 +9,7 @@ namespace Interactables
         private Transform parent;
         private Vector3 rest, start;
         private Quaternion startRotation;
+        private Quaternion restRotation = Quaternion.identity;
         private float elapsed, duration, lift, turns;
         private bool initialized, hiding;
         public bool Active => duration > 0;
@@ -16,11 +17,15 @@ namespace Interactables
         public FirstDealMotion(Transform target) => this.target = target;
 
         public void Attach(Transform destination, Vector3 offset, bool animate)
+            => Attach(destination, offset, animate, Quaternion.identity);
+
+        public void Attach(Transform destination, Vector3 offset, bool animate, Quaternion rotation)
         {
-            if (initialized && parent == destination && rest == offset && !hiding) return;
+            if (initialized && parent == destination && rest == offset && restRotation == rotation && !hiding) return;
             var wasInitialized = initialized;
             parent = destination;
             rest = offset;
+            restRotation = rotation;
             initialized = true;
             hiding = false;
             target.SetParent(parent, wasInitialized && animate);
@@ -61,7 +66,7 @@ namespace Interactables
             var t = Mathf.Clamp01(elapsed / duration);
             var eased = t * t * (3 - 2 * t);
             target.localPosition = Vector3.Lerp(start, rest, eased) + Vector3.up * (Mathf.Sin(t * Mathf.PI) * lift);
-            target.localRotation = Quaternion.Slerp(startRotation, Quaternion.identity, eased) *
+            target.localRotation = Quaternion.Slerp(startRotation, restRotation, eased) *
                 Quaternion.Euler(0, 0, Mathf.Sin(t * Mathf.PI * 2 * turns) * 12 * (1 - t));
             if (t >= 1) Settle();
         }
@@ -71,7 +76,7 @@ namespace Interactables
             duration = 0;
             if (!initialized || target == null) return;
             target.localPosition = rest;
-            target.localRotation = Quaternion.identity;
+            target.localRotation = restRotation;
             if (hiding) target.gameObject.SetActive(false);
         }
     }

@@ -82,10 +82,16 @@ namespace Interactables
             }
             if (s.InHands != null)
             {
-                Show(s.InHands.IsTested ? "ВЕРНИ ФОНАРЬ В ЯЩИК" : "ПОСТАВЬ ФОНАРЬ НА СТОЛ",
-                s.InHands.IsTested ? "E на его кнопке у ящика. Проверенный исправный товар можно доставить в руках." :
-                "E на деревянной столешнице — поставить фонарь для проверки.", s.InHands.IsTested ? crate : bench); return;
+                Show(s.InHands.IsTested ? "ФОНАРЬ В РУКАХ" : "ПОСТАВЬ ФОНАРЬ НА СТОЛ",
+                s.InHands.IsTested ? "F — свет · Q — поставить · G — убрать. Для продажи возьми в руки или верни в ящик." :
+                "E на столе — поставить для диагностики. F — свет · Q — поставить в другом месте · G — убрать.", s.InHands.IsTested ? null : bench); return;
             }
+            foreach (var unit in s.Units)
+                if (unit.Location == FlashlightLocation.Pocket || unit.Location == FlashlightLocation.World)
+                {
+                    Show("ФОНАРИ МОЖНО ПЕРЕНОСИТЬ СВОБОДНО", "Tab — инвентарь · 1–3 — взять фонарь · E — подобрать с поверхности. Диагностика и ремонт — на столе.", bench);
+                    return;
+                }
             var working = 0;
             var unknown = 0;
             foreach (var unit in s.Units)
@@ -120,9 +126,9 @@ namespace Interactables
             foreach (var r in FindObjectsByType<Renderer>())
             {
                 Color color;
-                if (r.name.StartsWith("Readable.Blue")) color = new Color(0.08f, 0.4f, 0.85f);
-                else if (r.name.StartsWith("Readable.Green")) color = new Color(0.12f, 0.62f, 0.3f);
-                else if (r.name.StartsWith("Readable.Orange")) color = new Color(1, 0.38f, 0.05f);
+                if (r.name.StartsWith("Readable.Blue")) color = new Color(0.18f, 0.31f, 0.37f);
+                else if (r.name.StartsWith("Readable.Green")) color = new Color(0.23f, 0.34f, 0.25f);
+                else if (r.name.StartsWith("Readable.Orange")) color = new Color(0.55f, 0.31f, 0.17f);
                 else if (r.name.StartsWith("Readable.Wood")) color = new Color(0.4f, 0.23f, 0.1f);
                 else if (r.name.StartsWith("Readable.White")) color = new Color(1, 0.96f, 0.74f);
                 else if (r.name.StartsWith("Readable.Dark") || r.name == "Crate visual") color = new Color(0.08f, 0.1f, 0.12f);

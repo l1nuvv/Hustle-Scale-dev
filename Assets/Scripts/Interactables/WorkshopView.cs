@@ -28,12 +28,35 @@ namespace Interactables
         private FirstDealMotion crateMotion;
         private FirstDealMotion[] lampMotions;
         private bool[] soldLamps;
+        private Transform[] worldSlots;
+        private BoxCollider[] pickupColliders;
+        private Renderer[] lenses;
+        private MaterialPropertyBlock lensProperties;
         public WorkshopSession Session => session;
         public bool IsFirstDeal => firstDeal;
 
         private void Awake()
         {
+            lensProperties = new MaterialPropertyBlock();
             session = firstDeal ? WorkshopSession.CreateFirstDeal() : new WorkshopSession();
+            worldSlots = new Transform[lamps.Length];
+            pickupColliders = new BoxCollider[lamps.Length];
+            lenses = new Renderer[lamps.Length];
+            for (var i = 0; i < lamps.Length; i++)
+            {
+                worldSlots[i] = new GameObject("Placed lamp " + (i + 1)).transform;
+                worldSlots[i].SetParent(transform, false);
+                var pickup = lamps[i].gameObject.AddComponent<PlacedLampInteraction>();
+                pickup.Bind(this, i);
+                var scale = lamps[i].lossyScale;
+                var collider = lamps[i].gameObject.AddComponent<BoxCollider>();
+                collider.center = new Vector3(0, 0.04f / scale.y, 0);
+                collider.size = new Vector3(0.30f / scale.x, 0.48f / scale.y, 0.25f / scale.z);
+                collider.enabled = false;
+                pickupColliders[i] = collider;
+                var lens = lamps[i].Find("V2 Model/Ivory");
+                if (lens != null) lenses[i] = lens.GetComponent<Renderer>();
+            }
             if (firstDeal) audioFeedback = gameObject.AddComponent<FirstDealAudio>();
             if (firstDeal)
             {
@@ -46,6 +69,27 @@ namespace Interactables
 
         public void PlaySound(FirstDealSound sound, bool menuConfirmation = false) =>
             audioFeedback?.Play(sound, menuConfirmation);
+
+        public bool CanPlace(RaycastHit hit, out Vector3 position, out Quaternion rotation)
+        {
+            position = hit.point + Vector3.up * 0.205f;
+            rotation = Quaternion.Euler(0, hand.eulerAngles.y + 180, 0);
+            return hit.collider != null && !hit.collider.isTrigger && hit.normal.y >= 0.85f &&
+                hit.collider.GetComponentInParent<Player.Movement.PlayerController>() == null &&
+                !Physics.CheckBox(position + Vector3.up * 0.04f, new Vector3(0.155f, 0.24f, 0.135f),
+                    rotation, ~0, QueryTriggerInteraction.Ignore);
+        }
+
+        public void PlaceHeld(RaycastHit hit)
+        {
+            var held = session.InHands;
+            if (held == null) return;
+            if (!CanPlace(hit, out var position, out var rotation))
+            { ShowMessage("Нет места: нужна свободная горизонтальная поверхность."); return; }
+            worldSlots[IndexOf(held)].SetPositionAndRotation(position, rotation);
+            session.PlaceHeld(out var message);
+            ShowMessage(message);
+        }
         private void OnEnable()
         {
             session.Changed += Refresh;
@@ -188,6 +232,18 @@ namespace Interactables
             for (var i = 0; i < lamps.Length; i++)
             {
                 var unit = session.Units[i];
+                if (lenses[i] != null)
+                {
+                    lensProperties.SetColor("_EmissionColor", unit.IsPowered ? new Color(2, 1.8f, 1.3f) : Color.black);
+                    lenses[i].SetPropertyBlock(lensProperties);
+                }
+                pickupColliders[i].enabled = unit.Location == FlashlightLocation.World && isActiveAndEnabled;
+                if (unit.Location == FlashlightLocation.Pocket)
+                {
+                    indicators[i].enabled = false;
+                    lamps[i].gameObject.SetActive(false);
+                    continue;
+                }
                 var sold = unit.Location == FlashlightLocation.BuyerA || unit.Location == FlashlightLocation.BuyerB || unit.Location == FlashlightLocation.BoughtBack;
                 if (sold)
                 {
@@ -203,12 +259,15 @@ namespace Interactables
                     continue;
                 }
                 lamps[i].gameObject.SetActive(true);
-                var parent = unit.Location == FlashlightLocation.Crate || unit.Location == FlashlightLocation.Seller ? storageSlots[i] :
+                var parent = unit.Location == FlashlightLocation.World ? worldSlots[i] :
+                    unit.Location == FlashlightLocation.Crate || unit.Location == FlashlightLocation.Seller ? storageSlots[i] :
                     unit.Location == FlashlightLocation.Bench ? bench : hand;
                 var offset = unit.Location == FlashlightLocation.Hands ? new Vector3(0.35f, -0.4f, 0.65f) : Vector3.zero;
-                if (firstDeal) lampMotions[i].Attach(parent, offset, isActiveAndEnabled);
+                if (firstDeal) lampMotions[i].Attach(parent, offset, isActiveAndEnabled && unit.Location != FlashlightLocation.World,
+                    unit.Location == FlashlightLocation.Hands ? Quaternion.Euler(0, 180, 0) : Quaternion.identity);
                 else Attach(lamps[i], parent, offset);
-                if (feedback == null || i != blinkIndex) indicators[i].enabled = unit.IsTested && unit.LastTestPassed;
+                if (feedback == null || i != blinkIndex) indicators[i].enabled = unit.IsPowered &&
+                    unit.Location != FlashlightLocation.Crate && unit.Location != FlashlightLocation.Seller;
             }
             if (session.ShiftEnded) SettleMotions();
             if (status == null) return;

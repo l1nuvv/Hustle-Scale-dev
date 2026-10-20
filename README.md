@@ -7,7 +7,7 @@ A Unity first-person business-simulation prototype. The current playable scenari
 - Open the project with **Unity 6000.6.0f1**, as recorded in `ProjectSettings/ProjectVersion.txt`. JetBrains Rider is the primary C# IDE.
 - Fetch required Git LFS objects before editing. Dependency versions are recorded in `Packages/manifest.json` and `Packages/packages-lock.json`; routine setup must not upgrade the Editor or packages.
 - Open `Assets/Scenes/FirstDealTrade.unity` and enter Play Mode. This is the enabled global build scene. Window defaults are 1600 x 900, windowed and resizable.
-- Controls: WASD, mouse, Left Shift to sprint, E to interact, Escape for pause/cursor release. Use arrows and Enter in dialogs. Introduction and offer dialogs pause time.
+- Controls: WASD, mouse, Left Shift to sprint, E to interact/pick up, Escape for pause/cursor release. Tab opens the four-slot inventory (three lamps and spare batteries); 1–3 equip/stow a carried lamp, F switches its light, G stows it, and Q places it on a clear horizontal surface within 2.5 m. Use arrows and Enter in dialogs. Inventory, introduction and offer dialogs pause time. Orders still require tested goods physically presented in hands or the carried crate.
 - Existing standalone executables require a separate rebuild to include current source changes. Clean-clone/player-build reproducibility has not been verified.
 
 ## FIRST DEAL

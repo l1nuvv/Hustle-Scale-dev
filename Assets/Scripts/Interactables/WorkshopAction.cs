@@ -9,6 +9,7 @@ namespace Interactables
         [SerializeField] private WorkshopView workshop;
         [SerializeField] private WorkshopActionKind action;
         [SerializeField] private int unitIndex;
+        public WorkshopActionKind Kind => action;
 
         public string Prompt => workshop.GetPrompt(action, unitIndex);
         public void Interact() => workshop.Perform(action, unitIndex);
