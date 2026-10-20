@@ -10,7 +10,7 @@ namespace Inventory
         public bool ShiftEnded { get; private set; }
         public bool HasPrimarySale => Order(DealOrderId.A).State == DealOrderState.Completed ||
             Order(DealOrderId.B).State == DealOrderState.Completed;
-        public bool BuybackAvailable => IsFirstDeal && !ShiftEnded && (HasPrimarySale || ElapsedSeconds >= 1080);
+        public bool BuybackAvailable => !ShiftEnded && (IsCity ? LotPurchased : IsFirstDeal && (HasPrimarySale || ElapsedSeconds >= 1080));
         public bool ContactBOpened => Order(DealOrderId.B).State == DealOrderState.Completed;
         public int OwnedLampCount
         {

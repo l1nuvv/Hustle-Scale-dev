@@ -11,7 +11,7 @@ namespace Inventory
         public DealOrderId Id { get; }
         public int Quantity { get; }
         public int Payment { get; }
-        public int DeadlineSeconds { get; }
+        public double DeadlineSeconds { get; internal set; }
         public DealOrderState State { get; internal set; }
 
         internal DealOrder(DealOrderId id, int quantity, int payment, int deadline, DealOrderState state)
@@ -30,6 +30,8 @@ namespace Inventory
         };
 
         public bool IsFirstDeal { get; }
+        public bool IsCity { get; private set; }
+        private bool HasTrading => IsFirstDeal || IsCity;
         public bool LotPurchased { get; private set; }
         public bool HasTransportedCrate { get; private set; }
         public bool ShiftStarted { get; private set; }
@@ -47,7 +49,7 @@ namespace Inventory
         // Afterwards ownership only decreases; an exhausted offer cannot become feasible again.
         private void UpdateStockAvailability()
         {
-            if (!IsFirstDeal || !LotPurchased) return;
+            if (!HasTrading || !LotPurchased) return;
             foreach (var order in orders)
                 if ((order.State == DealOrderState.Available || order.State == DealOrderState.Accepted) &&
                     OwnedLampCount < order.Quantity) order.State = DealOrderState.Unavailable;
@@ -75,7 +77,7 @@ namespace Inventory
         {
             if (ShiftEnded) return Reject("Смена завершена. Начни заново для новой попытки.", out message);
             if (IsPaused) return Reject("Close the menu first.", out message);
-            if (IsFirstDeal && !LotPurchased) return Reject("Buy the seller's lot first: three lamps for $180.", out message);
+            if (HasTrading && !LotPurchased) return Reject("Buy the seller's lot first: three lamps for $180.", out message);
             message = "";
             return true;
         }
@@ -83,7 +85,7 @@ namespace Inventory
         public bool PurchaseLot(out string message)
         {
             if (ShiftEnded) return Reject("Смена завершена. Начни заново для новой попытки.", out message);
-            if (!IsFirstDeal) return Reject("The workshop fixture already owns its lamps.", out message);
+            if (!HasTrading) return Reject("The workshop fixture already owns its lamps.", out message);
             if (IsPaused) return Reject("Close the menu first.", out message);
             if (LotPurchased) return Reject("This single lot has already been purchased.", out message);
             if (Balance < 180) return Reject("Not enough money: the lot costs $180.", out message);
@@ -113,7 +115,7 @@ namespace Inventory
         {
             if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0)
                 throw new ArgumentOutOfRangeException(nameof(seconds));
-            if (!IsFirstDeal || !ShiftStarted || IsPaused || ShiftEnded || seconds == 0) return;
+            if (!HasTrading || !ShiftStarted || IsPaused || ShiftEnded || seconds == 0) return;
             var before = Math.Floor(ElapsedSeconds);
             AddElapsedSeconds(seconds);
             if (Math.Floor(ElapsedSeconds) != before) Changed?.Invoke();
@@ -125,7 +127,7 @@ namespace Inventory
             foreach (var order in orders)
             {
                 if (ElapsedSeconds < order.DeadlineSeconds) continue;
-                if (order.State == DealOrderState.Available) order.State = DealOrderState.Expired;
+                if (!IsCity && order.State == DealOrderState.Available) order.State = DealOrderState.Expired;
                 else if (order.State == DealOrderState.Accepted) order.State = DealOrderState.Failed;
             }
         }
@@ -134,8 +136,9 @@ namespace Inventory
         {
             var order = Order(id);
             if (order.State == DealOrderState.Unavailable) return Reject(OrderUnavailableReason(id), out message);
-            if (!IsFirstDeal || ShiftEnded || order.State != DealOrderState.Available)
+            if (!HasTrading || ShiftEnded || (IsCity && IsPaused) || order.State != DealOrderState.Available)
                 return Reject("This offer is not available.", out message);
+            if (IsCity) order.DeadlineSeconds = ElapsedSeconds + (id == DealOrderId.A ? 540 : 1080);
             if (ElapsedSeconds >= order.DeadlineSeconds) return Reject("The deadline has passed.", out message);
             order.State = DealOrderState.Accepted;
             return Complete("Accepted " + id + ". Deliver tested working lamps before the fixed deadline.", out message);
@@ -144,7 +147,7 @@ namespace Inventory
         public bool CloseOrder(DealOrderId id, out string message)
         {
             var order = Order(id);
-            if (!IsFirstDeal || ShiftEnded || (order.State != DealOrderState.Available && order.State != DealOrderState.Accepted))
+            if (!HasTrading || ShiftEnded || (IsCity && IsPaused) || (order.State != DealOrderState.Available && order.State != DealOrderState.Accepted))
                 return Reject("This order is already closed or locked.", out message);
             order.State = order.State == DealOrderState.Accepted ? DealOrderState.Cancelled : DealOrderState.Declined;
             return Complete("Order " + id + ": " + order.State + ". No money or items changed.", out message);
@@ -180,7 +183,7 @@ namespace Inventory
             Balance += order.Payment;
             Revenue += order.Payment;
             order.State = DealOrderState.Completed;
-            if (id == DealOrderId.B) orders[2].State = DealOrderState.Available;
+            if (id == DealOrderId.B && !IsCity) orders[2].State = DealOrderState.Available;
             UpdateStockAvailability();
             return Complete("Delivered " + id + ": +$" + order.Payment + ". " +
                 (id == DealOrderId.B && CanPursueOrder(DealOrderId.RepeatB) ? "One repeat B offer is now available until 18:00." : "Stock and balance updated."), out message);

@@ -19,6 +19,7 @@ namespace Inventory
         public int SpareBatteries { get; private set; }
         public int RepairSeconds { get; private set; }
         public event Action Changed;
+        public event Action TransactionCompleted;
         public FlashlightUnit InHands => Find(FlashlightLocation.Hands);
         public FlashlightUnit OnBench => Find(FlashlightLocation.Bench);
 
@@ -42,6 +43,7 @@ namespace Inventory
         {
             message = text;
             Changed?.Invoke();
+            TransactionCompleted?.Invoke();
             return true;
         }
 
@@ -133,7 +135,7 @@ namespace Inventory
             unit.IsTested = false;
             unit.LastTestPassed = false;
             unit.IsPowered = false;
-            if (IsFirstDeal) AddElapsedSeconds(240);
+            if (HasTrading) AddElapsedSeconds(240);
             return Complete("Battery replaced. +04:00 game time. Run a new test.", out message);
         }
     }

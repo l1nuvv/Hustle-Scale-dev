@@ -17,8 +17,9 @@ namespace Inventory
         public string KnownCondition => !IsTested ? "Not tested" :
             LastTestPassed ? "Tested: working" : "Tested: battery fault";
 
-        internal FlashlightUnit(FlashlightCondition condition)
+        internal FlashlightUnit(FlashlightCondition condition, string instanceId = null)
         {
+            if (instanceId != null) InstanceId = instanceId;
             Condition = condition;
             Location = FlashlightLocation.Crate;
         }

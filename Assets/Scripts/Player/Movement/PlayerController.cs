@@ -25,6 +25,18 @@ namespace Player.Movement
         private float _pitch;
         private float _verticalSpeed;
         public bool CanInteract => _movementEnabled && _cameraControlEnabled && _cursorLocked;
+        public float CameraPitch => _pitch;
+
+        public void RestorePose(Vector3 position, float yaw, float pitch)
+        {
+            var wasEnabled = _body.enabled;
+            _body.enabled = false;
+            transform.SetPositionAndRotation(position, Quaternion.Euler(0, yaw, 0));
+            _pitch = Mathf.Clamp(pitch, -85, 85);
+            _verticalSpeed = 0;
+            _body.enabled = wasEnabled;
+            LateUpdate();
+        }
 
         private void Awake()
         {
