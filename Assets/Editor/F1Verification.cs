@@ -14,6 +14,8 @@ using UnityEngine.SceneManagement;
 public static class F1Verification
 {
     private const string Key = "F1.verify";
+    private const string ReloadProbeKey = Key + ".ReloadProbe";
+    private const string ReloadPendingKey = Key + ".ReloadPending";
     private const string LogPath = "Logs/Codex-F1-verification.log";
     private static IEnumerator steps;
     private static int checks, frame;
@@ -25,18 +27,35 @@ public static class F1Verification
     private static AudioSource world, confirmations, ambience;
     private static WorkshopSession session;
     private static bool expectedPause;
+    private static bool reloadLocked;
 
-    static F1Verification() => EditorApplication.playModeStateChanged += StateChanged;
+    static F1Verification()
+    {
+        EditorApplication.playModeStateChanged += StateChanged;
+        if (!SessionState.GetBool(ReloadPendingKey, false)) return;
+        SessionState.EraseBool(ReloadPendingKey);
+        File.AppendAllText(LogPath, "F1 RELOAD OBSERVED: playing=" + EditorApplication.isPlaying + "\n");
+    }
 
     [MenuItem("Tools/F1/Verify Audio and Pause")]
-    public static void Run()
+    public static void Run() => Run(false);
+
+    [MenuItem("Tools/F1/Verify Audio and Pause During Script Reload")]
+    public static void RunReloadProbe() => Run(true);
+
+    private static void Run(bool reloadProbe)
     {
+        // A tool may retry its launch request while the Play Mode transition hides the response.
+        if (SessionState.GetBool(Key, false) && EditorApplication.isPlayingOrWillChangePlaymode) return;
         if (EditorApplication.isPlayingOrWillChangePlaymode || SceneManager.GetActiveScene().isDirty)
             throw new InvalidOperationException("Stop Play Mode and save the scene first.");
+        if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            throw new InvalidOperationException("Wait for Unity compilation and asset import to finish first.");
         EditorSceneManager.OpenScene(FirstDealTradeBuilder.ScenePath);
         Directory.CreateDirectory("Logs");
         File.WriteAllText(LogPath, "F1 Unity " + Application.unityVersion + " UTC " + DateTime.UtcNow.ToString("O") + "\n");
         SessionState.SetBool(Key, true);
+        SessionState.SetBool(ReloadProbeKey, reloadProbe);
         EditorApplication.isPlaying = true;
     }
 
@@ -45,6 +64,10 @@ public static class F1Verification
         if (!SessionState.GetBool(Key, false)) return;
         if (state == PlayModeStateChange.EnteredPlayMode)
         {
+            // The fixture and its plain C# session cannot survive a domain reload mid-run.
+            // Apply pending scripts only after Play Mode has completely stopped.
+            EditorApplication.LockReloadAssemblies();
+            reloadLocked = true;
             checks = 0; frame = -1; failed = completed = false;
             previousBackground = Application.runInBackground;
             Application.runInBackground = true;
@@ -64,10 +87,22 @@ public static class F1Verification
         }
         if (state == PlayModeStateChange.EnteredEditMode)
         {
-            SessionState.SetBool(Key, false);
-            var result = "F1 RESULT " + (completed && !failed ? "PASS" : "FAIL") + ": " + checks + " assertions";
-            File.AppendAllText(LogPath, result + "\n");
-            Debug.Log(result);
+            try
+            {
+                SessionState.SetBool(Key, false);
+                SessionState.EraseBool(ReloadProbeKey);
+                var result = "F1 RESULT " + (completed && !failed ? "PASS" : "FAIL") + ": " + checks + " assertions";
+                File.AppendAllText(LogPath, result + "\n");
+                Debug.Log(result);
+            }
+            finally
+            {
+                if (reloadLocked)
+                {
+                    reloadLocked = false;
+                    EditorApplication.UnlockReloadAssemblies();
+                }
+            }
         }
     }
 
@@ -126,6 +161,14 @@ public static class F1Verification
         deal = UnityEngine.Object.FindAnyObjectByType<FirstDealView>();
         audio = workshop.GetComponent<FirstDealAudio>();
         session = workshop.Session;
+        if (SessionState.GetBool(ReloadProbeKey, false))
+        {
+            File.AppendAllText(LogPath, "F1 REQUEST RELOAD: live session=" + (session != null) + "\n");
+            SessionState.SetBool(ReloadPendingKey, true);
+            EditorUtility.RequestScriptReload();
+            yield return null;
+            Check(ReferenceEquals(session, workshop.Session), "reload request retains shared session throughout test");
+        }
         Check(audio != null && UnityEngine.Object.FindObjectsByType<FirstDealAudio>().Length == 1, "one runtime audio component");
         Check(UnityEngine.Object.FindObjectsByType<AudioListener>().Count(l => l.isActiveAndEnabled) == 1, "one active listener");
         world = workshop.transform.Find("F1 Audio - Actions").GetComponent<AudioSource>();

@@ -1,0 +1,29 @@
+[Licensing::Client] Successfully resolved entitlement details
+[ScriptCompilation] Requested script compilation because: AssetDatabase observed changes in script compilation related files
+Refreshing native plugins compatible for Editor in 2.11 ms, found 4 plugins.
+Asset Pipeline Refresh (id=3f54bcbd3741eec4e910e6971dad22f6): Total: 0.113 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Starting: C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Data\Tools\BuildPipeline\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: E:/Code/Hustle_Scale/Hustle-Scale_dev
+ExitCode: 0 Duration: 0s325ms
+[ 854/1101  0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+*** Tundra build success (0.29 seconds), 1 items updated, 1101 evaluated
+Reloading assemblies after finishing script compilation.
+Reloading assemblies after forced synchronous recompile.
+Begin MonoManager ReloadAssembly
+Refreshing native plugins compatible for Editor in 2.25 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+Start HTTP server: port:7800
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+NullReferenceException: Object reference not set to an instance of an object
+  at Interactables.FirstDealAudio.OnEnable () [0x00000] in E:\Code\Hustle_Scale\Hustle-Scale_dev\Assets\Scripts\Interactables\FirstDealAudio.cs:52
+UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+
+(Filename: Assets/Scripts/Interactables/FirstDealAudio.cs Line: 52)
+
+NullReferenceException: Object reference not set to an instance of an object
+  at Interactables.WorkshopView.OnEnable () [0x00000] in E:\Code\Hustle_Scale\Hustle-Scale_dev\Assets\Scripts\Interactables\WorkshopView.cs:95
+UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+
+(Filename: Assets/Scripts/Interactables/WorkshopView.cs Line: 95)

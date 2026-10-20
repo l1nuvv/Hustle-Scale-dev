@@ -1,0 +1,23 @@
+F1 Unity 6000.6.0f1 UTC 2026-10-20T19:11:04.8658553Z
+ERROR InvalidOperationException: Stop Play Mode and save the scene first.
+F1Verification.Run (System.Boolean reloadProbe) (at Assets/Editor/F1Verification.cs:55)
+F1Verification.RunReloadProbe () (at Assets/Editor/F1Verification.cs:43)
+UnityEditor.EditorApplication:ExecuteMenuItem(String)
+MCPForUnity.Editor.Tools.ExecuteMenuItem:HandleCommand(JObject) (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Tools/ExecuteMenuItem.cs:38)
+MCPForUnity.Editor.Tools.CommandRegistry:ExecuteCommand(String, JObject, TaskCompletionSource`1) (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Tools/CommandRegistry.cs:305)
+MCPForUnity.Editor.Services.Transport.TransportCommandDispatcher:ProcessCommand(String, PendingCommand) (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Services/Transport/TransportCommandDispatcher.cs:366)
+MCPForUnity.Editor.Services.Transport.TransportCommandDispatcher:ProcessQueue() (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Services/Transport/TransportCommandDispatcher.cs:262)
+MCPForUnity.Editor.Services.Transport.TransportCommandDispatcher:<RequestMainThreadPump>g__Pump|11_0() (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Services/Transport/TransportCommandDispatcher.cs:184)
+MCPForUnity.Editor.Services.Transport.TransportCommandDispatcher:RequestMainThreadPump() (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Services/Transport/TransportCommandDispatcher.cs:193)
+MCPForUnity.Editor.Services.Transport.TransportCommandDispatcher:ExecuteCommandJsonAsync(String, CancellationToken) (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Services/Transport/TransportCommandDispatcher.cs:116)
+MCPForUnity.Editor.Services.Transport.Transports.<<ExecuteQueuedCommand>g__Runner|0>d:MoveNext() (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Services/Transport/Transports/StdioBridgeHost.cs:937)
+System.Runtime.CompilerServices.AsyncVoidMethodBuilder:Start(<<ExecuteQueuedCommand>g__Runner|0>d&)
+MCPForUnity.Editor.Services.Transport.Transports.<>c__DisplayClass53_0:<ExecuteQueuedCommand>g__Runner|0()
+MCPForUnity.Editor.Services.Transport.Transports.StdioBridgeHost:ExecuteQueuedCommand(String, String, TaskCompletionSource`1) (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Services/Transport/Transports/StdioBridgeHost.cs:971)
+MCPForUnity.Editor.Services.Transport.Transports.StdioBridgeHost:ProcessCommands() (at ./Library/PackageCache/com.coplaydev.unity-mcp@7b7db7b31f4e/Editor/Services/Transport/Transports/StdioBridgeHost.cs:921)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions()
+
+PASS frame timeout guard
+F1 REQUEST RELOAD: live session=True
+F1 RELOAD OBSERVED: playing=True
+F1 RESULT FAIL: 0 assertions

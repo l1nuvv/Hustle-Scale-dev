@@ -1,0 +1,84 @@
+F1 Unity 6000.6.0f1 UTC 2026-10-20T19:14:59.0371756Z
+PASS frame timeout guard
+PASS one runtime audio component
+PASS one active listener
+PASS initial menu pauses ambience
+PASS frame timeout guard
+PASS quiet looping location bed resumes
+PASS frame timeout guard
+PASS Unity audio channel produces non-zero output
+PASS ambience contains signal
+PASS ambience loop boundary continuous
+PASS playing Purchase
+PASS purchase keeps ledger correct
+PASS frame timeout guard
+PASS playing Warning
+PASS duplicate purchase rejected without spending
+PASS frame timeout guard
+PASS playing Purchase
+PASS battery purchase confirmed
+PASS prepare faulty lamp in hands
+PASS playing Contact
+PASS frame timeout guard
+PASS playing TestFailed
+PASS faulty test stays faulty
+PASS frame timeout guard
+PASS playing Repair
+PASS repair consumes once and requires retest
+PASS frame timeout guard
+PASS playing TestPassed
+PASS menu pauses world audio
+PASS frame timeout guard
+PASS paused audio cursors do not advance
+PASS resume continues paused voices
+PASS frame timeout guard
+PASS take tested repaired lamp
+PASS playing Sale
+PASS delivery pays once
+PASS frame timeout guard
+PASS playing Warning
+PASS repeated delivery warns without payout
+PASS frame timeout guard
+PASS prepare buyback lamp
+PASS playing Sale
+PASS buyback confirms in paused seller screen
+PASS frame timeout guard
+PASS frame timeout guard
+PASS frame timeout guard
+PASS frame timeout guard
+PASS frame timeout guard
+PASS playing Warning
+PASS frame timeout guard
+PASS clock refresh does not restart expiry warning
+PASS focus loss silences all channels
+PASS focus regain resumes location bed
+PASS frame timeout guard
+PASS playing Purchase
+PASS Purchase finite non-silent PCM without clipping
+PASS Purchase distinct waveform
+PASS frame timeout guard
+PASS playing Contact
+PASS Contact finite non-silent PCM without clipping
+PASS Contact distinct waveform
+PASS frame timeout guard
+PASS playing TestPassed
+PASS TestPassed finite non-silent PCM without clipping
+PASS TestPassed distinct waveform
+PASS frame timeout guard
+PASS playing TestFailed
+PASS TestFailed finite non-silent PCM without clipping
+PASS TestFailed distinct waveform
+PASS frame timeout guard
+PASS playing Repair
+PASS Repair finite non-silent PCM without clipping
+PASS Repair distinct waveform
+PASS frame timeout guard
+PASS playing Sale
+PASS Sale finite non-silent PCM without clipping
+PASS Sale distinct waveform
+PASS frame timeout guard
+PASS playing Warning
+PASS Warning finite non-silent PCM without clipping
+PASS Warning distinct waveform
+PASS shift end silences audio
+F1 RESULT PASS: 82 assertions
