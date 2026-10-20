@@ -158,7 +158,8 @@ namespace Interactables
 
         private IEnumerator ClearMessage()
         {
-            yield return new WaitForSecondsRealtime(8f);
+            // Keep the result readable when menus or focus loss pause the world.
+            yield return WaitForFeedbackTime(8f);
             feedbackLabel.text = "";
             messageExpiry = null;
         }
