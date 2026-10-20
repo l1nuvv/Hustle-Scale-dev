@@ -6,7 +6,7 @@ namespace Interactables
     // Bounded E5 presentation; it never writes to the trading model.
     public sealed partial class CityTradeView
     {
-        private CityTradeReaction sellerReaction, buyerReaction;
+        private CityTradeReaction sellerReaction, buyerReaction, buyerBReaction;
         private AudioSource feedbackAudio;
         private AudioClip actionTone, successTone, refusalTone;
 
@@ -72,6 +72,7 @@ namespace Interactables
         {
             sellerReaction = Character("Продавец", new Vector3(89.1f, 0.08f, -37.75f), 180);
             buyerReaction = Character("Покупатель A", new Vector3(-26, 0.08f, 10.3f), 0);
+            buyerBReaction = Character("Покупатель Б", new Vector3(-4, 0.08f, 10.3f), 0);
             feedbackAudio = root.gameObject.AddComponent<AudioSource>();
             feedbackAudio.playOnAwake = false; feedbackAudio.spatialBlend = 0; feedbackAudio.volume = 0.12f;
             feedbackAudio.ignoreListenerPause = true;
@@ -107,7 +108,8 @@ namespace Interactables
             if (feedbackAudio != null)
                 feedbackAudio.PlayOneShot(!success ? refusalTone : command == "test" || command == "repair" || command == "deliver" || command == "purchase" ? successTone : actionTone);
             if (current == null) return;
-            var reaction = current.Kind == CityTradeKind.Seller ? sellerReaction : current.Kind == CityTradeKind.A ? buyerReaction : null;
+            var reaction = current.Kind == CityTradeKind.Seller ? sellerReaction :
+                current.Kind == CityTradeKind.A ? buyerReaction : current.Kind == CityTradeKind.B ? buyerBReaction : null;
             if (reaction != null) reaction.React(success);
         }
 

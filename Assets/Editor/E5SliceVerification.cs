@@ -77,7 +77,7 @@ public static partial class S3Verification
         foreach (var point in trade.Points.Where(p => p.Kind != CityTradeKind.Cargo))
             Check(ReferenceEquals(point.Prompt, point.Prompt), "static interaction prompt is reused");
         var actors = UnityEngine.Object.FindObjectsByType<CityTradeReaction>(FindObjectsSortMode.None);
-        Check(actors.Length == 2, "only necessary seller and A character set");
+        Check(actors.Length == 3, "seller and both order buyers are present");
         var sceneRoot = GameObject.Find("CityGreybox - generated");
         var oldDirection = sceneRoot.GetComponentsInChildren<MeshRenderer>(true).Single(r => r.name == "Local board | < BASE MARKET >");
         Check(!oldDirection.gameObject.activeInHierarchy, "old orange backing is disabled, not only its lettering");
