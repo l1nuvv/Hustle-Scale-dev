@@ -13,6 +13,7 @@ namespace Player
         private bool _paused;
         private bool _confirmNewGame;
         private CitySaveController _save;
+        private Interactables.CityTradeView _trade;
         public bool IsPaused => _paused;
         private static readonly string[] Headings = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
 
@@ -21,6 +22,7 @@ namespace Player
             _player = GetComponent<PlayerController>();
             _save = GetComponent<CitySaveController>();
             if (_save == null) _save = gameObject.AddComponent<CitySaveController>();
+            _trade = gameObject.AddComponent<Interactables.CityTradeView>();
         }
 
         private void Update()
@@ -29,6 +31,7 @@ namespace Player
             if (keyboard == null) return;
             if (keyboard.escapeKey.wasPressedThisFrame)
             {
+                if (_trade.MenuOpen) { _trade.CloseMenu(); return; }
                 if (_confirmNewGame) _confirmNewGame = false;
                 else SetPaused(!_paused);
                 return;
@@ -64,6 +67,7 @@ namespace Player
 
         private void OnGUI()
         {
+            if (_trade.MenuOpen) return;
             var p = transform.position;
             var district = p.z >= 96 ? (p.x < 0 ? "RESIDENTIAL" : "WAREHOUSES") :
                 p.z <= -96 ? (p.x < 0 ? "GARAGES" : "PARK / OUTSKIRTS") : "MARKET";
@@ -71,7 +75,7 @@ namespace Player
             var baseDistance = Vector2.Distance(new Vector2(p.x, p.z), new Vector2(-65, 30));
             GUI.Box(new Rect(12, 12, 460, 110), "CITY GREYBOX | " + district +
                 "\nWASD / Mouse / Shift | Esc: pause / resume" +
-                "\nTrade signs are placeholders. No active deals." +
+                "\nTrade: market seller, A/B counters, batteries, buyback." +
                 "\nX " + p.x.ToString("F0") + "   Z " + p.z.ToString("F0") + "   North = +Z" +
                 "\nFacing " + heading + " | BASE " + baseDistance.ToString("F0") + "m straight line");
             if (!_paused) return;

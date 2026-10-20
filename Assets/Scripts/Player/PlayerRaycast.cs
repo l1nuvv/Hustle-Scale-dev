@@ -17,6 +17,7 @@ namespace Player
         private PlayerInput _input;
         private PlayerController _controller;
         public string FocusLabel { get; private set; } = "";
+        public void Configure(Camera source, LayerMask mask) { camera = source; layerMask = mask; }
 
         private void Awake()
         {

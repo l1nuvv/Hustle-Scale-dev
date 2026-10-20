@@ -17,6 +17,8 @@ namespace Player
         private CitySaveStore store;
         private bool dirty, loading;
         public WorkshopSession Session { get; private set; }
+        public event Action SessionReplaced;
+        public event Action BeforeSave;
         public CityWorldData World { get; private set; }
         public string Message { get; private set; } = "";
         public bool HasBackup => store != null && store.BackupExists;
@@ -67,6 +69,7 @@ namespace Player
             World = world;
             Session.TransactionCompleted += RequestSave;
             dirty = false;
+            SessionReplaced?.Invoke();
         }
 
         public void NewGame()
@@ -90,6 +93,7 @@ namespace Player
             dirty = false;
             if (loading || Session == null) return false;
             if (IsDriving) { Message = "Сначала выйди из автомобиля для сохранения."; return false; }
+            BeforeSave?.Invoke();
             World.PlayerPosition = transform.position;
             World.PlayerYaw = transform.eulerAngles.y;
             World.CameraPitch = player.CameraPitch;
