@@ -69,7 +69,7 @@ namespace Interactables
         public void Settle()
         {
             duration = 0;
-            if (!initialized) return;
+            if (!initialized || target == null) return;
             target.localPosition = rest;
             target.localRotation = Quaternion.identity;
             if (hiding) target.gameObject.SetActive(false);

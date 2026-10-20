@@ -243,6 +243,11 @@ public static class F2Verification
         yield return null;
         Check(session.ShiftEnded && session.Balance == 455 && crate.localPosition == Vector3.zero,
             "shift end settles motion without extra mutations");
+        // Scene unload may destroy a child visual before WorkshopView.OnDisable runs.
+        UnityEngine.Object.DestroyImmediate(lamps[0].gameObject);
+        workshop.enabled = false;
+        yield return null;
+        Check(!workshop.enabled, "disable tolerates an already destroyed visual");
     }
 
     private static void Capture(string name, Vector3 target)

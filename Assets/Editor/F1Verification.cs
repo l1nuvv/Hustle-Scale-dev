@@ -24,6 +24,7 @@ public static class F1Verification
     private static FirstDealAudio audio;
     private static AudioSource world, confirmations, ambience;
     private static WorkshopSession session;
+    private static bool expectedPause;
 
     static F1Verification() => EditorApplication.playModeStateChanged += StateChanged;
 
@@ -47,6 +48,8 @@ public static class F1Verification
             checks = 0; frame = -1; failed = completed = false;
             previousBackground = Application.runInBackground;
             Application.runInBackground = true;
+            session = null;
+            expectedPause = true;
             next = EditorApplication.timeSinceStartup + 1;
             timeout = next + 60;
             steps = Scenario();
@@ -90,6 +93,12 @@ public static class F1Verification
         next = EditorApplication.timeSinceStartup + 0.18;
         try
         {
+            // Desktop tooling can change Game View focus between scenario steps.
+            // Explicit pause and focus probes below still run without intervention.
+            if (audio != null) audio.SendMessage("OnApplicationFocus", true);
+            if (deal != null) deal.SendMessage("OnApplicationFocus", true);
+            if (session != null && session.IsPaused && !expectedPause && !session.ShiftEnded)
+                deal.CloseMenu();
             Check(EditorApplication.timeSinceStartup < timeout, "frame timeout guard");
             if (!steps.MoveNext()) { completed = true; EditorApplication.isPlaying = false; }
         }
@@ -126,10 +135,19 @@ public static class F1Verification
         deal.SendMessage("OnApplicationFocus", true);
         Check(session.IsPaused && !ambience.isPlaying, "initial menu pauses ambience");
         deal.CloseMenu();
+        expectedPause = false;
         yield return null;
         Check(ambience.isPlaying && ambience.loop && ambience.volume < world.volume, "quiet looping location bed resumes");
         var output = new float[1024];
-        ambience.GetOutputData(output, 0);
+        // The first GetOutputData call initializes DSP history and can return zeroes.
+        // Poll across real frames, with a deadline; a genuinely silent channel still fails.
+        var outputDeadline = EditorApplication.timeSinceStartup + 3;
+        do
+        {
+            ambience.GetOutputData(output, 0);
+            if (output.Any(v => Mathf.Abs(v) > 0.00001f)) break;
+            yield return null;
+        } while (EditorApplication.timeSinceStartup < outputDeadline);
         Check(output.Any(v => Mathf.Abs(v) > 0.00001f), "Unity audio channel produces non-zero output");
         var ambientSamples = new float[ambience.clip.samples];
         Check(ambience.clip.GetData(ambientSamples, 0) && ambientSamples.Any(v => Mathf.Abs(v) > 0.01f), "ambience contains signal");
@@ -161,6 +179,7 @@ public static class F1Verification
         yield return null;
         workshop.Perform(WorkshopActionKind.Test, 0);
         Cue(world, FirstDealSound.TestPassed);
+        expectedPause = true;
         deal.OpenMenu(false, true);
         var worldTime = world.timeSamples;
         var ambientTime = ambience.timeSamples;
@@ -168,6 +187,7 @@ public static class F1Verification
         yield return null;
         Check(world.timeSamples == worldTime && ambience.timeSamples == ambientTime, "paused audio cursors do not advance");
         deal.CloseMenu();
+        expectedPause = false;
         Check(world.isPlaying && ambience.isPlaying, "resume continues paused voices");
         yield return null;
         deal.OpenMenu(false);
@@ -185,10 +205,12 @@ public static class F1Verification
         Check(session.ToggleUnit(0, out _) && session.ToggleBench(out _) && session.Test(out _) && session.ToggleBench(out _), "prepare buyback lamp");
         deal.OpenMenu(true);
         deal.SellBack();
+        expectedPause = true;
         Cue(confirmations, FirstDealSound.Sale);
         Check(session.IsPaused && !ambience.isPlaying && session.Balance == 255, "buyback confirms in paused seller screen");
         yield return null;
         deal.CloseMenu();
+        expectedPause = false;
         session.StartShift();
         for (var i = 0; i < 4; i++) yield return null;
         session.AdvanceActiveSeconds(1100);

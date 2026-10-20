@@ -324,7 +324,9 @@ public static class T04Verification
         EditorApplication.QueuePlayerLoopUpdate();
         if (EditorApplication.timeSinceStartup - started > 90)
         { failed = true; File.AppendAllText(LogPath, "FAIL Play Mode timeout\n"); EditorApplication.isPlaying = false; return; }
-        if (!EditorApplication.isPlaying || lastFrame == Time.frameCount || Time.time - phaseTime < 0.25f) return;
+        // Docking and sale commit immediately, then their F2 visuals settle over 0.32/0.45s.
+        var settleTime = phase == 7 ? 0.4f : phase == 9 ? 0.55f : 0.25f;
+        if (!EditorApplication.isPlaying || lastFrame == Time.frameCount || Time.time - phaseTime < settleTime) return;
         lastFrame = Time.frameCount;
         try
         {
@@ -339,8 +341,11 @@ public static class T04Verification
                     keyboard = InputSystem.AddDevice<Keyboard>("T04Keyboard");
                     deal.SendMessage("OnApplicationFocus", true);
                     Check(deal.MenuOpen && workshop.Session.IsPaused, "startup introduction pauses before first action");
-                    Check(GameObject.Find("Terms").GetComponent<Text>().text.Contains("Ты начинающий торговец"), "Russian introduction explains player role and complete interaction loop");
-                    Check(UnityEngine.Object.FindAnyObjectByType<FirstDealGuide>() != null && GameObject.Find("Next action").GetComponent<Text>().text.Contains("ПРЕДЛОЖЕНИЯХ"), "contextual guide starts at offers board");
+                    var introduction = GameObject.Find("Terms").GetComponent<Text>().text;
+                    Check(introduction.Contains("ЗАКАЗЫ") && introduction.Contains("Время начнётся при выходе наружу") &&
+                        introduction.Contains("WASD") && introduction.Contains("E — действие") && introduction.Contains("Esc"),
+                        "startup pause explains first destination, clock start and controls");
+                    Check(UnityEngine.Object.FindAnyObjectByType<FirstDealGuide>() != null && GameObject.Find("Next action").GetComponent<Text>().text.Contains("ПРОЧИТАЙ ЗАКАЗЫ"), "contextual guide starts at offers board");
                     Check(PlayerSettings.resizableWindow && PlayerSettings.defaultScreenWidth == 1600 && PlayerSettings.defaultScreenHeight == 900,
                         "standalone defaults use a resizable 1600 by 900 window");
                     Check(EditorBuildSettings.scenes.Count(s => s.enabled) == 1 && EditorBuildSettings.scenes.Any(s => s.enabled && s.path == FirstDealTradeBuilder.ScenePath),
@@ -359,14 +364,21 @@ public static class T04Verification
                         " inputMode=" + InputSystem.settings.updateMode + "\n");
                     Check(deal.MenuOpen && workshop.Session.IsPaused && !player.CanInteract, "E opens fullscreen offers and blocks gameplay");
                     GameObject.Find("Accept RepeatB").GetComponent<Button>().onClick.Invoke();
-                    Check(GameObject.Find("Terms").GetComponent<Text>().text.Contains("Это предложение пока недоступно"), "locked-offer refusal appears inside the paused terms screen");
+                    Check(GameObject.Find("Trade feedback").GetComponent<Text>().text.Contains("Это предложение пока недоступно"), "locked-offer refusal appears inside the paused trade screen");
                     Canvas.ForceUpdateCanvases();
                     var terms = GameObject.Find("Terms").GetComponent<Text>();
-                    Check(terms.preferredHeight <= terms.rectTransform.rect.height + 1, "Russian terms and refusal fit without clipping at current Game View size");
-                    Check(UnityEngine.Object.FindObjectsByType<TextMesh>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-                        .All(t => t.fontSize >= 96 && t.GetComponent<Renderer>().bounds.size.x <= 2.5f &&
+                    var refusal = GameObject.Find("Trade feedback").GetComponent<Text>();
+                    Check(terms.preferredHeight <= terms.rectTransform.rect.height + 1 &&
+                        refusal.preferredHeight <= refusal.rectTransform.rect.height + 1,
+                        "Russian terms and refusal fit without clipping at current Game View size");
+                    // V1 also adds larger environment lettering without individual backings.
+                    // T04's size/backing contract applies to interaction signs in these two roots.
+                    var interactionSigns = UnityEngine.Object.FindObjectsByType<TextMesh>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                        .Where(t => t.transform.IsChildOf(workshop.transform) || t.transform.IsChildOf(deal.transform)).ToArray();
+                    Check(interactionSigns.Length > 0 && interactionSigns.All(t => t.fontSize >= 96 &&
+                            t.GetComponent<Renderer>().bounds.size.x <= 2.5f && t.transform.Find("Readable.Dark.Sign backing") != null &&
                             t.transform.Find("Readable.Dark.Sign backing").lossyScale.x <= 2.6f),
-                        "high resolution world labels retain bounded physical size and contrasting backings");
+                        "interaction labels retain bounded physical size and contrasting backings");
                     ScreenCapture.CaptureScreenshot("Logs/T04-offers.png");
                     pausedAt = workshop.Session.ElapsedSeconds;
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState()); Next(); break;
@@ -383,7 +395,7 @@ public static class T04Verification
                     Check(deal.MenuOpen && workshop.Session.ShiftStarted, "first workshop exit starts shift and seller E opens confirmation");
                     GameObject.Find("Confirm lot - $180").GetComponent<Button>().onClick.Invoke();
                     Check(workshop.Session.Balance == 120 && workshop.Session.LotPurchased && !deal.MenuOpen, "seller confirmation buys one lot using shared wallet");
-                    Check(GameObject.Find("Next action").GetComponent<Text>().text.Contains("ЗАБЕРИ СВОЙ ЯЩИК"), "guide follows purchase with physical crate pickup instructions");
+                    Check(GameObject.Find("Next action").GetComponent<Text>().text.Contains("ЗАБЕРИ ЯЩИК"), "guide follows purchase with physical crate pickup instructions");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                     AimAt("Crate visual", new Vector3(-1.8f, 0.05f, -3.7f)); Next(); break;
                 case 4:
@@ -409,7 +421,7 @@ public static class T04Verification
                 case 7:
                     Check(!workshop.Session.IsCrateCarried && Vector3.Distance(GameObject.Find("Carry crate").transform.position, new Vector3(-2.5f, 0.7f, 3.5f)) < 0.01f,
                         "E docks carried crate at workshop without replacing identities");
-                    Check(GameObject.Find("Next action").GetComponent<Text>().text.Contains("ДОСТАНЬ ОДИН ФОНАРЬ"), "guide explains selectors after docking");
+                    Check(GameObject.Find("Next action").GetComponent<Text>().text.Contains("ДОСТАНЬ ФОНАРЬ"), "guide explains selectors after docking");
                     Check(GameObject.Find("Crate selector 0").GetComponent<Collider>().enabled, "docking restores visible usable selectors");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                     TestUnit(workshop.Session, 0); TestUnit(workshop.Session, 2); TestUnit(workshop.Session, 1, true);
