@@ -8,9 +8,14 @@ Status: locally integrated repository policy, 2026-10-18; adapted from archive v
 
 ## 1. Working priority
 
-1. Verify the actual project state (T01), dependency manifests and scene references. The current version is 6000.6.0f1. Preserve the adopted settings; neither rollback nor further migration is authorized by this policy. Any version decision requires a separately approved task.
-2. Implement a minimal playable FIRST DEAL using the separately approved gameplay rules. Do not expand scope merely because another system could eventually be useful.
-3. Verify the complete loop in the Unity Editor and playtest before progressing to a vertical slice.
+The owner-approved production sequence and stage gates are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md); task history is in [ROADMAP.md](ROADMAP.md). This sequence supersedes older city-first and art-first task ordering.
+
+1. Verify the relevant actual project state, dependency manifests and scene references; reuse confirmed findings. Unity remains 6000.6.0f1. Preserve the adopted settings; neither rollback nor further migration is authorized by this policy.
+2. Reuse existing FIRST DEAL, city trade/saves, sandbox and art samples. Test uncertain actions in a focused fixture; validate the integrated loop in a compact district around the city workshop. Do not rebuild the project to replay completed stages.
+3. Current next gate: repeat the independent human city-loop playtest after the documented S4 navigation fixes; address observed blockers. Keep city rules distinct from the closed FIRST DEAL scenario. Editor checks do not establish usability, fun or balance.
+4. After loop acceptance, finish one representative vertical slice, then expand in complete playable increments. Complete the first-version experience before final content/polish and release verification. Assess saves and performance as risks arise, not only at the end.
+
+For each task, name the question, bounded scope and completion criterion. Do not expand the whole map, finish all visuals or add unrelated mechanics while an earlier required gate remains open. New gameplay rules still need actual specification; the approved sequence does not supply missing rules.
 
 No automatic Unity upgrade, package changes, paid integrations, network stack, city-scale content, or sweeping refactor. A task may change this priority only when explicitly authorized.
 

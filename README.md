@@ -4,6 +4,8 @@ A Unity first-person business-simulation prototype. The current playable scenari
 
 ## Setup and launch
 
+Production order approved on 2026-10-20: [Development plan](docs/DEVELOPMENT_PLAN.md). Reuse the existing prototype, city, saves and art samples. The immediate priority is a repeated human playtest of the complete trade loop in the compact city district around the workshop after the recorded navigation fixes. Then resolve observed blockers, finish one representative vertical slice and expand in playable increments. Full-map expansion and mass art production wait for these gates; earlier technical results below are historical evidence, not acceptance of those gates.
+
 - Open the project with **Unity 6000.6.0f1**, as recorded in `ProjectSettings/ProjectVersion.txt`. JetBrains Rider is the primary C# IDE.
 - Fetch required Git LFS objects before editing. Dependency versions are recorded in `Packages/manifest.json` and `Packages/packages-lock.json`; routine setup must not upgrade the Editor or packages.
 - Open `Assets/Scenes/FirstDealTrade.unity` and enter Play Mode. This is the enabled global build scene. Window defaults are 1600 x 900, windowed and resizable.
@@ -92,6 +94,8 @@ Unity 6000.6.0f1: **Tools > V4 > Verify Characters and Integration** passed **12
 
 ## Development playground
 
+Use this playground for focused mechanic experiments and reproducing defects. Integrated gameplay, distances and player choice are evaluated in the compact city district; completing every future feature on the playground is not a production milestone. Keep the existing scene rather than recreating it for the new plan.
+
 Open `Assets/Scenes/DevelopmentSandbox.unity` or **Tools > Development Sandbox > Open Playground**, then enter Play Mode. The separate 260 × 220 m scene contains the live FIRST DEAL workshop/traders, a utility vehicle and driving circuit, steps/slopes/narrow gaps, a covered flashlight corridor, all 15 existing prefabs as linked display samples, placement surfaces and a streetscape scale area. The 10 m grid and seven named hierarchy groups support further editing; the creation menu refuses to overwrite an existing playground.
 
 **F2** opens zone teleports, the clock switch and a full scene/deal reset. Passive deal time starts held; enable it to test deadlines. Repair still applies its normal four-minute cost. Normal trade, carrying and flashlight controls remain available. At the vehicle door, E enters/exits, WASD drives, Space brakes, and V switches camera motion. Driving suspends the trade interface and restores it on exit.
@@ -104,6 +108,8 @@ Catalogue objects are display references with gameplay, cameras and audio disabl
 - `docs/DEVELOPMENT.md` - commits, focused verification and Unity asset handling.
 - `docs/ENGINEERING_STANDARD.md` - Unity/C# and gameplay architecture constraints.
 - `docs/ROADMAP.md` - staged game-development plan, dependencies, acceptance criteria and effort estimates.
+- `docs/DEVELOPMENT_PLAN.md` - authoritative production sequence, stage gates and current next package.
+- `docs/CITY_GREYBOX_PLAN.md` - existing city/integration history; old full-city prompts are historical.
 - `Assets/Scripts/`, `Assets/Scenes/`, `ProjectSettings/` - source, scenes and configuration.
 
 Approved FIRST DEAL rules were supplied externally; design documents are not automatically part of this checkout. No automatic engine/package migration, new paid services or release packaging.

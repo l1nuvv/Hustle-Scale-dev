@@ -2,9 +2,11 @@
 
 ## Purpose and authority
 
-This is a Unity first-person business simulator. Immediate goal: restore the early prototype, then implement and playtest FIRST DEAL (one small, complete trade scenario). Prioritize a playable loop over infrastructure or speculative features. One developer; no paid API usage, paid assets, or new services. **JetBrains Rider is the owner's primary C# IDE**; do not prescribe VS Code or IDE purchases.
+This is a Unity first-person business simulator. Follow the owner-approved sequence in `docs/DEVELOPMENT_PLAN.md`: focused mechanic tests → compact playable district → complete trade loop → accepted vertical slice → incremental expansion → complete first version → release verification. Reuse existing FIRST DEAL, city, saves, sandbox and art work; do not restart them. Immediate priority: repeat the human playtest of the compact city trading loop after the recorded navigation fixes, then address observed blockers before broad art production or world expansion. One developer; no paid API usage, paid assets, or new services. **JetBrains Rider is the owner's primary C# IDE**; do not prescribe VS Code or IDE purchases.
 
 For technical facts, inspect the current working tree and relevant code. The approved FIRST DEAL scenario governs game rules when supplied; design documents are not evidence that a feature is implemented. Never invent missing specifications or test results. Read `docs/DEVELOPMENT.md` for workflow and `docs/ENGINEERING_STANDARD.md` when selecting Unity/C# APIs, architecture or gameplay-system patterns; do not reread every document per task.
+
+`docs/DEVELOPMENT_PLAN.md` governs production order; `docs/ROADMAP.md` tracks tasks and evidence. Older city prompts and art production lists do not override its gates. Use the sandbox for specific experiments and the compact city district for integrated play; do not finish all mechanics, all art or the whole map in isolation. Human acceptance cannot be replaced by Editor automation. Keep approved city rules distinct from FIRST DEAL fixture rules.
 
 ## Scope and workflow
 
