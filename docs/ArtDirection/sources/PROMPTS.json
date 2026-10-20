@@ -1,7 +1,31 @@
 {
   "tool": "built-in image_gen.imagegen; no API key, paid API scripts or external asset services",
-  "notes": "Only final retained outputs and rejected A boundary are versioned. Reference for B3: owner-supplied screenshot grid of Schedule I. C2/D2/sheets reference B3. SheetFix corrects invalid verified mark after repair.",
-  "prompts": [
+  "notes": "Historical prompts record earlier generations, including rejected realism and discarded alternative styles. They are provenance, NOT active production instructions. Use active_style and current_edits for the current brief. The former B label was reused incorrectly and is retired.",
+  "active_style": {
+    "name": "Простая игровая 3D-стилизация",
+    "owner_direction": "Простая игровая 3D-стилизация в стиле Schedule I; конкретный дизайн и контент — собственные.",
+    "match": [
+      "simple low-detail geometry",
+      "stylized slim adult NPCs and simple faces",
+      "ordinary game materials and realtime lighting",
+      "visual style similar to Schedule I gameplay"
+    ],
+    "create_original": [
+      "specific faces, hair and outfits",
+      "product and equipment models",
+      "architecture and layouts",
+      "packaging, signage and UI"
+    ],
+    "excluded": [
+      "photorealism",
+      "stylized realism direction",
+      "Disney/Pixar cute rounded look",
+      "one-to-one copying",
+      "comic/cel or technical-atlas restyling"
+    ],
+    "approval": "Owner defined the style; individual images, colors and assets still require art review."
+  },
+  "historical_prompts": [
     {
       "id": "A",
       "prompt": "Use case: stylized-concept. Create ONE high resolution landscape art direction contact sheet for the first-person business game HUSTLE & SCALE. Title 'A / Grounded Realism'. Original concept illustration, not real engine screenshot. Photoreal grounded contemporary working-class urban realism. Full realistic human anatomy and faces, complex believable scuffed metal and rubber, ambient daylight through grimy glazing, physically detailed plaster and concrete, utilitarian grey UI with fine white type, realistic municipal retail architecture. No cinematic fog. Matter-of-fact industrial photography.\nExactly same scenario for comparison: small rented urban workshop, one long bench facing a courtyard doorway, wooden crate holding THREE identical square rechargeable WORK LIGHTS, tabletop diagnostic meter, one adult local buyer at doorway. This is legal used-equipment trading, no crime paraphernalia.\nEditorial art-board composition with hierarchy, generous readable images: top half one wide first-person GAMEPLAY CONCEPT at human eye height viewing the workbench; bottom half four useful visual samples: (1) closeup of ONE square worklight front/side and battery cover (2) full adult NPC (3) compact inventory strip with three physical-unit slots (4) purchase docket showing 3 × work lights / $180 / $300 → $120. A small 5-swatch palette strip and type specimen, with material details in images. Show ordinary courtyard location through open doorway and workstation in gameplay image. UI minimal and deliberately matching this art direction, legible, no standard rounded dashboard cards. All three units look same model with different cosmetic wear; no red light or label revealing hidden battery fault before test. Product foot about 29cm wide, housing about 24cm wide; avoid huge handheld searchlights. No extra goods or invented economy. Use labels in concise English to avoid illegible text. Emphasize visual execution and differences of shape, surface, lighting, character and interface, not just colors. Only concept/art direction samples."
@@ -29,6 +53,20 @@
     {
       "id": "SheetFix",
       "prompt": "Edit only the bottom-right REPAIRED REQUIRES RETEST worklight panel: replace the green tick/checkmark on its hanging tag with a dark graphite QUESTION MARK. The repaired unit requires retesting, so it MUST NOT display verified green success. Keep all other images, proportions, text, panels, layout and rendering unchanged. Preserve title REPAIRED REQUIRES RETEST. This is a precise correction to a game art sheet."
+    }
+  ],
+  "current_edits": [
+    {
+      "id": "owner-comments-hero",
+      "prompt": "Edit ONLY the adult NPC at the doorway. Keep the SAME simple indie 3D simulator visual style and degree of stylization as this image, visually comparable to Schedule I gameplay: plain low-detail meshes, thin adult limbs, simplified eyes and mouth, ordinary realtime game lighting. Do NOT invent a new art style and do NOT make it realistic, Disney, Pixar or cute. Make the character an original local tradesman rather than a duplicate of a Schedule I NPC: subtly angular longer jaw, moderately half-lidded simple eyes with visible whites but not spherical protruding eyeballs, one eyebrow slightly uneven, short dark swept-back hair with a modest receding corner, plain dark indigo open work overshirt over light grey T-shirt, straight dark trousers. Neutral practical expression, no smile. Retain thin simple adult body and basic game-model appearance. Preserve all workshop geometry, lighting, framing, lamps, crate, meter, background, UI, text and colors exactly. This is an original character in the SAME visual style, not a departure from it.",
+      "status": "current retained edit",
+      "reference_role": "previous own concept; preserve Schedule I-like simple visual style, change specific character design"
+    },
+    {
+      "id": "owner-comments-assets",
+      "prompt": "Edit ONLY the NPC character zone in the lower-left quadrant. Keep the SAME simple indie 3D simulator visual style and degree of stylization, comparable to Schedule I gameplay, but create an original local tradesman identity. Base NPC: subtly angular longer jaw, moderately half-lidded simple eyes with visible whites, not spherical protruding eyeballs; short dark swept-back hair with a modest receding corner; slightly uneven eyebrows; neutral mouth; thin ordinary adult limbs. Base outfit dark indigo open work overshirt over light grey T-shirt and straight dark trousers. Apply same original head consistently to front, side, back and both alternate outfit pairs. Keep apron and hi-vis variants recognizable. No realistic anatomy detail, no Disney/Pixar/cute face, no departure to another style. Preserve ALL upper-left lamp views, upper-right material chips, and lower-right interaction states, text, numbers, layout and lighting exactly. Especially preserve question-mark tag for REPAIRED REQUIRES RETEST and red fault tag. Do not alter or add any game rules.",
+      "status": "current retained edit",
+      "reference_role": "previous own concept; preserve Schedule I-like simple visual style, change specific character design"
     }
   ]
 }

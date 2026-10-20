@@ -73,17 +73,27 @@ def has_glyph(cp):
 sample=''.join(chr(c) for c in range(0x410,0x450))+'Ёё0123456789$№'
 missing=[c for c in sample if not has_glyph(ord(c))]
 if missing: errors.append('Missing required font glyphs: '+''.join(missing))
-weights=[.2,.15,.2,.15,.15,.1,.05]
-scores={'A':[4,4,7,6,2,5,3],'B':[7,8,9,9,9,9,8],'C':[9,7,7,8,6,7,7],'D':[7,6,7,8,8,7,9]}
-totals={k:round(sum(a*b for a,b in zip(weights,v)),2) for k,v in scores.items()}
-expected={'A':4.65,'B':8.4,'C':7.4,'D':7.25}
-if totals!=expected: errors.append('Score arithmetic differs')
+brief='Простая игровая 3D-стилизация в стиле Schedule I; конкретный дизайн и контент — собственные.'
+active_docs=['HUSTLE_AND_SCALE_ART_DIRECTION_v1.0.md','PRODUCTION_GUIDELINES.md','RESEARCH.md','VISUAL_EVALUATION.md','VALIDATION.md']
+for name in active_docs:
+    content=(ROOT/name).read_text(encoding='utf-8')
+    if brief not in content:
+        errors.append('Missing current owner direction: '+name)
+    if any(old in content for old in ['Рекомендуется **B','Лучший в целом, для предметных взаимодействий','B — рекомендация, не подтверждённый выбор']):
+        errors.append('Obsolete style recommendation: '+name)
+gallery=html.split('<details',1)[0]
+for old in ['exploration/direction-A/','exploration/direction-C/','exploration/direction-D/','B / Простая']:
+    if old in gallery:
+        errors.append('Historical study in active gallery: '+old)
+prompts=json.loads((ROOT/'sources/PROMPTS.json').read_text(encoding='utf-8'))
+if prompts.get('active_style',{}).get('owner_direction')!=brief:
+    errors.append('Prompt brief differs from owner direction')
 for file in ROOT.rglob('*.png'):
     content=file.read_bytes()
     if not content.startswith(b'\x89PNG\r\n\x1a\n'):
         errors.append(f'Invalid PNG {file.name}')
 print(json.dumps({'ui_screens':len(screens),'svg_files':len(svgs),'local_markdown_links':links,
     'png_files':len(list(ROOT.rglob('*.png'))),'contrast_ratios':contrast,
-    'required_font_glyphs':len(sample),'missing_glyphs':missing,'weighted_scores':totals,
+    'required_font_glyphs':len(sample),'missing_glyphs':missing,'active_direction_consistent':not any('direction' in e or 'style' in e or 'gallery' in e for e in errors),
     'errors':errors},ensure_ascii=False,indent=2))
 raise SystemExit(bool(errors))
