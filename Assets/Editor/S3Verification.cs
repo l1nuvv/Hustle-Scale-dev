@@ -19,7 +19,8 @@ public static partial class S3Verification
     private const string Key = "HustleScale.S3Runtime";
     private const string Override = "HustleScale.S2SaveOverride";
     private static bool IsS4 => SessionState.GetBool(Key + ".S4", false);
-    private static string Stage => IsS4 ? "S4" : "S3";
+    private static bool IsE5 => SessionState.GetBool(Key + ".E5", false);
+    private static string Stage => IsE5 ? "E5" : IsS4 ? "S4" : "S3";
     private static string Log => "Logs/Codex-" + Stage + "-playmode.log";
     private static IEnumerator routine;
     private static int checks, frame;
@@ -72,6 +73,7 @@ public static partial class S3Verification
         }
         if (state == PlayModeStateChange.ExitingPlayMode)
         {
+            if (IsE5) RestoreSliceResolution();
             Application.logMessageReceived -= RuntimeError;
             if (keyboard != null && keyboard.added) InputSystem.RemoveDevice(keyboard);
             InputSystem.settings.backgroundBehavior = oldInputBackground;
@@ -83,6 +85,7 @@ public static partial class S3Verification
         var scene = SessionState.GetString(Key + ".Scene", "");
         SessionState.EraseBool(Key); SessionState.EraseString(Key + ".Scene"); SessionState.EraseString(Override);
         SessionState.EraseBool(Key + ".S4");
+        SessionState.EraseBool(Key + ".E5");
         if (scene.Length > 0) EditorSceneManager.OpenScene(scene);
         // Keep the isolated fixture under Temp for failure diagnosis; never touch the user's save.
     }
@@ -371,6 +374,11 @@ public static partial class S3Verification
         {
             var freeRoutes = FreeRoutes();
             while (freeRoutes.MoveNext()) yield return freeRoutes.Current;
+        }
+        if (IsE5)
+        {
+            var slice = SliceScenario();
+            while (slice.MoveNext()) yield return slice.Current;
         }
     }
 }

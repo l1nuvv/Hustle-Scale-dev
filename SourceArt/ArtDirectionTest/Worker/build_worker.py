@@ -191,13 +191,13 @@ def oval_face(name,centre,radius,mat):
 
 for side in [-1,1]:
     oval_face('Simple ear', (side*.076,.005,1.655),(.014,.019,.027),skin)
-    oval_face('Eye white', (side*.034,.060,1.672),(.027,.016,.024),eye_white)
-    oval_face('Small round pupil', (side*.034,.075,1.671),(.0065,.003,.008),pupil)
+    oval_face('Eye white', (side*.034,.058,1.672),(.021,.008,.016),eye_white)
+    oval_face('Small round pupil', (side*.034,.065,1.671),(.0065,.002,.008),pupil)
     # A straight brow, neutral rather than the original sculpt's angry V.
     x=side*.033
     brow=[(x-.020,.067,1.696),(x+.020,.067,1.697),(x+.020,.067,1.702),(x-.020,.067,1.701)]
     head_parts.append(weighted_mesh('Simple brow',brow,[(3,2,1,0)],hair_mat,smooth=False))
-    oval_face('Upper eyelid', (side*.034,.060,1.693),(.028,.011,.005),skin)
+    oval_face('Upper eyelid', (side*.034,.058,1.686),(.022,.007,.004),skin)
 nose=[(-.009,.058,1.667),(.009,.058,1.667),(-.011,.059,1.636),(.011,.059,1.636),
       (-.008,.084,1.638),(.008,.084,1.638)]
 head_parts.append(weighted_mesh('Simple wedge nose',nose,[(0,1,5,4),(0,4,2),(1,3,5),(2,4,5,3)],skin,smooth=False))

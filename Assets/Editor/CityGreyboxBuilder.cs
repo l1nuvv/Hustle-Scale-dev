@@ -131,6 +131,12 @@ public static class CityGreyboxBuilder
         var walk = new SerializedObject(player.AddComponent<Player.CityGreyboxWalk>());
         walk.FindProperty("worklightPrefab").objectReferenceValue =
             AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ArtDirectionTest/Prefabs/Worklight.prefab");
+        walk.FindProperty("workerPrefab").objectReferenceValue =
+            AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ArtDirectionTest/Prefabs/WorkshopWorker.prefab");
+        walk.FindProperty("workbenchPrefab").objectReferenceValue =
+            AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/FirstDealProps/Workbench.prefab");
+        walk.FindProperty("testerPrefab").objectReferenceValue =
+            AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/FirstDealProps/Tester.prefab");
         walk.ApplyModifiedPropertiesWithoutUndo();
         ApplyWalkingChanges();
         EditorSceneManager.SaveScene(scene, ScenePath);

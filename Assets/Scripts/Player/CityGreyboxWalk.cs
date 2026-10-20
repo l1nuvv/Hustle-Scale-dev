@@ -10,6 +10,7 @@ namespace Player
     public sealed class CityGreyboxWalk : MonoBehaviour
     {
         [SerializeField] private GameObject worklightPrefab;
+        [SerializeField] private GameObject workerPrefab, workbenchPrefab, testerPrefab;
         private PlayerController _player;
         private bool _paused;
         private bool _confirmNewGame;
@@ -17,6 +18,9 @@ namespace Player
         private Interactables.CityTradeView _trade;
         public bool IsPaused => _paused;
         public GameObject WorklightPrefab => worklightPrefab;
+        public GameObject WorkerPrefab => workerPrefab;
+        public GameObject WorkbenchPrefab => workbenchPrefab;
+        public GameObject TesterPrefab => testerPrefab;
 
         private void Awake()
         {

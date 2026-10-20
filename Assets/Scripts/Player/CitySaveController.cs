@@ -29,6 +29,7 @@ namespace Player
             player = GetComponent<PlayerController>();
             walk = GetComponent<CityGreyboxWalk>();
             store = new CitySaveStore(Path.Combine(Application.persistentDataPath, "city-save.json"));
+            if (CitySliceProfile.SavePath != null) store = new CitySaveStore(CitySliceProfile.SavePath);
 #if UNITY_EDITOR
             // The repeatable Play Mode fixture must never overwrite the player's real save.
             var verificationPath = UnityEditor.SessionState.GetString("HustleScale.S2SaveOverride", "");

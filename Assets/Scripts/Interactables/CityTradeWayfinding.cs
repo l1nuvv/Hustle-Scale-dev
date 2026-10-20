@@ -9,7 +9,7 @@ namespace Interactables
     // Presentation for this fixed neighbourhood; no change to trade rules or save data.
     public sealed partial class CityTradeView
     {
-        private Material signMaterial, workshopMaterial;
+        private Material signMaterial, workshopMaterial, plasterMaterial;
 
         private static string Location(FlashlightLocation location) => location switch
         {
@@ -82,10 +82,13 @@ namespace Interactables
             }
 
             workshopMaterial = new Material(bodyMaterial) { color = new Color(0.16f, 0.38f, 0.4f) };
+            plasterMaterial = new Material(bodyMaterial) { color = new Color(0.64f, 0.62f, 0.54f) };
             var room = GameObject.Find("Interior | WORKSHOP / BASE");
             if (room != null)
                 foreach (var renderer in room.GetComponentsInChildren<MeshRenderer>())
-                    if (renderer.GetComponent<TextMesh>() == null) renderer.sharedMaterial = workshopMaterial;
+                    if (renderer.GetComponent<TextMesh>() == null)
+                        renderer.sharedMaterial = renderer.name == "Roof" ? bodyMaterial :
+                            renderer.name.Contains("Door") ? workshopMaterial : plasterMaterial;
 
             Board("МАСТЕРСКАЯ", new Vector3(-65, 3.2f, 19.3f), 0, new Vector2(6.6f, 0.9f));
             Board("МАСТЕРСКАЯ", new Vector3(-77.6f, 3, 30), 90, new Vector2(6.6f, 0.9f));
@@ -96,9 +99,7 @@ namespace Interactables
             Board("↑ БАТАРЕИ\nПРОДАВЕЦ ФОНАРЕЙ →", new Vector3(65, 2.4f, -14), 0, new Vector2(5.6f, 1.2f));
 
             // Recognisable workbench and stall silhouettes, outside all movement clearances.
-            Decor("Рабочий стол", new Vector3(-72, 1.05f, 34), new Vector3(3, 0.16f, 1.3f), workshopMaterial);
-            foreach (var x in new[] { -73.2f, -70.8f })
-                Decor("Ножка стола", new Vector3(x, 0.5f, 34), new Vector3(0.12f, 1, 1), bodyMaterial);
+            BuildSliceWorkshop();
             Decor("Панель инструментов", new Vector3(-72, 2, 35), new Vector3(3, 1.1f, 0.12f), bodyMaterial);
             for (var i = 0; i < 4; i++)
                 Decor("Инструмент", new Vector3(-73 + i * 0.65f, 2, 34.9f), new Vector3(0.1f, 0.65f, 0.08f), accentMaterial);
@@ -150,7 +151,7 @@ namespace Interactables
         {
             Line("МЕСТА РЯДОМ · вид сверху · север ↑", 21);
             var map = Rect("Карта района", menuContent, Vector2.zero, Vector2.one);
-            map.gameObject.AddComponent<LayoutElement>().minHeight = 300;
+            map.gameObject.AddComponent<LayoutElement>().minHeight = 300 * textScale;
             map.gameObject.AddComponent<Image>().color = new Color(0.07f, 0.13f, 0.14f);
             var paths = Rect("Пешие проходы", map, Vector2.zero, Vector2.one).gameObject.AddComponent<CityTradeMapPaths>();
             paths.color = new Color(0.34f, 0.49f, 0.48f); paths.raycastTarget = false;
@@ -178,7 +179,8 @@ namespace Interactables
         {
             var label = Label(map, value, 15); label.alignment = TextAnchor.MiddleCenter;
             label.rectTransform.anchorMin = label.rectTransform.anchorMax = MapPosition(x, z);
-            label.rectTransform.sizeDelta = new Vector2(205, 48);
+            label.rectTransform.sizeDelta = new Vector2(205, 48 * textScale);
+            label.rectTransform.sizeDelta = new Vector2(205, Mathf.Max(48 * textScale, label.preferredHeight + 4));
         }
     }
 }

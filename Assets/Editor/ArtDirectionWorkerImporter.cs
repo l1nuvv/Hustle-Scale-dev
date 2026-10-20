@@ -52,7 +52,7 @@ public static class ArtDirectionWorkerImporter
                 sourceName.Contains("Navy") ? new Color(.12f, .22f, .31f) :
                 sourceName.Contains("Trousers") ? new Color(.13f, .18f, .24f) :
                 sourceName.Contains("Leather") ? new Color(.13f, .095f, .07f) :
-                sourceName.Contains("EyeWhite") ? new Color(.93f, .92f, .87f) :
+                sourceName.Contains("EyeWhite") ? new Color(.72f, .70f, .64f) :
                 sourceName.Contains("Undershirt") ? new Color(.80f, .80f, .75f) :
                 sourceName.Contains("Pupil") ? new Color(.025f, .025f, .022f) : new Color(.11f, .075f, .045f);
             mat.SetColor("_BaseColor", color);

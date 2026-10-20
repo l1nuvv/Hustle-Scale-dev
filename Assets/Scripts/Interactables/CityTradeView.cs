@@ -66,6 +66,7 @@ namespace Interactables
         {
             if (session != null) session.Changed -= Refresh;
             session = save.Session;
+            message = "Tab — карта района. Продавец фонарей — под жёлтым навесом на рынке.";
             if (MenuOpen) { panel.SetActive(false); current = null; }
             if (session == null) return;
             foreach (var pose in save.World.PlacedLamps)
@@ -124,8 +125,9 @@ namespace Interactables
             hudText = "Деньги: $" + session.Balance + " · Время: " + WorkshopView.Clock(session.ElapsedSeconds) +
                 "\nБатареи: " + session.SpareBatteries + " · В руках: " +
                 (session.IsCrateCarried ? "ящик" : session.InHands != null ? "фонарь" : "ничего") +
-                "\n" + OrderSummary(DealOrderId.A) + "   |   " + OrderSummary(DealOrderId.B);
+                "\n" + OrderSummary(DealOrderId.A) + "   |   " + OrderSummary(DealOrderId.B) + "\nTab — карта · Esc — пауза";
             hud.text = hudText;
+            ResizeHud();
             if (MenuOpen) RebuildMenu();
         }
 
@@ -152,8 +154,9 @@ namespace Interactables
             if (!Allowed || !Reachable(point)) return;
             if (point.Kind == CityTradeKind.Cargo) { TransferCargo(); return; }
             if (point.Kind == CityTradeKind.Lamp)
-            { session.PickUpPlaced(point.Index, out message); Refresh(); return; }
+            { ActionFeedback("unit", session.PickUpPlaced(point.Index, out message)); Refresh(); return; }
             current = point;
+            UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
             for (var i = 0; i < 3; i++) selected[i] = Presented(i) && session.Units[i].IsTested;
             walk.SetPaused(true);
             panel.SetActive(true);
@@ -165,6 +168,7 @@ namespace Interactables
             if (MenuOpen) { CloseMenu(); return; }
             if (!Allowed) return;
             current = null;
+            UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
             walk.SetPaused(true); panel.SetActive(true); RebuildMenu();
         }
 
@@ -172,6 +176,7 @@ namespace Interactables
         {
             if (!MenuOpen) return;
             panel.SetActive(false); current = null;
+            UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
             walk.SetPaused(false);
         }
 
@@ -218,6 +223,7 @@ namespace Interactables
                 }
             }
             finally { session.SetPaused(true); }
+            ActionFeedback(command, success);
             Refresh();
             return success;
         }
@@ -233,7 +239,7 @@ namespace Interactables
         {
             if (vehicle == null || vehicle.IsDriving || vehicle.Speed > 0.1f)
             { message = "Останови машину перед погрузкой или выгрузкой."; return; }
-            if (!session.IsCrateInVehicle) session.LoadVehicleCrate(out message);
+            if (!session.IsCrateInVehicle) ActionFeedback("cargo", session.LoadVehicleCrate(out message));
             else
             {
                 var rear = vehicle.CargoGate.position;
@@ -248,7 +254,9 @@ namespace Interactables
                 { message = "Док занят. Освободи место для ящика."; return; }
                 var previous = save.World.CrateDock;
                 save.World.CrateDock = dock;
-                if (!session.UnloadVehicleCrate(out message)) save.World.CrateDock = previous;
+                var success = session.UnloadVehicleCrate(out message);
+                if (!success) save.World.CrateDock = previous;
+                ActionFeedback("cargo", success);
             }
             Refresh();
         }
@@ -260,9 +268,9 @@ namespace Interactables
         }
 
         private void Equip(int index)
-        { if (Allowed) { session.EquipSlot(index, out message); Refresh(); } }
+        { if (Allowed) { ActionFeedback("unit", session.EquipSlot(index, out message)); Refresh(); } }
         private void Stow()
-        { if (Allowed) { session.StowHeld(out message); Refresh(); } }
+        { if (Allowed) { ActionFeedback("unit", session.StowHeld(out message)); Refresh(); } }
         private void Power()
         {
             if (!Allowed) return;
@@ -270,7 +278,7 @@ namespace Interactables
             for (var i = 0; i < 3; i++) if (session.Units[i] == session.InHands) index = i;
             if (index < 0 && Physics.Raycast(eye.transform.position, eye.transform.forward, out var hit, 2.5f, Physics.DefaultRaycastLayers))
                 for (var i = 0; i < 3; i++) if (hit.collider.transform == lamps[i]) index = i;
-            session.TogglePower(index, out message); Refresh();
+            ActionFeedback("power", session.TogglePower(index, out message)); Refresh();
         }
         private void Place()
         {
@@ -287,7 +295,7 @@ namespace Interactables
                 {
                     lamps[i].SetParent(root, true);
                     lamps[i].SetPositionAndRotation(position, rotation);
-                    session.PlaceHeld(out message); break;
+                    ActionFeedback("place", session.PlaceHeld(out message)); break;
                 }
             Refresh();
         }
@@ -330,6 +338,7 @@ namespace Interactables
                 lights[i].type = LightType.Spot; lights[i].range = 12; lights[i].spotAngle = 55; lights[i].intensity = 3;
             }
             BuildWayfinding();
+            BuildSliceCharacters();
         }
 
         private Transform Box(string name, Transform parent, Vector3 position, Vector3 size, Material material)
@@ -354,20 +363,25 @@ namespace Interactables
         {
             var target = Box(title, root, position, new Vector3(0.7f, 0.35f, 0.3f), bodyMaterial);
             AddPoint(target, kind);
+            if (kind == CityTradeKind.Seller || kind == CityTradeKind.A || kind == CityTradeKind.Workshop)
+                target.Find("Visual").gameObject.SetActive(false);
             // A label belongs on the counter, with depth testing, rather than floating through walls.
-            Board(title, position + new Vector3(0, 0.4f, -0.2f), 0, new Vector2(3.8f, 0.55f));
+            var dock = kind == CityTradeKind.SellerDock || kind == CityTradeKind.WorkshopDock;
+            Board(title, position + new Vector3(0, dock ? 0.1f : -0.35f, -0.2f), 0, new Vector2(2, 0.28f));
         }
 
         private void LateUpdate()
         {
             if (session == null) return;
             UpdateSafeArea();
+            KeepMenuFocusVisible();
             canvasObject.SetActive(!save.IsDriving);
             hud.transform.parent.gameObject.SetActive(!walk.IsPaused);
             prompt.text = !walk.IsPaused && !save.IsDriving ? raycast.FocusLabel : "";
             if (displayedMessage != message)
             { displayedMessage = message; messageUntil = Time.unscaledTime + 8; }
             feedbackLabel.text = !walk.IsPaused && Time.unscaledTime < messageUntil ? CityMessage(message) : "";
+            bottomContext.gameObject.SetActive(!walk.IsPaused && (prompt.text.Length > 0 || feedbackLabel.text.Length > 0));
         }
         private void OnDestroy()
         {
@@ -385,6 +399,8 @@ namespace Interactables
             if (accentMaterial != null) Destroy(accentMaterial);
             if (signMaterial != null) Destroy(signMaterial);
             if (workshopMaterial != null) Destroy(workshopMaterial);
+            if (plasterMaterial != null) Destroy(plasterMaterial);
+            DisposeFeedback();
         }
     }
 }

@@ -20727,7 +20727,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 426329815}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -115413,6 +115413,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player.CityGreyboxWalk
   worklightPrefab: {fileID: 2751605038593374826, guid: c6987a88707df4c4a9b4ff204a9453d1, type: 3}
+  workerPrefab: {fileID: 4238312605979073449, guid: e10549591373cee44ab51a9bab01d0dd, type: 3}
+  workbenchPrefab: {fileID: 2506425735665206753, guid: 27982bb8707052d40850932403f4f161, type: 3}
+  testerPrefab: {fileID: 4691745138576557964, guid: f5040329c13aa684aa8754520c45b64a, type: 3}
 --- !u!114 &2037480918
 MonoBehaviour:
   m_ObjectHideFlags: 0
