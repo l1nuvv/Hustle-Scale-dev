@@ -10,27 +10,34 @@ namespace Interactables
         private AudioSource feedbackAudio;
         private AudioClip actionTone, successTone, refusalTone;
 
-        private Transform SliceProp(GameObject prefab, string name, Vector3 position, Vector3 scale)
+        private Transform SliceProp(GameObject prefab, string name, Vector3 position, Vector3 scale, bool solid = false)
         {
             if (prefab == null) throw new InvalidOperationException("Missing city slice prefab: " + name);
             var prop = Instantiate(prefab, root, false).transform;
             prop.name = name; prop.localPosition = position; prop.localScale = scale;
-            // The existing city colliders and interaction points remain authoritative.
-            foreach (var collider in prop.GetComponentsInChildren<Collider>()) collider.enabled = false;
+            foreach (var collider in prop.GetComponentsInChildren<Collider>()) collider.enabled = solid;
+            if (solid && prop.GetComponent<Collider>() == null)
+            {
+                var renderers = prop.GetComponentsInChildren<Renderer>();
+                var bounds = renderers[0].bounds;
+                foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
+                var collider = prop.gameObject.AddComponent<BoxCollider>();
+                collider.center = prop.InverseTransformPoint(bounds.center);
+                collider.size = new Vector3(bounds.size.x / scale.x, bounds.size.y / scale.y, bounds.size.z / scale.z);
+            }
             return prop;
         }
 
         private void BuildSliceWorkshop()
         {
-            SliceProp(walk.WorkbenchPrefab, "Верстак", new Vector3(-72, 0.61f, 34), new Vector3(1, 1, 1.3f));
-            var tester = SliceProp(walk.TesterPrefab, "Нагрузочный тестер", new Vector3(-71, 1.28f, 34), Vector3.one * 0.8f);
+            var bench = SliceProp(walk.WorkbenchPrefab, "Верстак", new Vector3(-72, 0.61f, 34), new Vector3(1, 1, 1.3f), true);
+            AddPoint(bench, CityTradeKind.Workshop);
+            var tester = SliceProp(walk.TesterPrefab, "Нагрузочный тестер", new Vector3(-71, 1.28f, 34), Vector3.one * 0.8f, true);
             tester.localRotation = Quaternion.Euler(-20, 0, 0);
+            AddPoint(tester, CityTradeKind.Workshop);
             Board("01 / ДИАГНОСТИКА", new Vector3(-72, 2.95f, 34.8f), 0, new Vector2(3.4f, 0.4f));
             Board("ТЕСТ → РЕМОНТ → ТЕСТ", new Vector3(-72, 1.35f, 34.8f), 0, new Vector2(3.4f, 0.3f));
             BuildWorkshopDetails();
-            // Flush yard markings leave the whole dock and its vehicle approach clear.
-            foreach (var x in new[] { -70.1f, -67.9f })
-                Decor("Граница разгрузки", new Vector3(x, 0.045f, 32), new Vector3(0.08f, 0.01f, 2), accentMaterial);
             Decor("Светильник верстака", new Vector3(-72, 3.15f, 34), new Vector3(2.8f, 0.1f, 0.18f), bodyMaterial);
             Decor("Рассеиватель верстака", new Vector3(-72, 3.09f, 34), new Vector3(2.6f, 0.02f, 0.12f), accentMaterial);
             foreach (var x in new[] { -66.26f, -63.74f })
@@ -56,20 +63,20 @@ namespace Interactables
             Decor("Нижняя панель задней стены", new Vector3(-65, 0.7f, 39.72f), new Vector3(23.5f, 1.3f, 0.04f), workshopMaterial);
             Decor("Рейка задней стены", new Vector3(-65, 1.38f, 39.7f), new Vector3(23.5f, 0.06f, 0.06f), bodyMaterial);
             // The free-standing tool station now has a full-height back, rather than floating signs.
-            Decor("Перегородка рабочего места", new Vector3(-72, 1.65f, 35.12f), new Vector3(4.2f, 3.3f, 0.16f), plasterMaterial);
+            Decor("Перегородка рабочего места", new Vector3(-72, 1.65f, 35.12f), new Vector3(4.2f, 3.3f, 0.16f), plasterMaterial, true);
             foreach (var x in new[] { -74.15f, -69.85f })
                 Decor("Рама рабочего места", new Vector3(x, 1.65f, 35), new Vector3(0.08f, 3.3f, 0.12f), workshopMaterial);
             foreach (var x in new[] { -74.5f, -69.5f })
                 Decor("Граница рабочего места", new Vector3(x, 0.043f, 33), new Vector3(0.06f, 0.01f, 4), accentMaterial);
             Decor("Задняя граница рабочего места", new Vector3(-72, 0.043f, 35), new Vector3(5, 0.01f, 0.06f), accentMaterial);
             foreach (var y in new[] { 0.35f, 1.15f, 1.95f })
-                Decor("Полка хранения мастерской", new Vector3(-57, y, 38.8f), new Vector3(5, 0.08f, 0.7f), bodyMaterial);
+                Decor("Полка хранения мастерской", new Vector3(-57, y, 38.8f), new Vector3(5, 0.08f, 0.7f), bodyMaterial, true);
             foreach (var x in new[] { -59.45f, -54.55f })
-                Decor("Стойка хранения мастерской", new Vector3(x, 1.2f, 38.8f), new Vector3(0.08f, 2.4f, 0.7f), workshopMaterial);
+                Decor("Стойка хранения мастерской", new Vector3(x, 1.2f, 38.8f), new Vector3(0.08f, 2.4f, 0.7f), workshopMaterial, true);
             for (var i = 0; i < 4; i++)
             {
                 var position = new Vector3(-58.8f + i * 1.15f, 0.65f, 38.8f);
-                Decor("Коробка запчастей", position, new Vector3(0.9f, 0.5f, 0.55f), plasterMaterial);
+                Decor("Коробка запчастей", position, new Vector3(0.9f, 0.5f, 0.55f), plasterMaterial, true);
                 Decor("Маркировка коробки", position + new Vector3(0, 0, -0.28f), new Vector3(0.22f, 0.28f, 0.015f), accentMaterial);
             }
             Board("ЗАПЧАСТИ / ХРАНЕНИЕ", new Vector3(-57, 2.5f, 39.3f), 0, new Vector2(4, 0.4f));
@@ -100,14 +107,14 @@ namespace Interactables
                 Decor("Граница проезда двора", new Vector3(x, 0.106f, 14), new Vector3(0.12f, 0.01f, 10), accentMaterial);
             foreach (var x in new[] { -75f, -72.5f })
             {
-                Decor("Складской контейнер двора", new Vector3(x, 0.5f, 17), new Vector3(1.8f, 1, 1.2f), bodyMaterial);
-                Decor("Крышка контейнера", new Vector3(x, 1.04f, 17), new Vector3(1.9f, 0.08f, 1.3f), workshopMaterial);
+                Decor("Складской контейнер двора", new Vector3(x, 0.5f, 17), new Vector3(1.8f, 1, 1.2f), bodyMaterial, true);
+                Decor("Крышка контейнера", new Vector3(x, 1.04f, 17), new Vector3(1.9f, 0.08f, 1.3f), workshopMaterial, true);
             }
             foreach (var y in new[] { 0.35f, 1.15f, 1.95f })
-                Decor("Полка двора", new Vector3(-55, y, 17.5f), new Vector3(2.6f, 0.08f, 0.6f), bodyMaterial);
+                Decor("Полка двора", new Vector3(-55, y, 17.5f), new Vector3(2.6f, 0.08f, 0.6f), bodyMaterial, true);
             foreach (var x in new[] { -56.25f, -53.75f })
-                Decor("Стойка стеллажа двора", new Vector3(x, 1.15f, 17.5f), new Vector3(0.08f, 2.3f, 0.6f), bodyMaterial);
-            Decor("Запас материалов двора", new Vector3(-55, 0.67f, 17.5f), new Vector3(2.1f, 0.5f, 0.5f), plasterMaterial);
+                Decor("Стойка стеллажа двора", new Vector3(x, 1.15f, 17.5f), new Vector3(0.08f, 2.3f, 0.6f), bodyMaterial, true);
+            Decor("Запас материалов двора", new Vector3(-55, 0.67f, 17.5f), new Vector3(2.1f, 0.5f, 0.5f), plasterMaterial, true);
             Board("ДВОР МАСТЕРСКОЙ\nСвободный проезд — по центру", new Vector3(-73, 1.65f, 18.7f), 0, new Vector2(4.4f, 0.65f));
         }
 

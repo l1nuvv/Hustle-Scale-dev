@@ -23,7 +23,8 @@ public static partial class S3Verification
         for (var load = 0; load < 3; load++)
         {
             Check(save.Load(false), context + " load " + load);
-            Check(snapshot == JsonUtility.ToJson(save.Session.CaptureCity(save.World)), context + " entire snapshot unchanged");
+            // JsonUtility may round the last double digit; all non-time state remains exact.
+            Check(PersistenceMatches(snapshot), context + " entire snapshot unchanged");
             Check(trade.Session == save.Session && save.Session.IsPaused && walk.IsPaused, context + " rebind on pause");
             Check(save.Session.Units.Select(u => u.InstanceId).Distinct().Count() == 3, context + " unique identities");
             for (var i = 0; i < 3; i++)
@@ -43,7 +44,7 @@ public static partial class S3Verification
         Open(CityTradeKind.Seller); Command("purchase"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
         WalkRoute("seller to workshop for free choice", 83, -37, 80, -37, 80, -20, 65, 0, 35, -7, -15, -7, -42, 0, -65, 0, -65, 25, -69, 30);
-        Open(CityTradeKind.WorkshopDock); Command("crate"); trade.CloseMenu();
+        ToggleFixtureCrate(CityTradeView.WorkshopDock);
         if (repair) { Open(CityTradeKind.Battery); Command("battery"); trade.CloseMenu(); }
         for (var i = 0; i < 3; i++)
         {

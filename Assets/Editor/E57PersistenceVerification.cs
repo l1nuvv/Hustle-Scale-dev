@@ -59,6 +59,7 @@ public static partial class S3Verification
             Check(trade.Crate.parent == (save.Session.IsCrateInVehicle ? vehicle.transform : eye.transform), context + " carried/cargo crate parent");
         else
             Check(trade.Crate.parent.name == "City trade runtime" && Vector3.Distance(trade.Crate.position,
+                save.World.HasCratePose ? save.World.CratePosition :
                 save.World.CrateDock == CityCrateDock.Seller ? CityTradeView.SellerDock : CityTradeView.WorkshopDock) < 0.001f,
                 context + " crate dock");
         if (save.Session.IsCrateInVehicle)
@@ -70,7 +71,7 @@ public static partial class S3Verification
             var visible = unit.Location != FlashlightLocation.Pocket &&
                 (WorkshopSession.IsOwned(unit) || unit.Location == FlashlightLocation.Seller);
             Check(lamp.gameObject.activeSelf == visible, context + " visibility " + i);
-            Check(lamp.GetComponent<Collider>().enabled == (unit.Location == FlashlightLocation.World), context + " collider " + i);
+            Check(lamp.GetComponent<Collider>().enabled == (unit.Location == FlashlightLocation.World || unit.Location == FlashlightLocation.Bench), context + " collider " + i);
             Check(lamp.GetComponentInChildren<Light>(true).enabled == (visible && unit.IsPowered &&
                 unit.Location != FlashlightLocation.Crate && unit.Location != FlashlightLocation.Seller), context + " light " + i);
             if (unit.Location == FlashlightLocation.World)
@@ -146,13 +147,15 @@ public static partial class S3Verification
 
     private static IEnumerator SlicePersistence()
     {
+        var usability = CityUsability();
+        while (usability.MoveNext()) yield return usability.Current;
         PersistenceRoundTrip("fresh city");
         S2Verification.SeedCity(save.Session);
         Open(CityTradeKind.Seller); Command("purchase"); Command("battery"); trade.CloseMenu();
         Open(CityTradeKind.A); Command("accept"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
         PersistenceRoundTrip("accepted order, purchase and carried crate");
-        Open(CityTradeKind.WorkshopDock); Command("crate"); trade.CloseMenu();
+        ToggleFixtureCrate(CityTradeView.WorkshopDock);
         Open(CityTradeKind.Crate); Command("unit", 0); trade.CloseMenu();
         walk.SetPaused(false); Check(save.Session.StowHeld(out _), "pocket lamp");
         Open(CityTradeKind.Crate); Command("unit", 2); trade.CloseMenu();
@@ -278,5 +281,74 @@ public static partial class S3Verification
         Check(save.Session.IsCrateInVehicle && !save.Session.IsCrateCarried && trade.Crate.parent == vehicle.transform,
             "reload carried crate into vehicle away from docks");
         File.AppendAllText(Log, "PASS backup-only startup, failed backup, new-game cancel/confirm, vehicle cargo startup\n");
+    }
+
+    private static IEnumerator CityUsability()
+    {
+        NewFixture(); walk.SetPaused(false);
+        Check(!trade.Points.Any(point => point.Kind == CityTradeKind.SellerDock || point.Kind == CityTradeKind.WorkshopDock) &&
+            GameObject.Find("Место для ящика") == null && GameObject.Find("Опора дока") == null, "no dock objects or interactions");
+        foreach (var name in new[] { "Коробка запчастей", "Полка хранения мастерской", "Стойка хранения мастерской",
+            "Складской контейнер двора", "Полка двора", "Запас материалов двора", "Прилавок фонарей", "Верстак", "Нагрузочный тестер" })
+        {
+            var objects = trade.Crate.parent.GetComponentsInChildren<Collider>().Where(collider => collider.name == name).ToArray();
+            Check(objects.Length > 0 && objects.All(collider => collider.enabled && !collider.isTrigger), "solid world prop " + name);
+        }
+        player.RestorePose(new Vector3(-58.8f, 0.08f, 37), 0, 0); Physics.SyncTransforms();
+        player.GetComponent<CharacterController>().Move(Vector3.forward * 3);
+        Check(player.transform.position.z < 38.5f, "storage physically blocks player movement");
+        Open(CityTradeKind.Seller); Command("purchase"); trade.CloseMenu();
+        Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
+        player.RestorePose(new Vector3(-65, 0.08f, 14), 90, 0); Physics.SyncTransforms();
+        var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        blocker.transform.position = new Vector3(-64, 1, 14); blocker.transform.localScale = new Vector3(0.5f, 2, 3);
+        Physics.SyncTransforms();
+        Check(!trade.DropHeld() && save.Session.IsCrateCarried && !save.World.HasCratePose, "blocked crate drop preserves held state and pose");
+        UnityEngine.Object.Destroy(blocker); yield return null; Physics.SyncTransforms();
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.Q)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(!save.Session.IsCrateCarried && save.World.HasCratePose && !trade.MenuOpen && trade.Crate.GetComponent<Collider>().enabled,
+            "real Q drops crate in front of player without aiming at floor");
+        var pose = trade.Crate.position;
+        PersistenceRoundTrip("free crate in courtyard");
+        Check(Vector3.Distance(pose, trade.Crate.position) < 0.001f, "free crate pose restored exactly");
+        var restart = PersistenceRestart(); while (restart.MoveNext()) yield return restart.Current;
+        Check(Vector3.Distance(pose, trade.Crate.position) < 0.001f, "free crate pose survives scene restart");
+        walk.SetPaused(false); Open(CityTradeKind.Crate); Command("contents"); trade.CloseMenu();
+        Check(save.Session.Units.All(unit => unit.Location == FlashlightLocation.Pocket) && !save.Session.IsCrateCarried,
+            "leave box and transfer contents to inventory");
+        walk.SetPaused(false); Check(save.Session.EquipSlot(1, out _), "equip faulty lamp from inventory");
+        Approach(CityTradeKind.Workshop);
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.E)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(!trade.MenuOpen && player.CanInteract && save.Session.OnBench == save.Session.Units[1], "E places lamp on actual workbench without modal");
+        Approach(CityTradeKind.Workshop);
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.T)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(!trade.MenuOpen && save.Session.OnBench.IsTested && !save.Session.OnBench.LastTestPassed, "T tests without modal");
+        ScreenCapture.CaptureScreenshot("Temp/CityUsability-workbench.png"); yield return null; yield return null;
+        var before = save.Session.RepairSeconds;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.R)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(save.Session.RepairSeconds == before && save.Session.OnBench.Condition == FlashlightCondition.BatteryFault, "R without spare battery is atomic");
+        Open(CityTradeKind.Seller); Command("battery"); trade.CloseMenu(); Approach(CityTradeKind.Workshop);
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.R)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(!trade.MenuOpen && save.Session.RepairSeconds == before + 240 && save.Session.SpareBatteries == 0 &&
+            !save.Session.OnBench.IsTested && save.Session.OnBench.Condition == FlashlightCondition.Working, "R replaces one battery and requires retest");
+        Approach(CityTradeKind.Workshop);
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.T)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(save.Session.OnBench.LastTestPassed, "T retests repaired lamp");
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.E)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(!trade.MenuOpen && save.Session.InHands == save.Session.Units[1], "E takes lamp without modal");
+        player.RestorePose(new Vector3(-65, 0.08f, 14), 180, 0); Physics.SyncTransforms();
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.Q)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(save.Session.Units[1].Location == FlashlightLocation.World && save.Session.InHands == null, "Q drops lamp without aiming down");
+        PersistenceRoundTrip("free crate and dropped repaired lamp with pocket goods");
+        File.AppendAllText(Log, "PASS free crate, inventory transfer, actual E/T/R/Q and solid storage\n");
+        NewFixture(); walk.SetPaused(false);
     }
 }

@@ -2,6 +2,23 @@ namespace Inventory
 {
     public sealed partial class WorkshopSession
     {
+        public bool TakeCrateContents(out string message)
+        {
+            if (!CanHandleItems(out message)) return false;
+            if (!IsCity || IsCrateCarried || IsCrateInVehicle)
+                return Reject("Сначала поставь ящик.", out message);
+            var count = 0;
+            foreach (var unit in units) if (unit.Location == FlashlightLocation.Crate) count++;
+            if (count == 0) return Reject("Ящик пуст.", out message);
+            foreach (var unit in units)
+                if (unit.Location == FlashlightLocation.Crate)
+                {
+                    unit.IsPowered = false;
+                    unit.Location = FlashlightLocation.Pocket;
+                }
+            return Complete("Фонари в инвентаре: " + count + ". 1–3 — взять в руки.", out message);
+        }
+
         public bool LoadVehicleCrate(out string message)
         {
             if (!CanHandleItems(out message)) return false;

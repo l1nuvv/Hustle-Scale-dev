@@ -39,7 +39,7 @@ namespace Interactables
                 "Lamp retrieved from bench." => "Фонарь в руках",
                 "Take a lamp from the crate first." => "Сначала возьми фонарь из ящика",
                 "Lamp placed on bench. Run the test." => "Фонарь на столе · нужен тест",
-                "Dock the crate first." => "Сначала поставь ящик на жёлтую площадку у продавца или в мастерской.",
+                "Dock the crate first." => "Сначала выброси ящик из рук: Q.",
                 "Place a lamp on the bench first." => "Возьми фонарь из ящика. E у рабочего стола — положить фонарь.",
                 "Unknown lamp." => "Такого фонаря нет.",
                 "Every lamp must have a different owned identity." => "Выбери разные принадлежащие тебе фонари.",
@@ -130,16 +130,14 @@ namespace Interactables
             workLight.transform.SetParent(root, false); workLight.transform.position = new Vector3(-72, 2.8f, 33);
             workLight.type = LightType.Point; workLight.range = 7; workLight.intensity = 3;
             workLight.color = new Color(1, 0.88f, 0.65f);
-            Decor("Прилавок фонарей", new Vector3(88, 0.6f, -36.9f), new Vector3(4.5f, 1.2f, 1), accentMaterial);
-            Decor("Навес прилавка", new Vector3(88, 2.65f, -36.9f), new Vector3(5, 0.18f, 2), accentMaterial);
+            Decor("Прилавок фонарей", new Vector3(88, 0.6f, -36.9f), new Vector3(4.5f, 1.2f, 1), accentMaterial, true);
+            Decor("Навес прилавка", new Vector3(88, 2.65f, -36.9f), new Vector3(5, 0.18f, 2), accentMaterial, true);
             foreach (var x in new[] { 85.6f, 90.4f })
-                Decor("Стойка навеса", new Vector3(x, 1.3f, -36.4f), new Vector3(0.12f, 2.6f, 0.12f), bodyMaterial);
-            foreach (var dock in new[] { SellerDock, WorkshopDock })
-                Decor("Место для ящика", new Vector3(dock.x, 0.03f, dock.z), new Vector3(1.8f, 0.02f, 1.2f), accentMaterial);
+                Decor("Стойка навеса", new Vector3(x, 1.3f, -36.4f), new Vector3(0.12f, 2.6f, 0.12f), bodyMaterial, true);
         }
 
-        private void Decor(string title, Vector3 position, Vector3 size, Material material)
-        { Box(title, root, position, size, material).GetComponent<Collider>().enabled = false; }
+        private void Decor(string title, Vector3 position, Vector3 size, Material material, bool solid = false)
+        { Box(title, root, position, size, material).GetComponent<Collider>().enabled = solid; }
 
         private Transform Board(string title, Vector3 position, float yaw, Vector2 size)
         {

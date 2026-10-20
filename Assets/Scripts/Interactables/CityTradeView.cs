@@ -18,7 +18,7 @@ namespace Interactables
         private Camera eye;
         private WorkshopSession session;
         private CityUtilityVehicle vehicle;
-        private Transform root, crate;
+        private Transform root, crate, sellerCounter;
         private readonly Transform[] lamps = new Transform[3];
         private readonly Light[] lights = new Light[3];
         private readonly Renderer[] lenses = new Renderer[3];
@@ -58,6 +58,8 @@ namespace Interactables
             input.OnStowItem += Stow;
             input.OnPlaceItem += Place;
             input.OnToggleLight += Power;
+            input.OnTestItem += TestFocused;
+            input.OnRepairItem += RepairFocused;
             Bind();
         }
 
@@ -99,8 +101,10 @@ namespace Interactables
             crate.SetParent(session.IsCrateInVehicle ? vehicle.transform : session.IsCrateCarried ? eye.transform : root, false);
             crate.localPosition = session.IsCrateCarried ? new Vector3(0, -0.85f, 1.1f) :
                 session.IsCrateInVehicle ? vehicle.CargoPosition :
+                save.World.HasCratePose ? save.World.CratePosition :
                 save.World.CrateDock == CityCrateDock.Seller ? SellerDock : WorkshopDock;
-            crate.localRotation = Quaternion.identity;
+            crate.localRotation = !session.IsCrateCarried && !session.IsCrateInVehicle && save.World.HasCratePose ?
+                Quaternion.Euler(0, save.World.CrateYaw, 0) : Quaternion.identity;
             crate.GetComponent<Collider>().enabled = !session.IsCrateCarried && !session.IsCrateInVehicle;
             for (var i = 0; i < 3; i++)
             {
@@ -108,7 +112,7 @@ namespace Interactables
                 var visible = unit.Location != FlashlightLocation.Pocket &&
                     (WorkshopSession.IsOwned(unit) || unit.Location == FlashlightLocation.Seller);
                 lamps[i].gameObject.SetActive(visible);
-                lamps[i].GetComponent<Collider>().enabled = unit.Location == FlashlightLocation.World;
+                lamps[i].GetComponent<Collider>().enabled = unit.Location == FlashlightLocation.World || unit.Location == FlashlightLocation.Bench;
                 lights[i].enabled = visible && unit.IsPowered &&
                     unit.Location != FlashlightLocation.Crate && unit.Location != FlashlightLocation.Seller;
                 lampProperties.SetColor("_EmissionColor", lights[i].enabled ? new Color(1.6f, 1.3f, 0.8f) : Color.black);
@@ -153,6 +157,9 @@ namespace Interactables
         {
             if (!Allowed || !Reachable(point)) return;
             if (point.Kind == CityTradeKind.Cargo) { TransferCargo(); return; }
+            if (point.Kind == CityTradeKind.Workshop || point.Kind == CityTradeKind.Lamp &&
+                session.Units[point.Index].Location == FlashlightLocation.Bench)
+            { WorkshopAction(point, "bench"); return; }
             if (point.Kind == CityTradeKind.Lamp)
             { ActionFeedback("unit", session.PickUpPlaced(point.Index, out message)); Refresh(); return; }
             current = point;
@@ -193,29 +200,17 @@ namespace Interactables
                 switch (command)
                 {
                     case "purchase" when kind == CityTradeKind.Seller:
-                        if (session.LotPurchased && !session.IsCrateCarried && save.World.CrateDock != CityCrateDock.Seller)
+                        if (session.LotPurchased && !CrateAtSeller)
                         { message = "Принеси пустой ящик к продавцу."; break; }
                         success = session.PurchaseLot(out message);
                         if (success) Array.Clear(selected, 0, selected.Length);
                         break;
                     case "battery" when kind == CityTradeKind.Battery || kind == CityTradeKind.Seller:
                         success = session.BuyBattery(out message); break;
-                    case "bench" when kind == CityTradeKind.Workshop: success = session.ToggleBench(out message); break;
-                    case "test" when kind == CityTradeKind.Workshop: success = session.Test(out message); break;
-                    case "repair" when kind == CityTradeKind.Workshop: success = session.Repair(out message); break;
-                    case "crate" when kind == CityTradeKind.Crate || kind == CityTradeKind.SellerDock || kind == CityTradeKind.WorkshopDock:
-                        var dock = kind == CityTradeKind.SellerDock ? CityCrateDock.Seller :
-                            kind == CityTradeKind.WorkshopDock ? CityCrateDock.Workshop : save.World.CrateDock;
-                        var position = dock == CityCrateDock.Seller ? SellerDock : WorkshopDock;
-                        if (Vector3.Distance(transform.position, position) > 2.5f)
-                        { message = "Подойди к обозначенному доку ящика (2,5 м)."; break; }
-                        if (!session.IsCrateCarried && save.World.CrateDock != dock)
-                        { message = "Ящик находится у другого дока."; break; }
-                        var previousDock = save.World.CrateDock;
-                        save.World.CrateDock = dock;
-                        success = session.ToggleCrate(out message);
-                        if (!success) save.World.CrateDock = previousDock;
-                        break;
+                    case "crate" when kind == CityTradeKind.Crate:
+                        success = session.ToggleCrate(out message); break;
+                    case "contents" when kind == CityTradeKind.Crate:
+                        success = session.TakeCrateContents(out message); break;
                     case "unit" when kind == CityTradeKind.Crate:
                         success = session.ToggleUnit(index, out message); break;
                     case "equip" when kind == null: success = session.EquipSlot(index, out message); break;
@@ -236,6 +231,39 @@ namespace Interactables
 
         private bool Presented(int i) => session.Units[i].Location == FlashlightLocation.Hands ||
             session.IsCrateCarried && session.Units[i].Location == FlashlightLocation.Crate;
+
+        private bool CrateAtSeller => session.IsCrateCarried || !session.IsCrateInVehicle &&
+            sellerCounter != null && Vector3.ProjectOnPlane(crate.position - sellerCounter.position, Vector3.up).magnitude <= 2.5f;
+
+        public string WorkshopPrompt => session == null ? "Верстак" : session.OnBench == null ?
+            "E — поставить фонарь" : "E — взять · T — проверить · R — заменить батарею";
+
+        public bool WorkshopAction(CityTradePoint point, string command)
+        {
+            if (!Allowed || !Reachable(point) || !(point.Kind == CityTradeKind.Workshop ||
+                point.Kind == CityTradeKind.Lamp && session.Units[point.Index].Location == FlashlightLocation.Bench)) return false;
+            bool success;
+            switch (command)
+            {
+                case "bench": success = session.ToggleBench(out message); break;
+                case "test": success = session.Test(out message); break;
+                case "repair": success = session.Repair(out message); break;
+                default: return false;
+            }
+            ActionFeedback(command, success); Refresh(); return success;
+        }
+
+        private void FocusedWorkshop(string command)
+        {
+            if (Allowed && Physics.Raycast(eye.transform.position, eye.transform.forward, out var hit, 2.5f,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                var point = hit.collider.GetComponentInParent<CityTradePoint>();
+                if (point != null) WorkshopAction(point, command);
+            }
+        }
+        private void TestFocused() => FocusedWorkshop("test");
+        private void RepairFocused() => FocusedWorkshop("repair");
 
         public string CargoPrompt => session == null ? "Багажник" :
             session.IsCrateInVehicle ? "E — взять ящик из багажника" :
@@ -271,22 +299,47 @@ namespace Interactables
         }
         private void Place()
         {
-            if (!Allowed || session.InHands == null) return;
-            if (!Physics.Raycast(eye.transform.position, eye.transform.forward, out var hit, 2.5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) ||
-                hit.normal.y < 0.85f)
-            { message = "Наведи прицел на свободную горизонтальную поверхность в 2,5 м."; return; }
-            var position = hit.point + Vector3.up * 0.25f;
+            DropHeld();
+        }
+
+        public bool DropHeld()
+        {
+            if (!Allowed || session.InHands == null && !session.IsCrateCarried) return false;
+            var forward = Vector3.ProjectOnPlane(eye.transform.forward, Vector3.up).normalized;
+            if (!Physics.Raycast(eye.transform.position, eye.transform.forward, out var hit, 2.5f,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.85f)
+            {
+                var probe = eye.transform.position + forward * 1.4f;
+                if (Physics.Linecast(eye.transform.position, probe, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) ||
+                    !Physics.Raycast(probe, Vector3.down, out hit, 4, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.85f)
+                { message = "Перед тобой нет свободного места."; return false; }
+            }
+            var isCrate = session.IsCrateCarried;
+            var half = isCrate ? new Vector3(0.625f, 0.175f, 0.325f) : new Vector3(0.16f, 0.24f, 0.14f);
+            var position = hit.point + Vector3.up * (half.y + 0.015f);
             var rotation = Quaternion.Euler(0, eye.transform.eulerAngles.y, 0);
-            if (Physics.CheckBox(position, new Vector3(0.16f, 0.24f, 0.14f), rotation, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
-            { message = "Недостаточно свободного места."; return; }
+            if (Physics.Linecast(eye.transform.position, position + Vector3.up * half.y,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) ||
+                Physics.CheckBox(position, half, rotation, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            { message = "Недостаточно свободного места."; return false; }
+            if (isCrate)
+            {
+                var oldPose = save.World.HasCratePose; var oldPosition = save.World.CratePosition; var oldYaw = save.World.CrateYaw;
+                save.World.HasCratePose = true; save.World.CratePosition = position; save.World.CrateYaw = rotation.eulerAngles.y;
+                var success = session.ToggleCrate(out message);
+                if (!success)
+                { save.World.HasCratePose = oldPose; save.World.CratePosition = oldPosition; save.World.CrateYaw = oldYaw; }
+                ActionFeedback("place", success); Refresh(); return success;
+            }
             for (var i = 0; i < 3; i++)
                 if (session.Units[i] == session.InHands)
                 {
                     lamps[i].SetParent(root, true);
                     lamps[i].SetPositionAndRotation(position, rotation);
-                    ActionFeedback("place", session.PlaceHeld(out message)); break;
+                    var success = session.PlaceHeld(out message);
+                    ActionFeedback("place", success); Refresh(); return success;
                 }
-            Refresh();
+            return false;
         }
 
         private void BuildWorld()
@@ -302,9 +355,6 @@ namespace Interactables
             Point("СКУПКА · $60 / $35", CityTradeKind.Buyback, new Vector3(-65, 1.1f, -47));
             Point("A · 2 исправных · $260", CityTradeKind.A, new Vector3(-29, 1.3f, 10.5f));
             Point("Б · 1 исправный · $125", CityTradeKind.B, new Vector3(-7, 1.3f, 10.5f));
-            Point("МАСТЕРСКАЯ · тест / ремонт", CityTradeKind.Workshop, new Vector3(-72, 1.3f, 33.5f));
-            Point("МЕСТО ДЛЯ ЯЩИКА", CityTradeKind.SellerDock, SellerDock + Vector3.right * 1.2f);
-            Point("МЕСТО ДЛЯ ЯЩИКА", CityTradeKind.WorkshopDock, WorkshopDock + Vector3.right * 1.2f);
             crate = Box("Ящик партии", root, SellerDock, new Vector3(1.25f, 0.35f, 0.65f), bodyMaterial);
             AddPoint(crate, CityTradeKind.Crate);
             if (vehicle != null && vehicle.CargoGate != null && vehicle.CargoFloor != null)
@@ -351,19 +401,12 @@ namespace Interactables
         private void Point(string title, CityTradeKind kind, Vector3 position)
         {
             var target = Box(title, root, position, new Vector3(0.7f, 0.35f, 0.3f), bodyMaterial);
+            if (kind == CityTradeKind.Seller) sellerCounter = target;
             AddPoint(target, kind);
-            if (kind == CityTradeKind.Seller || kind == CityTradeKind.A || kind == CityTradeKind.B || kind == CityTradeKind.Workshop ||
-                kind == CityTradeKind.SellerDock || kind == CityTradeKind.WorkshopDock)
+            if (kind == CityTradeKind.Seller || kind == CityTradeKind.A || kind == CityTradeKind.B || kind == CityTradeKind.Workshop)
                 target.Find("Visual").gameObject.SetActive(false);
             // The visible storefront card is also an E target; keep the lower counter target reachable.
-            var dock = kind == CityTradeKind.SellerDock || kind == CityTradeKind.WorkshopDock;
-            if (dock)
-            {
-                var sign = position + new Vector3(0.9f, 0.6f, 0.6f);
-                Board("ДОК ЯЩИКА", sign, 0, new Vector2(1.45f, 0.35f));
-                Decor("Опора дока", sign + Vector3.down * 0.45f, new Vector3(0.06f, 0.9f, 0.06f), bodyMaterial);
-            }
-            else if (kind == CityTradeKind.A || kind == CityTradeKind.B)
+            if (kind == CityTradeKind.A || kind == CityTradeKind.B)
             {
                 var card = Board("ЗАКАЗ " + title, position + new Vector3(0, 0.8f, -0.65f), 0, new Vector2(3.5f, 0.55f));
                 card.GetComponent<Collider>().enabled = true; AddPoint(card, kind);
@@ -405,6 +448,7 @@ namespace Interactables
             {
                 input.OnToggleInventory -= Inventory; input.OnSelectSlot -= Equip;
                 input.OnStowItem -= Stow; input.OnPlaceItem -= Place; input.OnToggleLight -= Power;
+                input.OnTestItem -= TestFocused; input.OnRepairItem -= RepairFocused;
             }
             if (root != null) Destroy(root.gameObject);
             if (canvasObject != null) Destroy(canvasObject);

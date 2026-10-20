@@ -47,6 +47,9 @@ namespace Inventory
         public Vector3 PlayerPosition;
         public float PlayerYaw, CameraPitch;
         public CityCrateDock CrateDock;
+        public bool HasCratePose;
+        public Vector3 CratePosition;
+        public float CrateYaw;
         public bool HasVehiclePose;
         public Vector3 VehiclePosition, VehicleEuler;
         public CityPlacedLamp[] PlacedLamps;

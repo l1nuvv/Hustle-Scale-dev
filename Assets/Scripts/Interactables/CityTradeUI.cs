@@ -46,8 +46,6 @@ namespace Interactables
             CityTradeKind.B => "Покупатель Б",
             CityTradeKind.Workshop => "Мастерская",
             CityTradeKind.Crate => "Ящик",
-            CityTradeKind.SellerDock => "Док продавца",
-            CityTradeKind.WorkshopDock => "Док мастерской",
             _ => "Фонарь"
         };
         private static string State(DealOrderState state) => state switch
@@ -182,7 +180,7 @@ namespace Interactables
                     BuildLocalMap();
                     Line("$" + session.Balance + " · Батареи: " + session.SpareBatteries);
                     Button(showControls ? "Скрыть управление" : "Управление", () => { showControls = !showControls; RebuildMenu(); });
-                    if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — поставить · F — свет\nTab — карта · Esc — пауза · F5 / F9 — сохранить / загрузить");
+                    if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — выбросить · F — свет\nУ верстака: T — тест · R — замена батареи\nTab — карта · Esc — пауза · F5 / F9 — сохранить / загрузить");
                     for (var i = 0; i < 3; i++)
                     {
                         var index = i; var unit = session.Units[i];
@@ -193,7 +191,7 @@ namespace Interactables
                 else switch (current.Kind)
                     {
                         case CityTradeKind.Seller:
-                            var crateHere = !session.LotPurchased || session.IsCrateCarried || save.World.CrateDock == CityCrateDock.Seller;
+                            var crateHere = !session.LotPurchased || CrateAtSeller;
                             ProductCard(session.LotPurchased ? "Вторая партия" : "Партия фонарей", "3 шт. · поломка каждого: 50%", "$180", lampIcon,
                                 () => Execute("purchase"), session.CanPurchaseLot && session.Balance >= 180 && crateHere,
                                 !crateHere && session.CanPurchaseLot ? "Принеси пустой ящик" : session.LotPurchaseStatus);
@@ -203,17 +201,9 @@ namespace Interactables
                         case CityTradeKind.Battery:
                             Line("Баланс $" + session.Balance + " · Батареи: " + session.SpareBatteries);
                             Button("Купить батарею · $50", () => Execute("battery")); break;
-                        case CityTradeKind.Workshop:
-                            Line("На столе: " + (session.OnBench == null ? "ничего" : FirstDealText.Condition(session.OnBench)) +
-                                "\nБатареи: " + session.SpareBatteries);
-                            Button("Положить / забрать фонарь", () => Execute("bench"));
-                            Button("Проверить на столе", () => Execute("test"));
-                            Button("Заменить батарею · 1 шт. · +04:00", () => Execute("repair"));
-                            Line("После замены — повторный тест"); break;
-                        case CityTradeKind.SellerDock:
-                        case CityTradeKind.WorkshopDock:
                         case CityTradeKind.Crate:
-                            Button(session.IsCrateCarried ? "Поставить ящик у этого дока" : "Взять ящик", () => Execute("crate"));
+                            Button("Взять ящик", () => { if (Execute("crate")) CloseMenu(); });
+                            Button("Забрать содержимое в инвентарь", () => Execute("contents"));
                             if (current.Kind == CityTradeKind.Crate)
                                 for (var i = 0; i < 3; i++)
                                 {

@@ -88,6 +88,7 @@ public static class CityCargoVerification
         legacy.Version = 1;
         Check(WorkshopSession.TryRestoreCity(legacy, out _, out _), "existing v1 save remains readable");
         VerifyCargoSpace();
+        VerifyFreeCrate();
         S2Verification.Run();
         var result = "CITY CARGO PASS: " + checks + " assertions; Unity " + Application.unityVersion + "; EditMode only";
         Directory.CreateDirectory("Logs");
@@ -117,6 +118,50 @@ public static class CityCargoVerification
                     Check(Mathf.Abs(side.localPosition.x) - side.localScale.x / 2 > 0.625f, "crate clears side wall");
         }
         finally { if (!alreadyLoaded) EditorSceneManager.CloseScene(scene, true); }
+    }
+
+    private static void VerifyFreeCrate()
+    {
+        var session = WorkshopSession.CreateCity(41);
+        session.SetPaused(false);
+        Check(!session.TakeCrateContents(out _), "unbought contents cannot be taken");
+        Check(session.PurchaseLot(out _) && session.ToggleCrate(out _), "free crate fixture");
+        Check(!session.TakeCrateContents(out _), "carried contents cannot be pocketed remotely");
+        Check(session.ToggleCrate(out _), "drop crate");
+        var world = new CityWorldData
+        {
+            PlacedLamps = Array.Empty<CityPlacedLamp>(), HasCratePose = true,
+            CratePosition = new Vector3(-65, 0.3f, 14), CrateYaw = 75
+        };
+        var snapshot = session.CaptureCity(world);
+        Check(snapshot.Version == 4 && WorkshopSession.TryRestoreCity(snapshot, out _, out _), "v4 free crate pose accepted");
+        foreach (var corrupt in new Action<CityWorldData>[]
+        {
+            value => value.CratePosition.x = float.NaN,
+            value => value.CratePosition.z = 99999,
+            value => value.CrateYaw = float.PositiveInfinity
+        })
+        {
+            var invalid = JsonUtility.FromJson<CitySaveData>(JsonUtility.ToJson(snapshot));
+            corrupt(invalid.World);
+            Check(!WorkshopSession.TryRestoreCity(invalid, out _, out _), "invalid free crate pose rejected");
+        }
+        var ids = string.Join(",", session.Units.Select(unit => unit.InstanceId));
+        var balance = session.Balance;
+        session.SetPaused(true);
+        Check(!session.TakeCrateContents(out _), "pause blocks contents transfer");
+        session.SetPaused(false);
+        Check(session.TakeCrateContents(out _), "crate contents moved into inventory");
+        Check(session.Units.All(unit => unit.Location == FlashlightLocation.Pocket) && session.Balance == balance &&
+            string.Join(",", session.Units.Select(unit => unit.InstanceId)) == ids, "transfer conserves unique goods and money");
+        var empty = JsonUtility.ToJson(session.CaptureCity(world));
+        Check(!session.TakeCrateContents(out _) && empty == JsonUtility.ToJson(session.CaptureCity(world)), "empty transfer atomic");
+        Check(WorkshopSession.TryRestoreCity(session.CaptureCity(world), out var restored, out _) &&
+            restored.Units.All(unit => unit.Location == FlashlightLocation.Pocket), "inventory transfer survives restore");
+        var legacy = WorkshopSession.CreateCity(41); legacy.SetPaused(false); legacy.PurchaseLot(out _);
+        var old = legacy.CaptureCity(new CityWorldData { PlacedLamps = Array.Empty<CityPlacedLamp>() });
+        old.Version = 3;
+        Check(WorkshopSession.TryRestoreCity(old, out _, out _), "v3 purchased RNG lot remains readable");
     }
 
     private static void Check(bool value, string context)

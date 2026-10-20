@@ -12,7 +12,7 @@ namespace Player
         private InputAction _sprint;
         private InputAction _interact;
         private InputAction _inventory;
-        private InputAction _light, _place, _stow;
+        private InputAction _light, _place, _stow, _test, _repair;
         private readonly InputAction[] _slots = new InputAction[4];
         private Vector2 _moveInput;
         private Vector2 _mouseInput;
@@ -25,6 +25,8 @@ namespace Player
         public event Action OnToggleLight;
         public event Action OnPlaceItem;
         public event Action OnStowItem;
+        public event Action OnTestItem;
+        public event Action OnRepairItem;
         public event Action<int> OnSelectSlot;
 
         private void Awake()
@@ -41,6 +43,8 @@ namespace Player
             _light = _actions.AddAction("ToggleLight", InputActionType.Button, "<Keyboard>/f");
             _place = _actions.AddAction("PlaceItem", InputActionType.Button, "<Keyboard>/q");
             _stow = _actions.AddAction("StowItem", InputActionType.Button, "<Keyboard>/g");
+            _test = _actions.AddAction("TestItem", InputActionType.Button, "<Keyboard>/t");
+            _repair = _actions.AddAction("RepairItem", InputActionType.Button, "<Keyboard>/r");
             for (var i = 0; i < _slots.Length; i++)
                 _slots[i] = _actions.AddAction("InventorySlot" + (i + 1), InputActionType.Button, "<Keyboard>/" + (i + 1));
         }
@@ -65,6 +69,8 @@ namespace Player
             if (_light.WasPressedThisFrame()) OnToggleLight?.Invoke();
             if (_place.WasPressedThisFrame()) OnPlaceItem?.Invoke();
             if (_stow.WasPressedThisFrame()) OnStowItem?.Invoke();
+            if (_test.WasPressedThisFrame()) OnTestItem?.Invoke();
+            if (_repair.WasPressedThisFrame()) OnRepairItem?.Invoke();
             for (var i = 0; i < _slots.Length; i++)
                 if (_slots[i].WasPressedThisFrame()) OnSelectSlot?.Invoke(i);
         }

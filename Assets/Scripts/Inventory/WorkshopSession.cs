@@ -62,7 +62,7 @@ namespace Inventory
             IsCrateCarried = !IsCrateCarried;
             if (IsCrateCarried) HasTransportedCrate = true;
             return Complete(IsCrateCarried ? "Crate in hands. All stored lamps move with it." :
-                "Crate returned to its dock.", out message);
+                "Ящик поставлен.", out message);
         }
 
         public bool ToggleUnit(int index, out string message)

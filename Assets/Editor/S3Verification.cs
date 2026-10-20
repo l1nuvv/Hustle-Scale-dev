@@ -152,9 +152,24 @@ public static partial class S3Verification
     private static void Open(CityTradeKind kind)
     {
         if (trade.MenuOpen) trade.CloseMenu();
+        if (kind == CityTradeKind.Workshop)
+        { walk.SetPaused(false); Approach(kind); return; }
         walk.SetPaused(false); Approach(kind); Point(kind).Interact(); Check(trade.MenuOpen, "open " + kind);
     }
-    private static void Command(string command, int index = -1) => Check(trade.Execute(command, index), "command " + command);
+    private static void Command(string command, int index = -1) => Check(
+        command == "bench" || command == "test" || command == "repair" ?
+        trade.WorkshopAction(Point(CityTradeKind.Workshop), command) : trade.Execute(command, index), "command " + command);
+
+    private static void ToggleFixtureCrate(Vector3 position)
+    {
+        if (trade.MenuOpen) trade.CloseMenu();
+        walk.SetPaused(false);
+        if (!save.Session.IsCrateCarried)
+        { Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu(); return; }
+        player.RestorePose(new Vector3(position.x, 0.08f, position.z - 1.4f), 0, 45);
+        Physics.SyncTransforms();
+        Check(trade.DropHeld(), "drop carried crate on free surface");
+    }
     private static void Reject(Func<bool> operation, string context)
     {
         save.Session.SetPaused(false);
@@ -270,7 +285,7 @@ public static partial class S3Verification
         }
         CheckLampPresentation("seller");
         foreach (var kind in new[] { CityTradeKind.Seller, CityTradeKind.Battery, CityTradeKind.Buyback,
-            CityTradeKind.A, CityTradeKind.B, CityTradeKind.Workshop, CityTradeKind.SellerDock, CityTradeKind.WorkshopDock }) Approach(kind);
+            CityTradeKind.A, CityTradeKind.B, CityTradeKind.Workshop }) Approach(kind);
 
         // E goes through the real Input System and PlayerRaycast; Escape has one owner.
         walk.SetPaused(false); Approach(CityTradeKind.A);
@@ -295,9 +310,10 @@ public static partial class S3Verification
         Check(save.Save(), "save carrying"); Check(save.Load(false), "load carrying"); walk.SetPaused(false);
         Check(trade.Session == save.Session && save.Session.IsCrateCarried && trade.Crate.parent == eye.transform, "restore carrying and rebind");
         WalkRoute("seller to workshop carrying", 83, -37, 80, -37, 80, -20, 65, 0, 35, -7, -15, -7, -42, 0, -65, 0, -65, 25, -69, 30);
-        Open(CityTradeKind.WorkshopDock); Command("crate"); trade.CloseMenu();
-        Check(save.World.CrateDock == CityCrateDock.Workshop && Vector3.Distance(trade.Crate.position, CityTradeView.WorkshopDock) < 0.01f, "dock persists without teleport");
-        Open(CityTradeKind.SellerDock); Check(!trade.Execute("crate"), "remote crate cannot be taken"); trade.CloseMenu();
+        ToggleFixtureCrate(CityTradeView.WorkshopDock);
+        Check(save.World.HasCratePose && Vector3.Distance(trade.Crate.position, save.World.CratePosition) < 0.01f, "free crate position persists without teleport");
+        player.RestorePose(CityTradeView.SellerDock, 0, 0); Physics.SyncTransforms(); Point(CityTradeKind.Crate).Interact();
+        Check(!trade.MenuOpen && !save.Session.IsCrateCarried, "remote crate cannot be taken");
         Open(CityTradeKind.Crate); Command("unit", 0); trade.CloseMenu();
         CheckLampPresentation("held");
         InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.F)); yield return null; yield return null;
@@ -362,7 +378,7 @@ public static partial class S3Verification
         // Independent route: only B, then checked faulty/working leftovers to buyback.
         NewFixture(); walk.SetPaused(false); Open(CityTradeKind.Seller); Command("purchase"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
-        Open(CityTradeKind.WorkshopDock); Command("crate"); trade.CloseMenu();
+        ToggleFixtureCrate(CityTradeView.WorkshopDock);
         for (var i = 0; i < 3; i++)
         {
             Open(CityTradeKind.Crate); Command("unit", i); trade.CloseMenu();

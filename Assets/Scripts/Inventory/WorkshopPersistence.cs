@@ -23,7 +23,7 @@ namespace Inventory
             if (!IsCity) throw new InvalidOperationException("Only city sessions use this save format.");
             var data = new CitySaveData
             {
-                Version = 3, Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
+                Version = 4, Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
                 Expenses = Expenses, SpareBatteries = SpareBatteries, RepairSeconds = RepairSeconds,
                 LotPurchased = LotPurchased, HasTransportedCrate = HasTransportedCrate,
                 IsCrateCarried = IsCrateCarried, ElapsedSeconds = ElapsedSeconds, World = world,
@@ -116,7 +116,7 @@ namespace Inventory
         private static bool ValidateCity(CitySaveData data, out string message)
         {
             message = "Некорректное или несовместимое сохранение города.";
-            if (data == null || data.Version < 1 || data.Version > 3 || data.InitialBalance != 300 || data.Balance < 0 ||
+            if (data == null || data.Version < 1 || data.Version > 4 || data.InitialBalance != 300 || data.Balance < 0 ||
                 data.Revenue < 0 || data.Expenses < 0 || data.Revenue > int.MaxValue ||
                 data.Expenses > (long)int.MaxValue * 50 + 360 || data.SpareBatteries < 0 ||
                 (long)data.InitialBalance + data.Revenue - data.Expenses != data.Balance ||
@@ -210,6 +210,9 @@ namespace Inventory
                 data.RepairSeconds != repairs * 240 || data.Revenue != revenue) return false;
 
             var world = data.World;
+            if (world != null && world.HasCratePose &&
+                (data.Version < 4 || !data.LotPurchased || !data.HasTransportedCrate ||
+                 !ValidPosition(world.CratePosition) || !Finite(world.CrateYaw) || Math.Abs(world.CrateYaw) > 360)) return false;
             if (data.IsCrateInVehicle && (world == null || !world.HasVehiclePose)) return false;
             if (world != null && world.HasVehiclePose &&
                 (!ValidPosition(world.VehiclePosition) || !Finite(world.VehicleEuler.x) ||
