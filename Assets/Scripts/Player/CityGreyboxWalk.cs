@@ -9,12 +9,14 @@ namespace Player
     [RequireComponent(typeof(PlayerController))]
     public sealed class CityGreyboxWalk : MonoBehaviour
     {
+        [SerializeField] private GameObject worklightPrefab;
         private PlayerController _player;
         private bool _paused;
         private bool _confirmNewGame;
         private CitySaveController _save;
         private Interactables.CityTradeView _trade;
         public bool IsPaused => _paused;
+        public GameObject WorklightPrefab => worklightPrefab;
 
         private void Awake()
         {

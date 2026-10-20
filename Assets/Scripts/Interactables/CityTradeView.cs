@@ -21,6 +21,8 @@ namespace Interactables
         private Transform root, crate;
         private readonly Transform[] lamps = new Transform[3];
         private readonly Light[] lights = new Light[3];
+        private readonly Renderer[] lenses = new Renderer[3];
+        private MaterialPropertyBlock lampProperties;
         private readonly List<CityTradePoint> points = new List<CityTradePoint>();
         private Material bodyMaterial, accentMaterial;
         private CityTradePoint current;
@@ -40,6 +42,7 @@ namespace Interactables
 
         private void Start()
         {
+            lampProperties = new MaterialPropertyBlock();
             save = GetComponent<CitySaveController>(); walk = GetComponent<CityGreyboxWalk>();
             player = GetComponent<PlayerController>(); input = GetComponent<Player.PlayerInput>();
             eye = GetComponentInChildren<Camera>();
@@ -108,13 +111,15 @@ namespace Interactables
                 lamps[i].GetComponent<Collider>().enabled = unit.Location == FlashlightLocation.World;
                 lights[i].enabled = visible && unit.IsPowered &&
                     unit.Location != FlashlightLocation.Crate && unit.Location != FlashlightLocation.Seller;
+                lampProperties.SetColor("_EmissionColor", lights[i].enabled ? new Color(1.6f, 1.3f, 0.8f) : Color.black);
+                lenses[i].SetPropertyBlock(lampProperties);
                 if (unit.Location == FlashlightLocation.World) continue;
                 var parent = unit.Location == FlashlightLocation.Hands ? eye.transform :
                     unit.Location == FlashlightLocation.Bench ? root : crate;
                 lamps[i].SetParent(parent, false);
                 lamps[i].localRotation = Quaternion.identity;
-                lamps[i].localPosition = unit.Location == FlashlightLocation.Hands ? new Vector3(0.38f, -0.4f, 0.7f) :
-                    unit.Location == FlashlightLocation.Bench ? new Vector3(-72, 1.25f, 34) : new Vector3((i - 1) * 0.36f, 0.25f, 0);
+                lamps[i].localPosition = unit.Location == FlashlightLocation.Hands ? new Vector3(0.35f, -0.22f, 0.82f) :
+                    unit.Location == FlashlightLocation.Bench ? new Vector3(-72, 1.37f, 34) : new Vector3((i - 1) * 0.36f, 0.415f, 0);
             }
             hudText = "Деньги: $" + session.Balance + " · Время: " + WorkshopView.Clock(session.ElapsedSeconds) +
                 "\nБатареи: " + session.SpareBatteries + " · В руках: " +
@@ -289,6 +294,8 @@ namespace Interactables
 
         private void BuildWorld()
         {
+            if (walk.WorklightPrefab == null)
+                throw new InvalidOperationException("CityGreybox requires the accepted Worklight prefab on CityGreyboxWalk.");
             root = new GameObject("City trade runtime").transform;
             bodyMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             bodyMaterial.color = new Color(0.12f, 0.2f, 0.22f);
@@ -309,12 +316,17 @@ namespace Interactables
             }
             for (var i = 0; i < 3; i++)
             {
-                lamps[i] = Box("Фонарь " + (i + 1), root, Vector3.zero, new Vector3(0.3f, 0.48f, 0.26f), accentMaterial);
+                lamps[i] = new GameObject("Фонарь " + (i + 1), typeof(BoxCollider)).transform;
+                lamps[i].SetParent(root, false);
+                lamps[i].GetComponent<BoxCollider>().size = new Vector3(0.3f, 0.48f, 0.26f);
                 AddPoint(lamps[i], CityTradeKind.Lamp, i);
-                var lens = Box("Lens", lamps[i], new Vector3(0, 0.12f, 0.14f), new Vector3(0.21f, 0.15f, 0.025f), bodyMaterial);
-                lens.GetComponent<Collider>().enabled = false;
-                lights[i] = new GameObject("Lamp light", typeof(Light)).GetComponent<Light>();
-                lights[i].transform.SetParent(lamps[i], false); lights[i].transform.localPosition = new Vector3(0, 0.1f, 0.18f);
+                var visual = Instantiate(walk.WorklightPrefab, lamps[i], false).transform;
+                // Keep the city's centre pivot, collider and saved poses. The sample faces -Z.
+                visual.localPosition = new Vector3(0, -0.034f, 0);
+                visual.localRotation = Quaternion.Euler(0, 180, 0);
+                lenses[i] = visual.Find("Inset diffuser").GetComponent<Renderer>();
+                lights[i] = visual.GetComponentInChildren<Light>(true);
+                lights[i].transform.localPosition = new Vector3(0, 0.14f, -0.18f);
                 lights[i].type = LightType.Spot; lights[i].range = 12; lights[i].spotAngle = 55; lights[i].intensity = 3;
             }
             BuildWayfinding();

@@ -128,7 +128,10 @@ public static class CityGreyboxBuilder
         var serialized = new SerializedObject(player.GetComponent<PlayerController>());
         serialized.FindProperty("cameraTransform").objectReferenceValue = camera.transform;
         serialized.ApplyModifiedPropertiesWithoutUndo();
-        player.AddComponent<Player.CityGreyboxWalk>();
+        var walk = new SerializedObject(player.AddComponent<Player.CityGreyboxWalk>());
+        walk.FindProperty("worklightPrefab").objectReferenceValue =
+            AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ArtDirectionTest/Prefabs/Worklight.prefab");
+        walk.ApplyModifiedPropertiesWithoutUndo();
         ApplyWalkingChanges();
         EditorSceneManager.SaveScene(scene, ScenePath);
         AssetDatabase.SaveAssets();

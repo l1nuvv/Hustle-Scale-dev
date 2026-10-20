@@ -115412,6 +115412,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5f2943389a7a2247a0e46b3da04ced5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player.CityGreyboxWalk
+  worklightPrefab: {fileID: 2751605038593374826, guid: c6987a88707df4c4a9b4ff204a9453d1, type: 3}
 --- !u!114 &2037480918
 MonoBehaviour:
   m_ObjectHideFlags: 0

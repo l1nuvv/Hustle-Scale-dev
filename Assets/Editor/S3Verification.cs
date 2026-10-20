@@ -200,6 +200,42 @@ public static partial class S3Verification
         }
         File.AppendAllText(Log, "PASS route " + name + ": " + length.ToString("F1") + "m; model " + (length / 4).ToString("F1") + "s at 4m/s (collision simulation, not human timing)\n");
     }
+    private static void CheckLampPresentation(string context)
+    {
+        for (var i = 0; i < 3; i++)
+        {
+            var lamp = trade.Lamp(i);
+            var unit = save.Session.Units[i];
+            var collider = lamp.GetComponent<BoxCollider>();
+            Check(lamp.GetComponentsInChildren<Collider>(true).Length == 1 &&
+                collider.center == Vector3.zero && collider.size == new Vector3(0.3f, 0.48f, 0.26f),
+                context + " one unchanged interaction collider " + i);
+            var renderers = lamp.GetComponentsInChildren<MeshRenderer>(true);
+            Check(renderers.Length > 1 && lamp.GetComponent<MeshRenderer>() == null,
+                context + " detailed sample replaces cube " + i);
+            // Check the actual mesh vertices, including handle/feet, against the physical envelope.
+            foreach (var renderer in renderers)
+                foreach (var vertex in renderer.GetComponent<MeshFilter>().sharedMesh.vertices)
+                {
+                    var local = lamp.InverseTransformPoint(renderer.transform.TransformPoint(vertex));
+                    Check(Mathf.Abs(local.x) <= 0.151f && Mathf.Abs(local.y) <= 0.241f && Mathf.Abs(local.z) <= 0.131f,
+                        context + " mesh fits interaction envelope " + i);
+                }
+            var beams = lamp.GetComponentsInChildren<Light>(true);
+            var visible = unit.Location != FlashlightLocation.Pocket &&
+                (WorkshopSession.IsOwned(unit) || unit.Location == FlashlightLocation.Seller);
+            var powered = visible && unit.IsPowered && unit.Location != FlashlightLocation.Crate && unit.Location != FlashlightLocation.Seller;
+            Check(lamp.gameObject.activeSelf == visible && beams.Length == 1 && beams[0].enabled == powered,
+                context + " one beam follows item state " + i);
+            Check(Vector3.Dot(beams[0].transform.forward, lamp.forward) > 0.999f,
+                context + " beam points out of city lamp front " + i);
+            var diffuser = renderers.Single(r => r.name == "Inset diffuser");
+            var properties = new MaterialPropertyBlock(); diffuser.GetPropertyBlock(properties);
+            Check((properties.GetColor("_EmissionColor").maxColorComponent > 0) == powered,
+                context + " diffuser follows actual light without revealing test state " + i);
+        }
+    }
+
     private static IEnumerator Scenario()
     {
         yield return null; yield return null; yield return null;
@@ -207,6 +243,7 @@ public static partial class S3Verification
         save = trade.GetComponent<CitySaveController>(); walk = trade.GetComponent<CityGreyboxWalk>();
         player = trade.GetComponent<PlayerController>(); eye = player.GetComponentInChildren<Camera>();
         Check(save.Session != null && trade.Session == save.Session, "one shared session");
+        CheckLampPresentation("seller");
         foreach (var kind in new[] { CityTradeKind.Seller, CityTradeKind.Battery, CityTradeKind.Buyback,
             CityTradeKind.A, CityTradeKind.B, CityTradeKind.Workshop, CityTradeKind.SellerDock, CityTradeKind.WorkshopDock }) Approach(kind);
 
@@ -237,7 +274,16 @@ public static partial class S3Verification
         Check(save.World.CrateDock == CityCrateDock.Workshop && Vector3.Distance(trade.Crate.position, CityTradeView.WorkshopDock) < 0.01f, "dock persists without teleport");
         Open(CityTradeKind.SellerDock); Check(!trade.Execute("crate"), "remote crate cannot be taken"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("unit", 0); trade.CloseMenu();
-        Open(CityTradeKind.Workshop); Command("bench"); Command("test"); Command("bench"); trade.CloseMenu();
+        CheckLampPresentation("held");
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.F)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(save.Session.InHands.IsPowered && !save.Session.InHands.IsTested, "F lights held sample without diagnosing it");
+        CheckLampPresentation("held powered");
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.F)); yield return null; yield return null;
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
+        Check(!save.Session.InHands.IsPowered, "F switches sample off");
+        Open(CityTradeKind.Workshop); Command("bench"); CheckLampPresentation("bench before test");
+        Command("test"); CheckLampPresentation("bench after test"); Command("bench"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("unit", 0); Command("unit", 1); trade.CloseMenu();
         Open(CityTradeKind.Workshop); Command("bench"); Command("test");
         Check(!save.Session.OnBench.LastTestPassed, "fault diagnosed"); trade.CloseMenu();
@@ -255,12 +301,14 @@ public static partial class S3Verification
         InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.Q)); yield return null; yield return null;
         InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
         Check(save.Session.Units[2].Location == FlashlightLocation.World, "Q physical placement");
+        CheckLampPresentation("placed");
         var pose = trade.Lamp(2).position; var identity = save.Session.Units[2].InstanceId;
         Check(save.Save() && save.World.PlacedLamps.Length == 1, "capture placed pose before write");
         trade.Lamp(2).position += Vector3.right * 5;
         Check(save.Load(false), "load placed lamp"); walk.SetPaused(false);
         Check(save.Session.Units[2].InstanceId == identity && Vector3.Distance(trade.Lamp(2).position, pose) < 0.001f &&
             trade.Lamp(2).parent.name == "City trade runtime", "restore world pose identity and parent");
+        CheckLampPresentation("restored world pose");
         var placed = trade.Points.First(p => p.Kind == CityTradeKind.Lamp && p.Index == 2);
         Aim(placed, pose + new Vector3(0, -pose.y + 0.08f, -1)); placed.Interact();
         Check(save.Session.Units[2].Location == FlashlightLocation.Hands, "pick placed via world interaction");
@@ -283,6 +331,7 @@ public static partial class S3Verification
         WalkRoute("B to A carrying", -7, 8.4f, -7, 5, -29, 5, -29, 8.4f);
         Open(CityTradeKind.A); SelectOnly(1, 2); Command("deliver"); trade.CloseMenu();
         Check(save.Session.Balance == 455 && save.Session.OwnedLampCount == 0 && !save.Session.ShiftEnded && player.CanInteract, "B then A returns to free world");
+        CheckLampPresentation("sold");
         Check(save.Save() && save.Load(false) && save.Session.Balance == 455, "paid state reload has no duplicate payout");
 
         // Independent route: only B, then checked faulty/working leftovers to buyback.
