@@ -1,0 +1,91 @@
+Unity 6000.6.0f1 · Input System frame-driven integration
+PASS three unknown owned lamps at start
+PASS WASD moves via existing Input System controller
+PASS table collision blocks forward walk, approach reachable
+PASS floor collision supports player
+PASS E raycast picks the intended lamp
+PASS F lights lamp without revealing professional diagnosis
+PASS held visual follows existing camera grip pose
+PASS Q places lamp on reserved work surface
+PASS E tester reports working lamp
+PASS working test enables visible lens emission and real light
+PASS E retrieves tested lamp
+PASS E returns same identity to crate
+PASS second shell remains unknown on pickup
+PASS second lamp placed without duplication
+PASS existing diagnostic detects battery fault
+PASS fault result leaves lens and beam off
+PASS Esc releases gameplay focus and cursor
+PASS unfocused F cannot mutate lamp
+PASS mouse click restores gameplay focus
+PASS remote interaction leaves item state intact
+PASS all moves preserve identities and fixture money
+PASS doorway remains walkable past the NPC into courtyard
+PASS courtyard paving supports player
+PASS Game View renders at 16:9 1600x900
+PASS Sample title text fits vertically
+PASS Sample title text fits horizontally
+PASS Sample title inside screen
+PASS Fixture text fits vertically
+PASS Fixture text fits horizontally
+PASS Fixture inside screen
+PASS Selected lamp text fits vertically
+PASS Selected lamp text fits horizontally
+PASS Selected lamp inside screen
+PASS Test result text fits vertically
+PASS Test result text fits horizontally
+PASS Test result inside screen
+PASS Available action text fits vertically
+PASS Available action text fits horizontally
+PASS Available action inside screen
+PASS Controls text fits vertically
+PASS Controls text fits horizontally
+PASS Controls inside screen
+PASS Aim text fits vertically
+PASS Aim text fits horizontally
+PASS Aim inside screen
+PASS Game View renders at 16:10 1600x1000
+PASS Sample title text fits vertically
+PASS Sample title text fits horizontally
+PASS Sample title inside screen
+PASS Fixture text fits vertically
+PASS Fixture text fits horizontally
+PASS Fixture inside screen
+PASS Selected lamp text fits vertically
+PASS Selected lamp text fits horizontally
+PASS Selected lamp inside screen
+PASS Test result text fits vertically
+PASS Test result text fits horizontally
+PASS Test result inside screen
+PASS Available action text fits vertically
+PASS Available action text fits horizontally
+PASS Available action inside screen
+PASS Controls text fits vertically
+PASS Controls text fits horizontally
+PASS Controls inside screen
+PASS Aim text fits vertically
+PASS Aim text fits horizontally
+PASS Aim inside screen
+PASS Game View renders at 21:9 2100x900
+PASS Sample title text fits vertically
+PASS Sample title text fits horizontally
+PASS Sample title inside screen
+PASS Fixture text fits vertically
+PASS Fixture text fits horizontally
+PASS Fixture inside screen
+PASS Selected lamp text fits vertically
+PASS Selected lamp text fits horizontally
+PASS Selected lamp inside screen
+PASS Test result text fits vertically
+PASS Test result text fits horizontally
+PASS Test result inside screen
+PASS Available action text fits vertically
+PASS Available action text fits horizontally
+PASS Available action inside screen
+PASS Controls text fits vertically
+PASS Controls text fits horizontally
+PASS Controls inside screen
+PASS Aim text fits vertically
+PASS Aim text fits horizontally
+PASS Aim inside screen
+PASS: 89 checks. Screenshots captured from Unity Game View with uGUI.
