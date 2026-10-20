@@ -129,9 +129,113 @@ public static class CityGreyboxBuilder
         serialized.FindProperty("cameraTransform").objectReferenceValue = camera.transform;
         serialized.ApplyModifiedPropertiesWithoutUndo();
         player.AddComponent<Player.CityGreyboxWalk>();
+        ApplyWalkingChanges();
         EditorSceneManager.SaveScene(scene, ScenePath);
         AssetDatabase.SaveAssets();
         Debug.Log("CITY BUILD: 1000 x 1000m, 30 blocks, five districts; saved " + ScenePath);
+    }
+
+    [MenuItem("Tools/City Greybox/Improve Existing Walking Routes")]
+    public static void ImproveExistingCity()
+    {
+        var scene = SceneManager.GetActiveScene();
+        if (EditorApplication.isPlaying || scene.path != ScenePath)
+            throw new InvalidOperationException("Open CityGreybox in Edit Mode first.");
+        ApplyWalkingChanges();
+    }
+
+    private static void ApplyWalkingChanges()
+    {
+        var scene = SceneManager.GetActiveScene();
+        _root = GameObject.Find(RootName).transform;
+        _walk = AssetDatabase.LoadAssetAtPath<Material>(MaterialFolder + "/Pavement.mat");
+        _roof = AssetDatabase.LoadAssetAtPath<Material>(MaterialFolder + "/Roof.mat");
+        _accent = AssetDatabase.LoadAssetAtPath<Material>(MaterialFolder + "/Wayfinding.mat");
+        _lettering = AssetDatabase.LoadAssetAtPath<Material>(MaterialFolder + "/Signs.mat");
+
+        // Move only the four obstructions and their facade pieces; retain object IDs.
+        SetEntryVolume("Block 20 Residential", "Residential volume 1", -201, 116);
+        SetEntryVolume("Block 23 Warehouses", "Warehouses volume 0", 201, 116);
+        SetEntryVolume("Block 08 Garages", "Garages volume 3", -201, -116);
+        SetEntryVolume("Block 11 Outskirts", "Outskirts volume 2", 201, -116);
+        // The old (+8,+8) counter position lies on the new southwest approach.
+        var trade = _root.Find("Workshop and trading placeholders");
+        var counter = trade.Find("GARAGE BUYER future counter");
+        counter.position = new Vector3(-248, counter.position.y, -184);
+        var counterSign = trade.Find("Sign | GARAGE BUYER FUTURE TRADE");
+        counterSign.position = new Vector3(-248, counterSign.position.y, -185.2f);
+
+        // This patch owns only this group. Reapplying preserves all other scene edits.
+        var previous = _root.Find("Walking links and local directions");
+        if (previous != null) UnityEngine.Object.DestroyImmediate(previous.gameObject);
+        var links = Group("Walking links and local directions");
+        Link(links, new Vector3(-65, 0, 0), new Vector3(-240, 0, 192), "NW / HOMES");
+        Link(links, new Vector3(65, 0, 0), new Vector3(240, 0, 192), "NE / SUPPLIER");
+        Link(links, new Vector3(-65, 0, 0), new Vector3(-240, 0, -192), "SW / GARAGES");
+        Link(links, new Vector3(65, 0, 0), new Vector3(240, 0, -192), "SE / PARK EDGE");
+        Paving(links, new Vector3(-160, 0, 0), new Vector3(160, 0, 0), "Central pedestrian spine");
+        Paving(links, new Vector3(-65, 0, 0), new Vector3(-65, 0, 20), "Base doorstep link");
+        Paving(links, new Vector3(65, 0, 0), new Vector3(65, 0, 20), "Battery doorstep link");
+
+        // Old generic labels gave identical advice at different intersections.
+        var landmarks = _root.Find("Landmarks");
+        var oldSigns = new System.Collections.Generic.List<GameObject>();
+        foreach (Transform child in landmarks)
+            if (child.name.StartsWith("Sign | N: HOMES")) oldSigns.Add(child.gameObject);
+        foreach (var sign in oldSigns) UnityEngine.Object.DestroyImmediate(sign);
+        Directions(links, new Vector3(-307, 3, 109), "E: BASE ~380m\nN: WATER TOWER ~370m");
+        Directions(links, new Vector3(13, 3, 109), "SW: BASE ~190m\nS: MARKET ~220m");
+        Directions(links, new Vector3(173, 3, 301), "SE: SUPPLIER ~180m\nSW: BASE ~540m");
+        Directions(links, new Vector3(-147, 3, -275), "NW: GARAGES ~180m\nNE: BASE ~410m");
+        Directions(links, new Vector3(173, 3, -275), "SE: PARK ~180m\nNW: BASE ~540m");
+        EditorSceneManager.MarkSceneDirty(scene);
+        Debug.Log("CITY WALKING PATCH: four 6m diagonal links; four existing volumes reshaped; map and controller preserved. Save after review.");
+    }
+
+    private static void SetEntryVolume(string blockName, string prefix, float x, float z)
+    {
+        var block = _root.Find("30 authored blocks/" + blockName);
+        var body = block.Find("Building | " + prefix);
+        var oldCenter = body.position;
+        var factor = new Vector3(32 / body.localScale.x, 1, 18 / body.localScale.z);
+        foreach (Transform part in block)
+        {
+            if (part != body && !part.name.StartsWith(prefix + " ")) continue;
+            part.position = new Vector3(x, oldCenter.y, z) + Vector3.Scale(part.position - oldCenter, factor);
+            part.localScale = Vector3.Scale(part.localScale, factor);
+        }
+    }
+
+    private static void Paving(Transform parent, Vector3 from, Vector3 to, string name)
+    {
+        var delta = to - from;
+        var strip = Box(parent, name, (from + to) / 2 + Vector3.up * 0.075f,
+            new Vector3(6, 0.02f, delta.magnitude), _walk, false);
+        strip.transform.rotation = Quaternion.LookRotation(delta);
+    }
+
+    private static void Link(Transform parent, Vector3 from, Vector3 to, string name)
+    {
+        Paving(parent, from, to, name + " / pedestrian shortcut");
+        // A thin centre stripe identifies a walkable connection across the asphalt.
+        var delta = to - from;
+        var stripe = Box(parent, name + " / route stripe", (from + to) / 2 + Vector3.up * 0.09f,
+            new Vector3(0.2f, 0.01f, delta.magnitude), _accent, false);
+        stripe.transform.rotation = Quaternion.LookRotation(delta);
+        var side = Vector3.Cross(Vector3.up, delta.normalized) * 7;
+        Directions(parent, from + delta.normalized * 18 + side + Vector3.up * 3,
+            name + " 260m / ~65s\nPEDESTRIAN LINK");
+        var returnDirection = (to.z > 0 ? "S" : "N") + (to.x > 0 ? "W" : "E");
+        Directions(parent, to + side + Vector3.up * 3,
+            name + "\n" + returnDirection + ": CENTRE 260m / ~65s");
+    }
+
+    private static void Directions(Transform parent, Vector3 position, string text)
+    {
+        Box(parent, "Direction post", position - Vector3.up * 1.5f, new Vector3(0.15f, 3, 0.15f), _roof);
+        Box(parent, "Direction board", position, new Vector3(12, 2, 0.15f), _accent, false);
+        Sign(parent, text, position + Vector3.back * 0.09f, 0, 0.14f);
+        Sign(parent, text, position + Vector3.forward * 0.09f, 180, 0.14f);
     }
 
     private static Transform Group(string name)

@@ -20,6 +20,17 @@ public static class CityGreyboxVerification
         Points(160,-192, 240,-192, 240,-288, 240,-384, 320,-384, 320,-288),
     };
     private static readonly string[] Names = { "West loop", "East loop", "Three interiors return", "City crossing", "Residential courtyard", "Supplier courtyard", "Garage courtyard", "Park and outskirts" };
+    private static readonly Vector3[][] ReviewRoutes =
+    {
+        Points(-65,25, -65,0, -240,192, -240,96, -160,96, -160,0, -65,0, -65,25),
+        Points(-65,25, -65,0, 65,0, 240,192, 160,192, 160,96, 0,96, 0,0, -65,0, -65,25),
+        Points(-65,25, -65,0, -240,-192, -240,-96, -160,-96, -160,0, -65,0, -65,25),
+        Points(-65,25, -65,0, 65,0, 240,-192, 160,-192, 160,-96, 0,-96, 0,0, -65,0, -65,25),
+        Routes[2],
+    };
+    private static readonly string[] ReviewNames = { "Homes shortcut and street return", "Supplier shortcut and street return", "Garages shortcut and street return", "Park edge shortcut and street return", "Three interiors return" };
+    private static Vector3[][] _routes = Routes;
+    private static string[] _names = Names;
     private static PlayerController _player;
     private static Player.PlayerInput _input;
     private static CharacterController _body;
@@ -48,7 +59,11 @@ public static class CityGreyboxVerification
         _walk = _player.GetComponent<Player.CityGreyboxWalk>();
     }
 
-    public static string CollisionRoutes()
+    public static string CollisionRoutes() => CheckCollisions(Routes, Names, true);
+
+    public static string ReviewCollision(int route) => CheckCollisions(new[] { ReviewRoutes[route] }, new[] { ReviewNames[route] }, false);
+
+    private static string CheckCollisions(Vector3[][] routes, string[] names, bool boundaries)
     {
         RequireCity();
         var original = _player.transform.position;
@@ -57,7 +72,7 @@ public static class CityGreyboxVerification
         Physics.SyncTransforms();
         try
         {
-            foreach (var route in Routes)
+            foreach (var route in routes)
             {
                 Teleport(route[0]);
                 var length = 0f;
@@ -89,10 +104,10 @@ public static class CityGreyboxVerification
                         throw new Exception("Character blocked before " + route[i] + " actual " + _body.transform.position);
                     length += distance;
                 }
-                report.Add(Names[Array.IndexOf(Routes, route)] + ": " + length.ToString("F1") + "m; model " + (length / 4).ToString("F2") + "s at 4m/s");
+                report.Add(names[Array.IndexOf(routes, route)] + ": " + length.ToString("F1") + "m; model " + (length / 4).ToString("F2") + "s at 4m/s");
             }
             // Walls must stop the actual capsule on all four outer roads.
-            foreach (var direction in new[] { Vector3.left, Vector3.right, Vector3.forward, Vector3.back })
+            foreach (var direction in boundaries ? new[] { Vector3.left, Vector3.right, Vector3.forward, Vector3.back } : Array.Empty<Vector3>())
             {
                 Teleport(direction * 490 + Vector3.up * 0.05f);
                 for (var i = 0; i < 240; i++) _body.Move(direction * 0.1f + Vector3.down * 0.03f);
@@ -118,14 +133,20 @@ public static class CityGreyboxVerification
     }
 
     [MenuItem("Tools/City Greybox/Walk All Routes Accelerated")]
-    public static void StartWalk() => StartWalkAt(0);
+    public static void StartWalk() => StartWalkAt(0, Routes, Names);
 
-    public static void WalkPark() => StartWalkAt(Routes.Length - 1);
+    public static void WalkPark() => StartWalkAt(Routes.Length - 1, Routes, Names);
 
-    private static void StartWalkAt(int firstRoute)
+    public static void WalkReview() => StartWalkAt(0, ReviewRoutes, ReviewNames);
+
+    public static void WalkReviewFrom(int route) => StartWalkAt(route, ReviewRoutes, ReviewNames);
+
+    private static void StartWalkAt(int firstRoute, Vector3[][] routes, string[] names)
     {
         RequireCity();
         if (Status == "WALK RUNNING") throw new InvalidOperationException("Already walking.");
+        _routes = routes;
+        _names = names;
         _oldScale = Time.timeScale;
         _oldBackground = Application.runInBackground;
         Application.runInBackground = true;
@@ -141,14 +162,14 @@ public static class CityGreyboxVerification
 
     private static void BeginRoute()
     {
-        Teleport(Routes[_route][0]);
+        Teleport(_routes[_route][0]);
         _point = 1;
         _routeDistance = 0;
         _lastPosition = _player.transform.position;
         _started = EditorApplication.timeSinceStartup;
         _gameStarted = Time.time;
         _lastProgressTime = Time.realtimeSinceStartup;
-        _player.transform.rotation = Quaternion.LookRotation(Routes[_route][1] - Routes[_route][0]);
+        _player.transform.rotation = Quaternion.LookRotation(_routes[_route][1] - _routes[_route][0]);
         _input.MoveInput = Vector2.up;
     }
 
@@ -159,7 +180,7 @@ public static class CityGreyboxVerification
         // normal focus/pause behavior is verified separately with the harness stopped.
         if (!_player.CanInteract) _walk.SetPaused(false);
         var current = _player.transform.position;
-        var delta = Routes[_route][_point] - current;
+        var delta = _routes[_route][_point] - current;
         delta.y = 0;
         var moved = Vector3.Distance(current, _lastPosition);
         if (moved > 0.01f) _lastProgressTime = Time.realtimeSinceStartup;
@@ -167,23 +188,23 @@ public static class CityGreyboxVerification
         _lastPosition = current;
         if (Time.realtimeSinceStartup - _lastProgressTime > 8 || current.y < -0.1f)
         {
-            Finish("WALK FAILED " + Names[_route] + " at " + current);
+            Finish("WALK FAILED " + _names[_route] + " at " + current);
             return;
         }
         // Clamp the last frame's requested movement to land on corners without cutting them.
         if (delta.magnitude < 0.18f)
         {
             _point++;
-            if (_point >= Routes[_route].Length)
+            if (_point >= _routes[_route].Length)
             {
-                Debug.Log("CITY WALK: " + Names[_route] + " distance=" + _routeDistance.ToString("F2") +
+                Debug.Log("CITY WALK: " + _names[_route] + " distance=" + _routeDistance.ToString("F2") +
                     "m gameSeconds=" + (Time.time - _gameStarted).ToString("F2") +
                     " wallSeconds=" + (EditorApplication.timeSinceStartup - _started).ToString("F2") + " scale=20");
                 _route++;
-                if (_route == Routes.Length) { Finish("WALK PASS: requested routes using existing PlayerController.Update at timeScale 20"); return; }
+                if (_route == _routes.Length) { Finish("WALK PASS: requested routes using existing PlayerController.Update at timeScale 20"); return; }
                 BeginRoute();
             }
-            delta = Routes[_route][_point] - _player.transform.position;
+            delta = _routes[_route][_point] - _player.transform.position;
             delta.y = 0;
         }
         _player.transform.rotation = Quaternion.LookRotation(delta);
