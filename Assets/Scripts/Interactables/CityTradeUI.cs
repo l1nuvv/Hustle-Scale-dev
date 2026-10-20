@@ -10,22 +10,24 @@ namespace Interactables
     public sealed partial class CityTradeView
     {
         private GameObject canvasObject, panel, ownedEventSystem;
-        private RectTransform menuContent;
+        private RectTransform menuContent, safeArea;
+        private UnityEngine.Rect lastSafeArea;
+        private Vector2 lastScreen;
         private Text hud, prompt, feedbackLabel;
         private Font font;
         private bool rebuilding;
 
         public static string Title(CityTradeKind kind) => kind switch
         {
-            CityTradeKind.Seller => "Продавец партии",
+            CityTradeKind.Seller => "Продавец фонарей",
             CityTradeKind.Battery => "Магазин батарей",
             CityTradeKind.Buyback => "Скупка",
             CityTradeKind.A => "Покупатель A",
-            CityTradeKind.B => "Покупатель B",
+            CityTradeKind.B => "Покупатель Б",
             CityTradeKind.Workshop => "Мастерская",
             CityTradeKind.Crate => "Ящик · взять / выбрать фонарь",
-            CityTradeKind.SellerDock => "Док у продавца",
-            CityTradeKind.WorkshopDock => "Док в мастерской",
+            CityTradeKind.SellerDock => "Место для ящика у продавца",
+            CityTradeKind.WorkshopDock => "Место для ящика в мастерской",
             _ => "Фонарь"
         };
         private static string State(DealOrderState state) => state switch
@@ -52,15 +54,18 @@ namespace Interactables
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280, 720); scaler.matchWidthOrHeight = 0.5f;
             var safe = Rect("Safe area", canvas.transform, Vector2.zero, Vector2.one);
+            safeArea = safe;
             safe.anchorMin = Screen.safeArea.min / new Vector2(Screen.width, Screen.height);
             safe.anchorMax = Screen.safeArea.max / new Vector2(Screen.width, Screen.height);
-            hud = Label(safe, "", 18);
-            hud.rectTransform.anchorMin = new Vector2(0.02f, 0.66f); hud.rectTransform.anchorMax = new Vector2(0.98f, 0.80f);
+            var hudPanel = Rect("Wallet and orders", safe, new Vector2(0.015f, 0.86f), new Vector2(0.58f, 0.985f));
+            hudPanel.gameObject.AddComponent<Image>().color = new Color(0.025f, 0.045f, 0.05f, 0.92f);
+            hud = Label(hudPanel, "", 18); hud.alignment = TextAnchor.MiddleLeft;
+            hud.rectTransform.offsetMin = new Vector2(14, 4); hud.rectTransform.offsetMax = new Vector2(-10, -4);
             prompt = Label(safe, "", 20);
-            prompt.rectTransform.anchorMin = new Vector2(0.08f, 0.30f); prompt.rectTransform.anchorMax = new Vector2(0.92f, 0.41f);
+            prompt.rectTransform.anchorMin = new Vector2(0.08f, 0.34f); prompt.rectTransform.anchorMax = new Vector2(0.92f, 0.42f);
             feedbackLabel = Label(safe, "", 18);
             feedbackLabel.rectTransform.anchorMin = new Vector2(0.03f, 0.15f); feedbackLabel.rectTransform.anchorMax = new Vector2(0.97f, 0.27f);
-            var controls = Label(safe, "Tab — имущество · 1–3 — фонарь · G — убрать · Q — поставить · F — свет", 17);
+            var controls = Label(safe, "Tab — карта и имущество · E — взаимодействие · Esc — пауза", 17);
             controls.rectTransform.anchorMin = new Vector2(0, 0.02f); controls.rectTransform.anchorMax = new Vector2(1, 0.10f);
             var cross = Label(safe, "+", 22); cross.rectTransform.anchorMin = new Vector2(0.49f, 0.48f);
             cross.rectTransform.anchorMax = new Vector2(0.51f, 0.52f);
@@ -80,6 +85,16 @@ namespace Interactables
             panel.SetActive(false);
         }
 
+        private void UpdateSafeArea()
+        {
+            var screen = new Vector2(Screen.width, Screen.height);
+            if (lastScreen == screen && lastSafeArea == Screen.safeArea) return;
+            lastScreen = screen; lastSafeArea = Screen.safeArea;
+            safeArea.anchorMin = lastSafeArea.min / screen;
+            safeArea.anchorMax = lastSafeArea.max / screen;
+            if (MenuOpen) RebuildMenu();
+        }
+
         private void RebuildMenu()
         {
             if (rebuilding) return;
@@ -87,17 +102,19 @@ namespace Interactables
             try
             {
                 foreach (Transform child in menuContent) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
-                Line(current != null ? Title(current.Kind) : "Имущество и учёт", 25);
-                Line(hudText + "\n" + message);
+                Line(current != null ? Title(current.Kind) : "Карта района и имущество", 25);
+                Line(hudText + "\n" + CityMessage(message));
                 if (current == null)
                 {
+                    BuildLocalMap();
+                    Line("1–3 — взять фонарь · G — убрать · Q — поставить · F — свет. E у ящика или стола — действия.");
                     Line("Три слота фонарей; батареи хранятся отдельно. Для сдачи принеси товар в руках или в ящике.\n" +
                         "Выручка $" + session.Revenue + " · расходы $" + session.Expenses +
                         " · прибыль $" + (session.Balance - session.InitialBalance) + ". Продажа не заканчивает игру.");
                     for (var i = 0; i < 3; i++)
                     {
                         var index = i; var unit = session.Units[i];
-                        Button("Фонарь " + (i + 1) + " · " + FirstDealText.Condition(unit) + " · " + unit.Location,
+                        Button("Фонарь " + (i + 1) + " · " + FirstDealText.Condition(unit) + " · " + Location(unit.Location),
                             () => Execute("equip", index), unit.Location == FlashlightLocation.Hands || unit.Location == FlashlightLocation.Pocket);
                     }
                 }
@@ -118,13 +135,13 @@ namespace Interactables
                         case CityTradeKind.SellerDock:
                         case CityTradeKind.WorkshopDock:
                         case CityTradeKind.Crate:
-                            Line("Ящик ставится только у двух обозначенных доков. С фонарём в руках подойди к ящику, чтобы вернуть его.");
+                            Line("Ящик ставится на жёлтую площадку у продавца или в мастерской. С фонарём в руках подойди к ящику, чтобы вернуть его.");
                             Button(session.IsCrateCarried ? "Поставить ящик у этого дока" : "Взять ящик", () => Execute("crate"));
                             if (current.Kind == CityTradeKind.Crate)
                                 for (var i = 0; i < 3; i++)
                                 {
                                     var index = i;
-                                    Button("Фонарь " + (i + 1) + " · " + FirstDealText.Condition(session.Units[i]) + " · " + session.Units[i].Location,
+                                    Button("Фонарь " + (i + 1) + " · " + FirstDealText.Condition(session.Units[i]) + " · " + Location(session.Units[i].Location),
                                         () => Execute("unit", index));
                                 }
                             break;

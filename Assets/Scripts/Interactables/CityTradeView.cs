@@ -23,7 +23,9 @@ namespace Interactables
         private readonly List<CityTradePoint> points = new List<CityTradePoint>();
         private Material bodyMaterial, accentMaterial;
         private CityTradePoint current;
-        private string message = "Выбирай любые предложения. Tab — имущество и учёт.";
+        private string message = "Tab — карта района. Продавец фонарей — под жёлтым навесом на рынке.";
+        private string displayedMessage;
+        private float messageUntil;
         private readonly bool[] selected = new bool[3];
         private string hudText;
         public bool MenuOpen => panel != null && panel.activeSelf;
@@ -111,8 +113,8 @@ namespace Interactables
                 lamps[i].localPosition = unit.Location == FlashlightLocation.Hands ? new Vector3(0.38f, -0.4f, 0.7f) :
                     unit.Location == FlashlightLocation.Bench ? new Vector3(-72, 1.25f, 34) : new Vector3((i - 1) * 0.36f, 0.25f, 0);
             }
-            hudText = "$" + session.Balance + " · " + WorkshopView.Clock(session.ElapsedSeconds) +
-                " · батареи " + session.SpareBatteries + " · в руках: " +
+            hudText = "Деньги: $" + session.Balance + " · Время: " + WorkshopView.Clock(session.ElapsedSeconds) +
+                "\nБатареи: " + session.SpareBatteries + " · В руках: " +
                 (session.IsCrateCarried ? "ящик" : session.InHands != null ? "фонарь" : "ничего") +
                 "\n" + OrderSummary(DealOrderId.A) + "   |   " + OrderSummary(DealOrderId.B);
             hud.text = hudText;
@@ -122,7 +124,7 @@ namespace Interactables
         private string OrderSummary(DealOrderId id)
         {
             var order = session.Order(id);
-            return id + ": " + State(order.State) + (order.State == DealOrderState.Accepted ?
+            return FirstDealText.OrderName(id) + ": " + State(order.State) + (order.State == DealOrderState.Accepted ?
                 " · осталось " + WorkshopView.Clock(Math.Max(0, order.DeadlineSeconds - session.ElapsedSeconds)) : "");
         }
 
@@ -259,14 +261,14 @@ namespace Interactables
             bodyMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             bodyMaterial.color = new Color(0.12f, 0.2f, 0.22f);
             accentMaterial = new Material(bodyMaterial) { color = new Color(0.9f, 0.69f, 0.25f) };
-            Point("ПАРТИЯ · 3 фонаря · $180", CityTradeKind.Seller, new Vector3(88, 1.3f, -37));
+            Point("ПРОДАВЕЦ ФОНАРЕЙ", CityTradeKind.Seller, new Vector3(88, 1.3f, -37));
             Point("БАТАРЕИ · $50", CityTradeKind.Battery, new Vector3(65, 1.1f, 26));
             Point("СКУПКА · $60 / $35", CityTradeKind.Buyback, new Vector3(-65, 1.1f, -47));
             Point("A · 2 исправных · $260", CityTradeKind.A, new Vector3(-29, 1.3f, 10.5f));
-            Point("B · 1 исправный · $125", CityTradeKind.B, new Vector3(-7, 1.3f, 10.5f));
+            Point("Б · 1 исправный · $125", CityTradeKind.B, new Vector3(-7, 1.3f, 10.5f));
             Point("МАСТЕРСКАЯ · тест / ремонт", CityTradeKind.Workshop, new Vector3(-72, 1.3f, 33.5f));
-            Point("ДОК · продавец", CityTradeKind.SellerDock, SellerDock + Vector3.right * 1.2f);
-            Point("ДОК · мастерская", CityTradeKind.WorkshopDock, WorkshopDock + Vector3.right * 1.2f);
+            Point("МЕСТО ДЛЯ ЯЩИКА", CityTradeKind.SellerDock, SellerDock + Vector3.right * 1.2f);
+            Point("МЕСТО ДЛЯ ЯЩИКА", CityTradeKind.WorkshopDock, WorkshopDock + Vector3.right * 1.2f);
             crate = Box("Ящик партии", root, SellerDock, new Vector3(1.25f, 0.35f, 0.65f), bodyMaterial);
             AddPoint(crate, CityTradeKind.Crate);
             for (var i = 0; i < 3; i++)
@@ -279,19 +281,7 @@ namespace Interactables
                 lights[i].transform.SetParent(lamps[i], false); lights[i].transform.localPosition = new Vector3(0, 0.1f, 0.18f);
                 lights[i].type = LightType.Spot; lights[i].range = 12; lights[i].spotAngle = 55; lights[i].intensity = 3;
             }
-            // Existing local signs no longer advertise inactive trading. Far-district placeholders stay explicit.
-            foreach (var text in FindObjectsByType<TextMesh>(FindObjectsSortMode.None))
-            {
-                if (text.text == "BASE / NO ACTIVE SESSION") text.text = "BASE / TEST / REPAIR / STORAGE";
-                else if (text.text.Contains("BATTERY SHOP")) text.text = "BATTERY SHOP / $50";
-                else if (text.text.Contains("BUYBACK /")) text.text = "BUYBACK / TESTED GOODS";
-                else if (text.text == "PLACEHOLDER / NO TRADING" && Mathf.Abs(text.transform.position.x) < 100)
-                    text.text = "ACTIVE TRADE / E AT COUNTER";
-                else if (text.text == "GREYBOX / NO TRADE" && Mathf.Abs(text.transform.position.x) < 100)
-                    text.text = "ACTIVE / E AT COUNTER";
-                else if (text.text.Contains("MARKET") && text.text.Contains("FUTURE TRADE") && Mathf.Abs(text.transform.position.x) < 100)
-                    text.text = "MARKET / LAMP LOT $180";
-            }
+            BuildWayfinding();
         }
 
         private Transform Box(string name, Transform parent, Vector3 position, Vector3 size, Material material)
@@ -316,19 +306,20 @@ namespace Interactables
         {
             var target = Box(title, root, position, new Vector3(0.7f, 0.35f, 0.3f), bodyMaterial);
             AddPoint(target, kind);
-            var sign = new GameObject(title, typeof(TextMesh)).GetComponent<TextMesh>();
-            sign.transform.SetParent(target, false); sign.transform.localPosition = new Vector3(0, 0.6f, 0);
-            sign.anchor = TextAnchor.MiddleCenter; sign.characterSize = 0.04f; sign.fontSize = 48;
-            sign.text = title;
+            // A label belongs on the counter, with depth testing, rather than floating through walls.
+            Board(title, position + new Vector3(0, 0.4f, -0.2f), 0, new Vector2(3.8f, 0.55f));
         }
 
         private void LateUpdate()
         {
             if (session == null) return;
+            UpdateSafeArea();
             canvasObject.SetActive(!save.IsDriving);
-            hud.gameObject.SetActive(!walk.IsPaused);
+            hud.transform.parent.gameObject.SetActive(!walk.IsPaused);
             prompt.text = !walk.IsPaused && !save.IsDriving ? raycast.FocusLabel : "";
-            feedbackLabel.text = !walk.IsPaused ? message : "";
+            if (displayedMessage != message)
+            { displayedMessage = message; messageUntil = Time.unscaledTime + 8; }
+            feedbackLabel.text = !walk.IsPaused && Time.unscaledTime < messageUntil ? CityMessage(message) : "";
         }
         private void OnDestroy()
         {
@@ -344,6 +335,8 @@ namespace Interactables
             if (ownedEventSystem != null) Destroy(ownedEventSystem);
             if (bodyMaterial != null) Destroy(bodyMaterial);
             if (accentMaterial != null) Destroy(accentMaterial);
+            if (signMaterial != null) Destroy(signMaterial);
+            if (workshopMaterial != null) Destroy(workshopMaterial);
         }
     }
 }

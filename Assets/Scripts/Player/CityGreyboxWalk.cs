@@ -15,7 +15,6 @@ namespace Player
         private CitySaveController _save;
         private Interactables.CityTradeView _trade;
         public bool IsPaused => _paused;
-        private static readonly string[] Headings = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
 
         private void Awake()
         {
@@ -68,21 +67,12 @@ namespace Player
         private void OnGUI()
         {
             if (_trade.MenuOpen) return;
-            var p = transform.position;
-            var district = p.z >= 96 ? (p.x < 0 ? "RESIDENTIAL" : "WAREHOUSES") :
-                p.z <= -96 ? (p.x < 0 ? "GARAGES" : "PARK / OUTSKIRTS") : "MARKET";
-            var heading = Headings[Mathf.RoundToInt(transform.eulerAngles.y / 45) % Headings.Length];
-            var baseDistance = Vector2.Distance(new Vector2(p.x, p.z), new Vector2(-65, 30));
-            GUI.Box(new Rect(12, 12, 460, 110), "CITY GREYBOX | " + district +
-                "\nWASD / Mouse / Shift | Esc: pause / resume" +
-                "\nTrade: market seller, A/B counters, batteries, buyback." +
-                "\nX " + p.x.ToString("F0") + "   Z " + p.z.ToString("F0") + "   North = +Z" +
-                "\nFacing " + heading + " | BASE " + baseDistance.ToString("F0") + "m straight line");
             if (!_paused) return;
             var width = Mathf.Min(600, Screen.width - 24);
             var height = Mathf.Min(310, Screen.height - 24);
             GUILayout.BeginArea(new Rect((Screen.width - width) / 2, (Screen.height - height) / 2, width, height), GUI.skin.box);
             GUILayout.Label("ГОРОД · ПАУЗА");
+            GUILayout.Label("WASD — идти · мышь — осмотр · Shift — бег · E — взаимодействие · Tab — карта и имущество");
             if (_confirmNewGame)
             {
                 GUILayout.Label("Начать новую игру? Деньги, предметы и сделки текущей игры будут сброшены.");

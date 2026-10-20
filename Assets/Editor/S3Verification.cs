@@ -14,11 +14,13 @@ using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
 
 [InitializeOnLoad]
-public static class S3Verification
+public static partial class S3Verification
 {
     private const string Key = "HustleScale.S3Runtime";
     private const string Override = "HustleScale.S2SaveOverride";
-    private const string Log = "Logs/Codex-S3-playmode.log";
+    private static bool IsS4 => SessionState.GetBool(Key + ".S4", false);
+    private static string Stage => IsS4 ? "S4" : "S3";
+    private static string Log => "Logs/Codex-" + Stage + "-playmode.log";
     private static IEnumerator routine;
     private static int checks, frame;
     private static Keyboard keyboard;
@@ -31,20 +33,25 @@ public static class S3Verification
     private static PlayerController player;
     private static Camera eye;
     private static double started;
+    private static Exception runtimeFailure;
     static S3Verification() => EditorApplication.playModeStateChanged += State;
 
     [MenuItem("Tools/S3/Verify City Trading in Play Mode")]
     public static void Run()
+    { RunCityVerification(false); }
+
+    private static void RunCityVerification(bool s4)
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode || UnityEngine.SceneManagement.SceneManager.sceneCount != 1 ||
             UnityEngine.SceneManagement.SceneManager.GetActiveScene().isDirty)
             throw new InvalidOperationException("Stop Play Mode and save the single open scene first.");
         SessionState.SetString(Key + ".Scene", UnityEngine.SceneManagement.SceneManager.GetActiveScene().path);
-        var directory = Path.GetFullPath("Temp/S3-" + Guid.NewGuid().ToString("N"));
+        SessionState.SetBool(Key + ".S4", s4);
+        var directory = Path.GetFullPath("Temp/" + Stage + "-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         SessionState.SetString(Override, Path.Combine(directory, "city-save.json"));
         SessionState.SetBool(Key, true);
-        Directory.CreateDirectory("Logs"); File.WriteAllText(Log, "S3 isolated Play Mode verification\n");
+        Directory.CreateDirectory("Logs"); File.WriteAllText(Log, Stage + " isolated Play Mode verification\n");
         EditorSceneManager.OpenScene("Assets/Scenes/CityGreybox.unity");
         EditorApplication.isPlaying = true;
     }
@@ -59,11 +66,13 @@ public static class S3Verification
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
             InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
             keyboard = InputSystem.AddDevice<Keyboard>(); checks = 0; frame = -1;
+            runtimeFailure = null; Application.logMessageReceived += RuntimeError;
             started = EditorApplication.timeSinceStartup;
             routine = Scenario(); EditorApplication.update += Tick;
         }
         if (state == PlayModeStateChange.ExitingPlayMode)
         {
+            Application.logMessageReceived -= RuntimeError;
             if (keyboard != null && keyboard.added) InputSystem.RemoveDevice(keyboard);
             InputSystem.settings.backgroundBehavior = oldInputBackground;
             InputSystem.settings.editorInputBehaviorInPlayMode = oldEditorInput;
@@ -73,6 +82,7 @@ public static class S3Verification
         EditorApplication.update -= Tick;
         var scene = SessionState.GetString(Key + ".Scene", "");
         SessionState.EraseBool(Key); SessionState.EraseString(Key + ".Scene"); SessionState.EraseString(Override);
+        SessionState.EraseBool(Key + ".S4");
         if (scene.Length > 0) EditorSceneManager.OpenScene(scene);
         // Keep the isolated fixture under Temp for failure diagnosis; never touch the user's save.
     }
@@ -83,20 +93,28 @@ public static class S3Verification
         frame = Time.frameCount;
         try
         {
-            Check(EditorApplication.timeSinceStartup - started < 90, "timeout");
-            if (routine.MoveNext()) return;
-            File.AppendAllText(Log, "S3 RESULT PASS: " + checks + " assertions; Unity " + Application.unityVersion + "\n");
-            Debug.Log("S3 RESULT PASS: " + checks);
+            if (runtimeFailure != null) throw runtimeFailure;
+            Check(EditorApplication.timeSinceStartup - started < 120, "timeout");
+            var running = routine.MoveNext();
+            if (runtimeFailure != null) throw runtimeFailure;
+            if (running) return;
+            File.AppendAllText(Log, Stage + " RESULT PASS: " + checks + " assertions; Unity " + Application.unityVersion + "\n");
+            Debug.Log(Stage + " RESULT PASS: " + checks);
             EditorApplication.update -= Tick; EditorApplication.isPlaying = false;
         }
         catch (Exception exception)
         {
-            File.AppendAllText(Log, "S3 RESULT FAIL: " + exception + "\n"); Debug.LogException(exception);
+            File.AppendAllText(Log, Stage + " RESULT FAIL: " + exception + "\n"); Debug.LogException(exception);
             EditorApplication.update -= Tick; EditorApplication.isPlaying = false;
         }
     }
+    private static void RuntimeError(string message, string stack, LogType type)
+    {
+        if (runtimeFailure == null && (type == LogType.Error || type == LogType.Exception || type == LogType.Assert))
+            runtimeFailure = new InvalidOperationException("Unexpected Unity " + type + ": " + message + "\n" + stack);
+    }
     private static void Check(bool value, string context)
-    { checks++; if (!value) throw new InvalidOperationException("S3: " + context); }
+    { checks++; if (!value) throw new InvalidOperationException(Stage + ": " + context); }
     private static CityTradePoint Point(CityTradeKind kind) => trade.Points.First(p => p.Kind == kind);
     private static void Aim(CityTradePoint point, Vector3 feet)
     {
@@ -300,5 +318,10 @@ public static class S3Verification
         Check(!trade.MenuOpen && !walk.IsPaused, "Esc closes only city modal");
         InputSystem.QueueStateEvent(keyboard, new KeyboardState());
         yield return null;
+        if (IsS4)
+        {
+            var freeRoutes = FreeRoutes();
+            while (freeRoutes.MoveNext()) yield return freeRoutes.Current;
+        }
     }
 }

@@ -151,7 +151,7 @@ namespace Player
             {
                 displayedSpeed = kmh;
                 speedText = kmh.ToString("00");
-                speedDisplay.text = speedText + " km/h";
+                speedDisplay.text = speedText + " км/ч";
             }
             if (!IsDriving || paused) return;
             impact = Mathf.MoveTowards(impact, 0, Time.deltaTime * 3);
@@ -198,7 +198,7 @@ namespace Player
         public bool TryExit()
         {
             if (!IsDriving) return false;
-            if (Speed > 0.8f) { message = "Stop before leaving the vehicle."; return false; }
+            if (Speed > 0.8f) { message = "Остановись перед выходом из машины."; return false; }
             foreach (var side in new[] { -1, 1 })
             {
                 var position = transform.TransformPoint(new Vector3(side * 1.55f, 1, 0.3f));
@@ -232,7 +232,7 @@ namespace Player
                 message = "";
                 return true;
             }
-            message = "Both exits are blocked. Move to an open space.";
+            message = "Оба выхода перекрыты. Подъедь к свободному месту.";
             return false;
         }
 
@@ -292,11 +292,11 @@ namespace Player
             var width = Screen.width / scale;
             var height = Screen.height / scale;
             GUI.Box(new Rect((width - 520) / 2, height - 105, 520, 90), IsDriving
-                ? "WORKSHOP ELECTRIC UTILITY | " + speedText + " km/h" +
-                  "\nW/S: drive / brake / reverse | A/D: steer | Space: brake" +
-                  "\nMouse: look | E: leave when stopped | Esc: pause | V: camera motion" +
-                  "\n" + (paused ? "PAUSED — Esc to resume" : message)
-                : "E — drive workshop utility\nWASD: drive | Space: brake | E: leave when stopped");
+                ? "МАШИНА МАСТЕРСКОЙ | " + speedText + " км/ч" +
+                  "\nW/S — газ / тормоз / назад · A/D — руль · пробел — тормоз" +
+                  "\nМышь — осмотр · E — выйти после остановки · V — качание камеры" +
+                  "\n" + (paused ? "ПАУЗА · Esc — продолжить" : "Esc — пауза · " + message)
+                : "E — сесть в машину мастерской\nWASD — движение · пробел — тормоз · E — выйти после остановки");
             GUI.matrix = old;
         }
 
