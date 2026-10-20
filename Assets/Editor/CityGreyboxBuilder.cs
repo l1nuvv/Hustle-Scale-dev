@@ -167,29 +167,161 @@ public static class CityGreyboxBuilder
 
         // This patch owns only this group. Reapplying preserves all other scene edits.
         var previous = _root.Find("Walking links and local directions");
-        if (previous != null) UnityEngine.Object.DestroyImmediate(previous.gameObject);
-        var links = Group("Walking links and local directions");
-        Link(links, new Vector3(-65, 0, 0), new Vector3(-240, 0, 192), "NW / HOMES");
-        Link(links, new Vector3(65, 0, 0), new Vector3(240, 0, 192), "NE / SUPPLIER");
-        Link(links, new Vector3(-65, 0, 0), new Vector3(-240, 0, -192), "SW / GARAGES");
-        Link(links, new Vector3(65, 0, 0), new Vector3(240, 0, -192), "SE / PARK EDGE");
-        Paving(links, new Vector3(-160, 0, 0), new Vector3(160, 0, 0), "Central pedestrian spine");
-        Paving(links, new Vector3(-65, 0, 0), new Vector3(-65, 0, 20), "Base doorstep link");
-        Paving(links, new Vector3(65, 0, 0), new Vector3(65, 0, 20), "Battery doorstep link");
+        if (previous == null)
+        {
+            var links = Group("Walking links and local directions");
+            Link(links, new Vector3(-65, 0, 0), new Vector3(-240, 0, 192), "NW / HOMES");
+            Link(links, new Vector3(65, 0, 0), new Vector3(240, 0, 192), "NE / SUPPLIER");
+            Link(links, new Vector3(-65, 0, 0), new Vector3(-240, 0, -192), "SW / GARAGES");
+            Link(links, new Vector3(65, 0, 0), new Vector3(240, 0, -192), "SE / PARK EDGE");
+            Paving(links, new Vector3(-160, 0, 0), new Vector3(160, 0, 0), "Central pedestrian spine");
+            Paving(links, new Vector3(-65, 0, 0), new Vector3(-65, 0, 20), "Base doorstep link");
+            Paving(links, new Vector3(65, 0, 0), new Vector3(65, 0, 20), "Battery doorstep link");
 
-        // Old generic labels gave identical advice at different intersections.
-        var landmarks = _root.Find("Landmarks");
-        var oldSigns = new System.Collections.Generic.List<GameObject>();
-        foreach (Transform child in landmarks)
-            if (child.name.StartsWith("Sign | N: HOMES")) oldSigns.Add(child.gameObject);
-        foreach (var sign in oldSigns) UnityEngine.Object.DestroyImmediate(sign);
-        Directions(links, new Vector3(-307, 3, 109), "E: BASE ~380m\nN: WATER TOWER ~370m");
-        Directions(links, new Vector3(13, 3, 109), "SW: BASE ~190m\nS: MARKET ~220m");
-        Directions(links, new Vector3(173, 3, 301), "SE: SUPPLIER ~180m\nSW: BASE ~540m");
-        Directions(links, new Vector3(-147, 3, -275), "NW: GARAGES ~180m\nNE: BASE ~410m");
-        Directions(links, new Vector3(173, 3, -275), "SE: PARK ~180m\nNW: BASE ~540m");
+            // Old generic labels gave identical advice at different intersections.
+            var landmarks = _root.Find("Landmarks");
+            var oldSigns = new System.Collections.Generic.List<GameObject>();
+            foreach (Transform child in landmarks)
+                if (child.name.StartsWith("Sign | N: HOMES")) oldSigns.Add(child.gameObject);
+            foreach (var sign in oldSigns) UnityEngine.Object.DestroyImmediate(sign);
+            Directions(links, new Vector3(-307, 3, 109), "E: BASE ~380m\nN: WATER TOWER ~370m");
+            Directions(links, new Vector3(13, 3, 109), "SW: BASE ~190m\nS: MARKET ~220m");
+            Directions(links, new Vector3(173, 3, 301), "SE: SUPPLIER ~180m\nSW: BASE ~540m");
+            Directions(links, new Vector3(-147, 3, -275), "NW: GARAGES ~180m\nNE: BASE ~410m");
+            Directions(links, new Vector3(173, 3, -275), "SE: PARK ~180m\nNW: BASE ~540m");
+        }
+        ApplyWorkshopNeighbourhood();
         EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("CITY WALKING PATCH: four 6m diagonal links; four existing volumes reshaped; map and controller preserved. Save after review.");
+    }
+
+    // Hand-authored local plan. Both editor entry points apply it after the historical
+    // city patch; no full-city rebuild is needed to edit this neighbourhood.
+    private static void ApplyWorkshopNeighbourhood()
+    {
+        var previous = _root.Find("Workshop neighbourhood");
+        if (previous != null) UnityEngine.Object.DestroyImmediate(previous.gameObject);
+        var local = Group("Workshop neighbourhood");
+        _road = AssetDatabase.LoadAssetAtPath<Material>(MaterialFolder + "/Asphalt.mat");
+        _wall = AssetDatabase.LoadAssetAtPath<Material>(MaterialFolder + "/Neutral.mat");
+        var homes = AssetDatabase.LoadAssetAtPath<Material>(MaterialFolder + "/Residential.mat");
+        var storage = AssetDatabase.LoadAssetAtPath<Material>(MaterialFolder + "/Warehouses.mat");
+        var grass = AssetDatabase.LoadAssetAtPath<Material>(MaterialFolder + "/Park.mat");
+
+        // Keep the old long-distance links, but remove their graphic clutter here.
+        foreach (Transform part in _root.Find("Walking links and local directions"))
+        {
+            if (part.name.EndsWith("/ pedestrian shortcut"))
+            {
+                // Retain the original surface object and its distant endpoint. The
+                // local approaches now follow the authored spaces, not a stripe.
+                var east = part.name.StartsWith("NE") || part.name.StartsWith("SE") ? 1 : -1;
+                var north = part.name.StartsWith("NW") || part.name.StartsWith("NE") ? 1 : -1;
+                var from = new Vector3(east * (65 + 175f * 100 / 192), 0, north * 100);
+                var to = new Vector3(east * 240, 0, north * 192);
+                part.position = (from + to) / 2 + Vector3.up * 0.075f;
+                part.localScale = new Vector3(6, 0.02f, (to - from).magnitude);
+                part.rotation = Quaternion.LookRotation(to - from);
+            }
+            if (part.name.Contains("route stripe") ||
+                (part.position.x > -180 && part.position.x < 100 && Mathf.Abs(part.position.z) < 90 &&
+                 (part.name.StartsWith("Sign |") || part.name.StartsWith("Direction "))))
+                part.gameObject.SetActive(false);
+        }
+        var oldNorth = _root.Find("Sign | CITY / NORTH +Z");
+        if (oldNorth != null) oldNorth.gameObject.SetActive(false);
+
+        // Residential pocket: offset L-shaped terraces, a narrow western gate,
+        // a low garden edge and a taller end house. Centre is only 26 x 22m.
+        Building(local, "Court north terrace", -114, 78, 42, 8, 9, homes);
+        Building(local, "Court west terrace", -145.5f, 68, 7, 34, 12, homes);
+        Building(local, "Court east end house", -88, 74, 12, 20, 15, homes);
+        Building(local, "Court south maisonette", -109, 45, 18, 10, 6, homes);
+        Box(local, "Court garden", new Vector3(-115, 0.08f, 67), new Vector3(9, 0.16f, 7), grass);
+        Box(local, "Court low garden wall", new Vector3(-115, 0.4f, 71), new Vector3(10, 0.8f, 0.5f), _wall);
+        Box(local, "Court seat", new Vector3(-108, 0.25f, 67), new Vector3(0.7f, 0.5f, 3), _roof);
+        // Repeated human-scale entrances break up the terrace without extra systems.
+        foreach (var x in new[] { -129, -119, -109, -99 })
+            Box(local, "Terrace door 1.2 x 2.2m", new Vector3(x, 1.1f, 73.96f), new Vector3(1.2f, 2.2f, 0.05f), _roof, false);
+
+        // Market street: staggered small shop fronts frame a 10-14m corridor.
+        // The existing battery interior and canopy terminate its two sightlines.
+        Building(local, "Market corner shop", -27, 20, 16, 18, 5, _wall);
+        Building(local, "Market narrow shop", -8, 17, 12, 12, 7, _wall);
+        Building(local, "Market south shop", -26, -27, 18, 14, 4, _wall);
+        Building(local, "Market south tall shop", -3, -31, 14, 14, 8, _wall);
+        Building(local, "Market east shop", 30, 13, 22, 12, 5, _wall);
+        Building(local, "Market kiosk", 27, -30, 10, 10, 3, _wall);
+        foreach (var x in new[] { -29, -7, 28 })
+        {
+            var frontage = x == 28 ? 7 : 11;
+            Box(local, "Shop awning", new Vector3(x, 2.9f, frontage - 1.1f), new Vector3(8, 0.22f, 2.4f), _accent);
+            Box(local, "Recessed market counter", new Vector3(x, 0.5f, frontage - 0.5f), new Vector3(5, 1, 0.8f), _roof);
+        }
+
+        // Loading lane: low broad sheds and stepped roof vents, distinct from
+        // the court's vertical terraces. Clear lane x=-120..-110, with two exits.
+        Building(local, "Loading west shed", -138, -37, 20, 34, 5, storage);
+        Building(local, "Loading east shed", -96, -37, 16, 26, 7, storage);
+        Building(local, "Loading south shed", -138, -75, 20, 14, 4, storage);
+        Box(local, "Loading canopy", new Vector3(-126, 3.5f, -37), new Vector3(5, 0.3f, 20), _roof);
+        foreach (var z in new[] { -46, -32 })
+        {
+            Box(local, "Warehouse shutter 3 x 3m", new Vector3(-127.96f, 1.5f, z), new Vector3(0.05f, 3, 3), _roof, false);
+            Box(local, "Warehouse roof vent", new Vector3(-141, 5.7f, z), new Vector3(7, 1.4f, 4), _roof);
+        }
+        Box(local, "Loading stacks outside lane", new Vector3(-133, 0.75f, -59), new Vector3(4, 1.5f, 4), _wall);
+
+        // A roof beacon and raised roof silhouette identify home from either loop.
+        Box(local, "Base beacon mast", new Vector3(-74, 8, 35), new Vector3(0.4f, 8, 0.4f), _roof);
+        Box(local, "Base beacon crossbar", new Vector3(-74, 10.7f, 35), new Vector3(5, 0.6f, 0.6f), _accent);
+        Box(local, "Base roof monitor", new Vector3(-65, 5.1f, 30), new Vector3(12, 1.4f, 6), _accent);
+
+        // Small flush surfaces articulate spaces, without mandatory painted routes.
+        Box(local, "Court surface", new Vector3(-118, 0.045f, 66), new Vector3(48, 0.02f, 32), _walk, false);
+        Box(local, "Market street surface", new Vector3(6, 0.065f, -7), new Vector3(104, 0.02f, 14), _road, false);
+        Box(local, "Loading lane surface", new Vector3(-115, 0.065f, -44), new Vector3(10, 0.02f, 64), _road, false);
+
+        LocalBoard(local, "COURT", new Vector3(-133, 2.6f, 73.8f), 0);
+        LocalBoard(local, "MARKET", new Vector3(32, 2.6f, 6), 0);
+        LocalBoard(local, "LOADING", new Vector3(-127.8f, 2.5f, -24), 90);
+        LocalBoard(local, "BASE", new Vector3(-65, 3.3f, 19.55f), 0);
+        LocalBoard(local, "BASE", new Vector3(-77.45f, 3, 30), 90);
+        LocalBoard(local, "BASE", new Vector3(-65, 3.2f, 40.45f), 180);
+        LocalBoard(local, "< COURT\nLOADING >", new Vector3(-91, 2.4f, 4), 90, true);
+        LocalBoard(local, "< BASE\nMARKET >", new Vector3(-42, 2.4f, 3), 0, true);
+        LocalBoard(local, "BASE >\n< CITY", new Vector3(-143, 2.4f, 39), 0, true);
+        LocalBoard(local, "BASE >\n< CITY", new Vector3(-107, 2.4f, -73), 0, true);
+        LocalBoard(local, "< BASE\nSHOP >", new Vector3(49, 2.4f, -17), 0, true);
+
+        // Replace long legacy interior headings in place; preserve TextMesh IDs.
+        foreach (Transform room in _root.Find("Workshop and trading placeholders"))
+        {
+            if (!room.name.StartsWith("Interior |")) continue;
+            foreach (var label in room.GetComponentsInChildren<TextMesh>(true))
+            {
+                label.text = label.text.Contains("NO ACTIVE") || label.text.Contains("NO TRADING") || label.text.Contains("NO TRADE")
+                    ? "GREYBOX / NO TRADE" : room.name.Contains("WORKSHOP") ? "BASE" : room.name.Contains("BATTERY") ? "BATTERIES" : "BUYBACK";
+                label.characterSize = 0.16f;
+            }
+        }
+    }
+
+    private static void LocalBoard(Transform parent, string text, Vector3 position, float yaw, bool post = false)
+    {
+        var rotation = Quaternion.Euler(0, yaw, 0);
+        var board = Box(parent, "Local board | " + text.Replace('\n', ' '), position, new Vector3(4, 1.2f, 0.12f), _accent, false);
+        board.transform.rotation = rotation;
+        if (post) Box(parent, "Local sign post", new Vector3(position.x, position.y / 2, position.z), new Vector3(0.12f, position.y, 0.12f), _roof);
+        foreach (var side in new[] { -1, 1 })
+        {
+            var faceText = post && side == 1 ? text.Replace('<', '|').Replace('>', '<').Replace('|', '>') : text;
+            Sign(parent, faceText, position + rotation * new Vector3(0, 0, side * 0.075f), yaw + (side == 1 ? 180 : 0), 0.16f);
+            var label = parent.GetChild(parent.childCount - 1);
+            var bounds = label.GetComponent<Renderer>().bounds;
+            var width = yaw % 180 == 0 ? bounds.size.x : bounds.size.z;
+            label.localScale = Vector3.one * Mathf.Min(1, 3.6f / Mathf.Max(0.01f, width), 1f / Mathf.Max(0.01f, bounds.size.y));
+        }
     }
 
     private static void SetEntryVolume(string blockName, string prefix, float x, float z)

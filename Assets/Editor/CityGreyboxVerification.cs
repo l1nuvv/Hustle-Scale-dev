@@ -11,8 +11,8 @@ public static class CityGreyboxVerification
     {
         Points(-320,96, 0,96, 0,-288, -320,-288, -320,96),
         Points(0,288, 320,288, 320,-288, 0,-288, 0,288),
-        Points(-65,25, -65,0, 65,0, 65,35, 65,0, -90,0, -90,-65, -65,-65, -65,-40,
-            -65,-65, -90,-65, -90,0, -65,0, -65,25),
+        Points(-65,25, -65,0, 65,0, 65,35, 65,0, -80,0, -80,-65, -65,-65, -65,-40,
+            -65,-65, -80,-65, -80,0, -65,0, -65,25),
         Points(-480,96, 480,96),
         Points(-240,96, -240,192, -320,192, -320,288, -240,288),
         Points(160,192, 240,192, 240,288, 320,288),
@@ -29,6 +29,23 @@ public static class CityGreyboxVerification
         Routes[2],
     };
     private static readonly string[] ReviewNames = { "Homes shortcut and street return", "Supplier shortcut and street return", "Garages shortcut and street return", "Park edge shortcut and street return", "Three interiors return" };
+    private static readonly Vector3[][] LocalRoutes =
+    {
+        Points(-65,25, -65,10, -90,10, -130,30, -130,60, -130,72.5f, -100,72.5f,
+            -100,54, -80,54, -80,10, -65,10, -65,25),
+        Points(-65,25, -65,0, -42,0, -15,-7, 35,-7, 65,0, 65,35,
+            65,0, 35,-12, -42,-12, -65,0, -65,25),
+        Points(-65,25, -65,0, -90,0, -115,-12, -115,-65, -90,-65, -65,-65,
+            -65,-40, -65,-65, -80,-65, -80,0, -65,0, -65,25),
+        Points(-65,25, -65,10, -90,10, -140,35, -140,90, -140,110,
+            -160,110, -160,10, -90,10, -65,10, -65,25),
+        Points(-65,25, -65,0, -90,0, -115,-12, -160,-12, -160,-96,
+            -115,-96, -115,-65, -80,-65, -80,0, -65,0, -65,25),
+        Points(-65,25, -65,0, -42,0, -15,-7, 10,-7, 10,-70, 40,-70,
+            80,-70, 80,-45, 80,-20, 65,0, -15,-7, -42,0, -65,0, -65,25),
+        Points(-150.5f,-86.5f, -150.5f,86.5f, -20,86.5f),
+    };
+    private static readonly string[] LocalNames = { "Local court loop", "Local market and battery", "Local loading and buyback", "Court west gate and old north street", "Loading west gate and old south street", "Market canopy and old east street", "Preserved west and north sidewalks" };
     private static Vector3[][] _routes = Routes;
     private static string[] _names = Names;
     private static PlayerController _player;
@@ -62,6 +79,12 @@ public static class CityGreyboxVerification
     public static string CollisionRoutes() => CheckCollisions(Routes, Names, true);
 
     public static string ReviewCollision(int route) => CheckCollisions(new[] { ReviewRoutes[route] }, new[] { ReviewNames[route] }, false);
+
+    public static string LocalCollision(int route) => CheckCollisions(new[] { LocalRoutes[route] }, new[] { LocalNames[route] }, false);
+
+    public static void WalkLocal() => StartWalkAt(0, LocalRoutes, LocalNames, 1);
+
+    public static void WalkLocalRoute(int route) => StartWalkAt(0, new[] { LocalRoutes[route] }, new[] { LocalNames[route] }, 1);
 
     private static string CheckCollisions(Vector3[][] routes, string[] names, bool boundaries)
     {
@@ -141,7 +164,7 @@ public static class CityGreyboxVerification
 
     public static void WalkReviewFrom(int route) => StartWalkAt(route, ReviewRoutes, ReviewNames);
 
-    private static void StartWalkAt(int firstRoute, Vector3[][] routes, string[] names)
+    private static void StartWalkAt(int firstRoute, Vector3[][] routes, string[] names, float scale = 20)
     {
         RequireCity();
         if (Status == "WALK RUNNING") throw new InvalidOperationException("Already walking.");
@@ -152,7 +175,7 @@ public static class CityGreyboxVerification
         Application.runInBackground = true;
         _input.enabled = false;
         _walk.SetPaused(false);
-        Time.timeScale = 20;
+        Time.timeScale = scale;
         _route = firstRoute;
         BeginRoute();
         Status = "WALK RUNNING";
@@ -199,9 +222,9 @@ public static class CityGreyboxVerification
             {
                 Debug.Log("CITY WALK: " + _names[_route] + " distance=" + _routeDistance.ToString("F2") +
                     "m gameSeconds=" + (Time.time - _gameStarted).ToString("F2") +
-                    " wallSeconds=" + (EditorApplication.timeSinceStartup - _started).ToString("F2") + " scale=20");
+                    " wallSeconds=" + (EditorApplication.timeSinceStartup - _started).ToString("F2") + " scale=" + Time.timeScale);
                 _route++;
-                if (_route == _routes.Length) { Finish("WALK PASS: requested routes using existing PlayerController.Update at timeScale 20"); return; }
+                if (_route == _routes.Length) { Finish("WALK PASS: requested routes using existing PlayerController.Update at timeScale " + Time.timeScale); return; }
                 BeginRoute();
             }
             delta = _routes[_route][_point] - _player.transform.position;
