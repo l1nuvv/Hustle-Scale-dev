@@ -1,8 +1,13 @@
 Unity 6000.6.0f1 · Input System frame-driven integration
 PASS three unknown owned lamps at start
+PASS NPC uses imported Blender skinned meshes, no primitive body parts
+PASS all character meshes have real skin weights and bones
+PASS character has valid Generic avatar and idle controller
+PASS character uses URP materials and untextured white geometric eyes
 PASS WASD moves via existing Input System controller
 PASS table collision blocks forward walk, approach reachable
 PASS floor collision supports player
+PASS idle visibly deforms the actual skeleton over real frames
 PASS E raycast picks the intended lamp
 PASS F lights lamp without revealing professional diagnosis
 PASS held visual follows existing camera grip pose
@@ -88,4 +93,5 @@ PASS Controls inside screen
 PASS Aim text fits vertically
 PASS Aim text fits horizontally
 PASS Aim inside screen
-PASS: 89 checks. Screenshots captured from Unity Game View with uGUI.
+PASS worker idle continues looping during gameplay
+PASS: 95 checks. Screenshots captured from Unity Game View with uGUI.

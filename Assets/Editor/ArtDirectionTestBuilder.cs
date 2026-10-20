@@ -16,7 +16,7 @@ public static class ArtDirectionTestBuilder
     public const string ScenePath = "Assets/Scenes/ArtDirectionTest.unity";
     public const string Folder = "Assets/ArtDirectionTest";
     private static readonly Dictionary<string, Mesh> Meshes = new Dictionary<string, Mesh>();
-    private static Material blue, rubber, steel, ivory, timber, plaster, concrete, cardboard, skin, hair, cloth, trousers, paper;
+    private static Material blue, rubber, steel, ivory, timber, plaster, concrete, cardboard, paper;
     private static Transform room;
 
     [MenuItem("Tools/Art Direction/Create Isolated Workshop")]
@@ -42,10 +42,6 @@ public static class ArtDirectionTestBuilder
         plaster = Mat("Warm plaster", new Color(0.64f, 0.62f, 0.56f), 0, 0.05f);
         concrete = Mat("Concrete", new Color(0.36f, 0.38f, 0.37f), 0, 0.09f);
         cardboard = Mat("Cardboard", new Color(0.47f, 0.33f, 0.18f), 0, 0.04f);
-        skin = Mat("Skin", new Color(0.57f, 0.37f, 0.21f), 0, 0.12f);
-        hair = Mat("Hair", new Color(0.095f, 0.065f, 0.042f), 0, 0.12f);
-        cloth = Mat("Work jacket", new Color(0.09f, 0.15f, 0.21f), 0, 0.08f);
-        trousers = Mat("Work trousers", new Color(0.14f, 0.17f, 0.18f), 0, 0.08f);
         paper = Mat("Offwhite", new Color(0.83f, 0.81f, 0.73f), 0, 0.12f);
         Grain(timber, "Wood grain", true);
         Grain(plaster, "Plaster variation", false);
@@ -55,10 +51,8 @@ public static class ArtDirectionTestBuilder
         Lamp(lampSource);
         var lampPrefab = PrefabUtility.SaveAsPrefabAsset(lampSource.gameObject, Folder + "/Prefabs/Worklight.prefab");
         Object.DestroyImmediate(lampSource.gameObject);
-        var npcSource = new GameObject("Workshop worker").transform;
-        Worker(npcSource);
-        var npcPrefab = PrefabUtility.SaveAsPrefabAsset(npcSource.gameObject, Folder + "/Prefabs/WorkshopWorker.prefab");
-        Object.DestroyImmediate(npcSource.gameObject);
+        var npcPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(Folder + "/Prefabs/WorkshopWorker.prefab");
+        if (npcPrefab == null) throw new InvalidOperationException("Import the Blender worker prefab first.");
 
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         RenderSettings.ambientMode = AmbientMode.Trilight;
@@ -257,45 +251,6 @@ public static class ArtDirectionTestBuilder
         foreach (var x in new[] { -0.022f, 0.022f }) Part(root, "Battery contact", new Vector3(x, 0.053f, 0.023f), new Vector3(0.012f, 0.008f, 0.026f), steel, false, 0.001f);
     }
 
-    private static void Worker(Transform root)
-    {
-        // 1.80m adult, 7.2 heads. Slightly asymmetric arms, quiet standing pose.
-        foreach (var side in new[] { -1, 1 })
-        {
-            var x = side * 0.105f;
-            Part(root, "Work shoe", new Vector3(x, 0.055f, -0.035f), new Vector3(0.125f, 0.11f, 0.265f), rubber, false, 0.018f);
-            Limb(root, "Trouser leg", new Vector3(x, 0.13f, 0.025f), new Vector3(x * 0.9f, 0.92f, 0), 0.065f, 0.085f, trousers);
-            var shoulder = new Vector3(side * 0.205f, 1.38f, 0.018f);
-            var elbow = new Vector3(side * 0.245f, 1.12f, -0.018f);
-            var wrist = new Vector3(side * 0.265f, 0.91f, side * 0.025f - 0.06f);
-            Limb(root, "Jacket upper sleeve", shoulder, elbow, 0.08f, 0.06f, cloth);
-            Limb(root, "Jacket folded sleeve", elbow, Vector3.Lerp(elbow, wrist, 0.55f), 0.062f, 0.057f, cloth);
-            Limb(root, "Forearm", Vector3.Lerp(elbow, wrist, 0.55f), wrist, 0.046f, 0.035f, skin);
-            Oval(root, "Hand", wrist + new Vector3(0, -0.055f, -0.005f), new Vector3(0.042f, 0.085f, 0.028f), skin);
-            Oval(root, "Ear", new Vector3(side * 0.089f, 1.645f, 0.003f), new Vector3(0.025f, 0.039f, 0.021f), skin);
-        }
-        Limb(root, "Jacket torso", new Vector3(0, 0.91f, 0.018f), new Vector3(0, 1.46f, 0.018f), 0.17f, 0.205f, cloth, 0.62f);
-        Part(root, "Undershirt", new Vector3(0, 1.22f, -0.106f), new Vector3(0.085f, 0.33f, 0.012f), paper, false, 0.003f);
-        foreach (var side in new[] { -1, 1 })
-        {
-            var collar = Part(root, "Jacket collar", new Vector3(side * 0.055f, 1.438f, -0.105f), new Vector3(0.058f, 0.105f, 0.018f), cloth, false, 0.002f);
-            collar.localRotation = Quaternion.Euler(0, 0, side * -20);
-            Part(root, "Jacket pocket", new Vector3(side * 0.115f, 1.21f, -0.108f), new Vector3(0.073f, 0.086f, 0.012f), cloth, false, 0.002f);
-        }
-        Limb(root, "Neck", new Vector3(0, 1.39f, 0.012f), new Vector3(0, 1.57f, 0.012f), 0.047f, 0.048f, skin);
-        Oval(root, "Head", new Vector3(0, 1.652f, 0), new Vector3(0.085f, 0.125f, 0.082f), skin);
-        Oval(root, "Hair cap", new Vector3(0, 1.738f, 0.018f), new Vector3(0.089f, 0.063f, 0.078f), hair);
-        Oval(root, "Side part sweep", new Vector3(-0.025f, 1.768f, -0.025f), new Vector3(0.07f, 0.026f, 0.055f), hair);
-        Part(root, "Nose bridge", new Vector3(0, 1.646f, -0.084f), new Vector3(0.025f, 0.052f, 0.035f), skin, false, 0.007f);
-        foreach (var side in new[] { -1, 1 })
-        {
-            Oval(root, "Eye white", new Vector3(side * 0.035f, 1.672f, -0.074f), new Vector3(0.020f, 0.012f, 0.009f), paper);
-            Oval(root, "Pupil", new Vector3(side * 0.035f, 1.671f, -0.082f), new Vector3(0.007f, 0.008f, 0.0035f), rubber);
-            Part(root, "Brow", new Vector3(side * 0.035f, 1.694f, -0.079f), new Vector3(0.04f, 0.007f, 0.009f), hair, false, 0.002f);
-        }
-        Part(root, "Mouth", new Vector3(0, 1.60f, -0.075f), new Vector3(0.04f, 0.004f, 0.005f), hair, false, 0.001f);
-    }
-
     private static void HUD(ArtDirectionTestView view)
     {
         var canvas = new GameObject("Art sample HUD", typeof(Canvas), typeof(CanvasScaler));
@@ -384,52 +339,6 @@ public static class ArtDirectionTestBuilder
             }
         }
         var mesh = new Mesh(); mesh.SetVertices(vertices); mesh.SetTriangles(triangles, 0); mesh.SetUVs(0, uv); mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
-    }
-
-    private static void Oval(Transform root, string name, Vector3 position, Vector3 radius, Material material)
-    {
-        const string key = "Unit oval";
-        if (!Meshes.TryGetValue(key, out var mesh))
-        {
-            var vertices = new List<Vector3>(); var triangles = new List<int>();
-            for (var y = 0; y <= 10; y++) for (var x = 0; x <= 16; x++)
-            {
-                var latitude = Mathf.PI * y / 10; var longitude = Mathf.PI * 2 * x / 16;
-                vertices.Add(new Vector3(Mathf.Sin(latitude) * Mathf.Cos(longitude), Mathf.Cos(latitude), Mathf.Sin(latitude) * Mathf.Sin(longitude)));
-            }
-            for (var y = 0; y < 10; y++) for (var x = 0; x < 16; x++)
-            {
-                var a = y * 17 + x; triangles.AddRange(new[] { a, a + 1, a + 18, a, a + 18, a + 17 });
-            }
-            mesh = new Mesh(); mesh.SetVertices(vertices); mesh.SetTriangles(triangles, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); SaveMesh(mesh, key);
-        }
-        var part = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)).transform;
-        part.SetParent(root, false); part.localPosition = position; part.localScale = radius;
-        part.GetComponent<MeshFilter>().sharedMesh = mesh; part.GetComponent<MeshRenderer>().sharedMaterial = material;
-    }
-
-    private static void Limb(Transform root, string name, Vector3 from, Vector3 to, float bottom, float top, Material material, float depth = 0.85f)
-    {
-        var key = "Taper_" + bottom.ToString("F4") + "_" + top.ToString("F4") + "_" + depth.ToString("F3");
-        if (!Meshes.TryGetValue(key, out var mesh))
-        {
-            var vertices = new List<Vector3>(); var triangles = new List<int>();
-            for (var y = 0; y < 2; y++) for (var i = 0; i < 12; i++)
-            {
-                var angle = (i + 0.5f) * Mathf.PI * 2 / 12; var radius = y == 0 ? bottom : top;
-                vertices.Add(new Vector3(Mathf.Cos(angle) * radius, y, Mathf.Sin(angle) * radius * depth));
-            }
-            vertices.Add(Vector3.zero); vertices.Add(Vector3.up);
-            for (var i = 0; i < 12; i++)
-            {
-                var next = (i + 1) % 12;
-                triangles.AddRange(new[] { i, i + 12, next + 12, i, next + 12, next, 24, i, next, 25, next + 12, i + 12 });
-            }
-            mesh = new Mesh(); mesh.SetVertices(vertices); mesh.SetTriangles(triangles, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); SaveMesh(mesh, key);
-        }
-        var part = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)).transform;
-        part.SetParent(root, false); part.localPosition = from; part.localRotation = Quaternion.FromToRotation(Vector3.up, to - from); part.localScale = new Vector3(1, (to - from).magnitude, 1);
-        part.GetComponent<MeshFilter>().sharedMesh = mesh; part.GetComponent<MeshRenderer>().sharedMaterial = material;
     }
 
     private static void Segment(Transform root, string name, Vector3 a, Vector3 b, float width, Material material)

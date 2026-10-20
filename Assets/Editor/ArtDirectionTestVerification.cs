@@ -29,6 +29,10 @@ public static class ArtDirectionTestVerification
     private static int originalSizeIndex;
     private static bool sizeChanged;
     private static readonly List<int> temporarySizes = new List<int>();
+    private static Animator workerAnimator;
+    private static Transform workerSpine;
+    private static Quaternion workerPose;
+    private static float workerTime;
 
     static ArtDirectionTestVerification() => EditorApplication.playModeStateChanged += state =>
     {
@@ -78,6 +82,20 @@ public static class ArtDirectionTestVerification
                 case 0:
                     player.SetCursorLocked(true); Pose(new Vector3(0.1f, 0.03f, -0.7f), new Vector3(0.1f, 1.05f, 2.1f));
                     Check(s.Units.All(u => !u.IsTested && u.Location == FlashlightLocation.Crate), "three unknown owned lamps at start");
+                    var worker = GameObject.Find("WorkshopWorker");
+                    var skins = worker.GetComponentsInChildren<SkinnedMeshRenderer>();
+                    Check(skins.Length == 8 && worker.GetComponentsInChildren<MeshRenderer>().Length == 0, "NPC uses imported Blender skinned meshes, no primitive body parts");
+                    Check(skins.All(r => r.sharedMesh.boneWeights.Length == r.sharedMesh.vertexCount && r.bones.Length > 0), "all character meshes have real skin weights and bones");
+                    workerAnimator = worker.GetComponentInChildren<Animator>();
+                    Check(workerAnimator.avatar != null && workerAnimator.avatar.isValid && workerAnimator.runtimeAnimatorController != null, "character has valid Generic avatar and idle controller");
+                    Check(skins.SelectMany(r => r.sharedMaterials).All(m => m != null && m.shader.name == "Universal Render Pipeline/Lit") &&
+                        skins.First(r => r.name == "Stylized head").sharedMaterials.Any(m => m.name == "Worker_Pupil") &&
+                        skins.First(r => r.name == "Stylized head").sharedMaterials.Single(m => m.name == "Worker_EyeWhite").mainTexture == null &&
+                        skins.First(r => r.name == "Stylized head").sharedMaterials.Single(m => m.name == "Worker_EyeWhite").GetColor("_BaseColor").r > .8f,
+                        "character uses URP materials and untextured white geometric eyes");
+                    workerSpine = worker.GetComponentsInChildren<Transform>().First(t => t.name == "spine_03");
+                    workerPose = workerSpine.localRotation;
+                    workerTime = workerAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime;
                     break;
                 case 1: player.SetCursorLocked(true); Capture("01-workshop"); before = player.transform.position; SendKeys(Key.W); wait = 0.35; break;
                 case 2: SendKeys(); Check(player.transform.position.z > before.z + 0.25f, "WASD moves via existing Input System controller"); break;
@@ -85,6 +103,7 @@ public static class ArtDirectionTestVerification
                 case 4:
                     SendKeys(); Check(player.transform.position.z < 1.4f && player.transform.position.z > 0.6f, "table collision blocks forward walk, approach reachable");
                     Check(player.transform.position.y > -0.1f, "floor collision supports player");
+                    Check(Quaternion.Angle(workerPose, workerSpine.localRotation) > .02f, "idle visibly deforms the actual skeleton over real frames");
                     AimLamp(0); break;
                 case 5: SendKeys(Key.E); break;
                 case 6: SendKeys(); Check(s.InHands == s.Units[0], "E raycast picks the intended lamp"); break;
@@ -102,7 +121,13 @@ public static class ArtDirectionTestVerification
                     Pose(new Vector3(0.25f, 0.03f, 0.85f), new Vector3(0.25f, 1.24f, 1.96f)); break;
                 case 13: Capture("04-tested-working", () => Pose(new Vector3(0.65f, 0.03f, 1.04f), new Vector3(0.25f, 1.25f, 1.96f))); break;
                 case 14: Capture("02-worklight-close", () => Pose(new Vector3(1.6f, 0.03f, 0.75f), new Vector3(1.95f, 1.3f, 2.65f))); break;
-                case 15: Capture("03-worker", AimBenchLamp); break;
+                case 15:
+                    Capture("03-worker", () =>
+                    {
+                        Pose(new Vector3(1.95f, .03f, 2.0f), new Vector3(1.95f, 1.65f, 2.65f));
+                        Capture("08-worker-face", AimBenchLamp);
+                    });
+                    break;
                 case 16: SendKeys(Key.E); break;
                 case 17: SendKeys(); Check(s.InHands == s.Units[0], "E retrieves tested lamp"); AimCrate(); break;
                 case 18: SendKeys(Key.E); break;
@@ -138,6 +163,7 @@ public static class ArtDirectionTestVerification
                 case 36: Resolution(2100, 900); break;
                 case 37: Check(Screen.width == 2100 && Screen.height == 900, "Game View renders at 21:9 2100x900"); Layout(); Capture("07-hud-21x9"); break;
                 case 38:
+                    Check(workerAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime > workerTime + .5f, "worker idle continues looping during gameplay");
                     File.AppendAllText(Output + "/verification.txt", "PASS: " + checks + " checks. Screenshots captured from Unity Game View with uGUI.\n");
                     Debug.Log("ART TEST PASS: " + checks + " checks"); End(); return;
             }
