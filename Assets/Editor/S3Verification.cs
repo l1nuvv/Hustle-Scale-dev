@@ -21,7 +21,8 @@ public static partial class S3Verification
     private static bool IsS4 => SessionState.GetBool(Key + ".S4", false);
     private static bool IsE5 => SessionState.GetBool(Key + ".E5", false);
     private static bool IsE57 => SessionState.GetBool(Key + ".E57", false);
-    private static string Stage => IsE57 ? "E5.7" : IsE5 ? "E5" : IsS4 ? "S4" : "S3";
+    private static bool IsE6 => SessionState.GetBool(Key + ".E6", false);
+    private static string Stage => IsE6 ? "E6" : IsE57 ? "E5.7" : IsE5 ? "E5" : IsS4 ? "S4" : "S3";
     private static string Log => "Logs/Codex-" + Stage + "-playmode.log";
     private static IEnumerator routine;
     private static int checks, frame;
@@ -88,6 +89,7 @@ public static partial class S3Verification
         SessionState.EraseBool(Key + ".S4");
         SessionState.EraseBool(Key + ".E5");
         SessionState.EraseBool(Key + ".E57");
+        SessionState.EraseBool(Key + ".E6");
         if (scene.Length > 0) EditorSceneManager.OpenScene(scene);
         // Keep the isolated fixture under Temp for failure diagnosis; never touch the user's save.
     }
@@ -241,6 +243,12 @@ public static partial class S3Verification
         }
     }
 
+    private static void NewFixture()
+    {
+        save.NewGame();
+        S2Verification.SeedCity(save.Session);
+    }
+
     private static IEnumerator Scenario()
     {
         yield return null; yield return null; yield return null;
@@ -248,6 +256,12 @@ public static partial class S3Verification
         save = trade.GetComponent<CitySaveController>(); walk = trade.GetComponent<CityGreyboxWalk>();
         player = trade.GetComponent<PlayerController>(); eye = player.GetComponentInChildren<Camera>();
         Check(save.Session != null && trade.Session == save.Session, "one shared session");
+        if (IsE6)
+        {
+            var expansion = ExpansionScenario();
+            while (expansion.MoveNext()) yield return expansion.Current;
+            yield break;
+        }
         if (IsE57)
         {
             var persistence = SlicePersistence();
@@ -272,7 +286,7 @@ public static partial class S3Verification
         Check(save.Session.Balance == 300 && identities.SequenceEqual(save.Session.Units.Select(u => u.InstanceId)) &&
             !save.Session.ShiftEnded && player.CanInteract, "decline both and leave freely");
 
-        save.NewGame(); walk.SetPaused(false);
+        NewFixture(); walk.SetPaused(false);
         Open(CityTradeKind.B); Command("accept"); trade.CloseMenu(); Open(CityTradeKind.A); Command("accept"); trade.CloseMenu();
         Open(CityTradeKind.Seller); Command("purchase");
         Check(!trade.Execute("purchase") && save.Session.Balance == 120, "purchase once"); trade.CloseMenu();
@@ -346,7 +360,7 @@ public static partial class S3Verification
         Check(save.Save() && save.Load(false) && save.Session.Balance == 455, "paid state reload has no duplicate payout");
 
         // Independent route: only B, then checked faulty/working leftovers to buyback.
-        save.NewGame(); walk.SetPaused(false); Open(CityTradeKind.Seller); Command("purchase"); trade.CloseMenu();
+        NewFixture(); walk.SetPaused(false); Open(CityTradeKind.Seller); Command("purchase"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
         Open(CityTradeKind.WorkshopDock); Command("crate"); trade.CloseMenu();
         for (var i = 0; i < 3; i++)
@@ -362,7 +376,7 @@ public static partial class S3Verification
         Check(save.Session.Balance == 340 && !trade.Lamp(1).gameObject.activeSelf && !trade.Lamp(2).gameObject.activeSelf, "buyback atomic visual removal");
         Check(!trade.Execute("sell") && save.Session.Balance == 340, "no repeated buyback"); trade.CloseMenu();
 
-        save.NewGame(); walk.SetPaused(false); Open(CityTradeKind.A); Command("accept"); trade.CloseMenu();
+        NewFixture(); walk.SetPaused(false); Open(CityTradeKind.A); Command("accept"); trade.CloseMenu();
         save.Session.AdvanceActiveSeconds(400); Open(CityTradeKind.B); Command("accept"); trade.CloseMenu();
         save.Session.AdvanceActiveSeconds(140);
         Check(save.Session.Order(DealOrderId.A).State == DealOrderState.Failed && save.Session.Order(DealOrderId.B).State == DealOrderState.Accepted &&

@@ -9,9 +9,10 @@ namespace Inventory
         public long Expenses { get; private set; }
         public bool ShiftEnded { get; private set; }
         public bool HasPrimarySale => Order(DealOrderId.A).State == DealOrderState.Completed ||
-            Order(DealOrderId.B).State == DealOrderState.Completed;
+            Order(DealOrderId.B).State == DealOrderState.Completed ||
+            PreviousOrder(DealOrderId.A)?.State == DealOrderState.Completed || PreviousOrder(DealOrderId.B)?.State == DealOrderState.Completed;
         public bool BuybackAvailable => !ShiftEnded && (IsCity ? LotPurchased : IsFirstDeal && (HasPrimarySale || ElapsedSeconds >= 1080));
-        public bool ContactBOpened => Order(DealOrderId.B).State == DealOrderState.Completed;
+        public bool ContactBOpened => Order(DealOrderId.B).State == DealOrderState.Completed || PreviousOrder(DealOrderId.B)?.State == DealOrderState.Completed;
         public int OwnedLampCount
         {
             get

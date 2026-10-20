@@ -73,7 +73,7 @@ public static partial class S3Verification
     private static IEnumerator SliceScenario()
     {
         Directory.CreateDirectory(SliceOutput);
-        save.NewGame(); walk.SetPaused(false);
+        NewFixture(); walk.SetPaused(false);
         foreach (var point in trade.Points.Where(p => p.Kind != CityTradeKind.Cargo))
             Check(ReferenceEquals(point.Prompt, point.Prompt), "static interaction prompt is reused");
         var actors = UnityEngine.Object.FindObjectsByType<CityTradeReaction>(FindObjectsSortMode.None);

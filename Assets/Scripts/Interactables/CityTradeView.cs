@@ -192,7 +192,12 @@ namespace Interactables
             {
                 switch (command)
                 {
-                    case "purchase" when kind == CityTradeKind.Seller: success = session.PurchaseLot(out message); break;
+                    case "purchase" when kind == CityTradeKind.Seller:
+                        if (session.LotPurchased && !session.IsCrateCarried && save.World.CrateDock != CityCrateDock.Seller)
+                        { message = "Принеси пустой ящик к продавцу."; break; }
+                        success = session.PurchaseLot(out message);
+                        if (success) Array.Clear(selected, 0, selected.Length);
+                        break;
                     case "battery" when kind == CityTradeKind.Battery || kind == CityTradeKind.Seller:
                         success = session.BuyBattery(out message); break;
                     case "bench" when kind == CityTradeKind.Workshop: success = session.ToggleBench(out message); break;

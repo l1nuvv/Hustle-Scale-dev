@@ -10,6 +10,7 @@ namespace Inventory
     {
         public string InstanceId { get; } = Guid.NewGuid().ToString("N");
         public FlashlightCondition Condition { get; internal set; }
+        public FlashlightCondition InitialCondition { get; }
         public FlashlightLocation Location { get; internal set; }
         public bool IsTested { get; internal set; }
         public bool LastTestPassed { get; internal set; }
@@ -21,7 +22,11 @@ namespace Inventory
         {
             if (instanceId != null) InstanceId = instanceId;
             Condition = condition;
+            InitialCondition = condition;
             Location = FlashlightLocation.Crate;
         }
+
+        internal FlashlightUnit(FlashlightCondition condition, FlashlightCondition initialCondition, string instanceId)
+            : this(condition, instanceId) => InitialCondition = initialCondition;
     }
 }

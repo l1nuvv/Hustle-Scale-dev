@@ -98,6 +98,7 @@ public static class S2Verification
                 Check(walk.IsPaused && controller.Session.IsPaused && controller.Session.Balance == 300, "runtime starts paused new city");
                 Check(store.Exists, "runtime initial save exists");
                 walk.SetPaused(false);
+                SeedCity(controller.Session);
                 Must(controller.Session.PurchaseLot(out _));
                 Must(controller.Session.ToggleUnit(1, out _));
                 Must(controller.Session.ToggleBench(out _)); Must(controller.Session.Test(out _));
@@ -223,10 +224,15 @@ public static class S2Verification
         if (!value) throw new InvalidOperationException("S2: " + context);
     }
 
+    // Historical route fixtures explicitly retain W/F/W; live purchases use independent RNG.
+    internal static void SeedCity(WorkshopSession session) => typeof(WorkshopSession)
+        .GetField("cityRandom", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+        .SetValue(session, new System.Random(41));
+
     private static void Must(bool value) => Check(value, "fixture operation");
     private static WorkshopSession City()
     {
-        var session = WorkshopSession.CreateCity();
+        var session = WorkshopSession.CreateCity(41);
         session.SetPaused(false);
         return session;
     }
@@ -251,6 +257,7 @@ public static class S2Verification
         restored.AdvanceActiveSeconds(10000);
         Check(restored.ElapsedSeconds == time, context + " no offline/paused ticking");
         restored.SetPaused(false);
+        if (!restored.LotPurchased) SeedCity(restored);
         return restored;
     }
 
@@ -361,7 +368,7 @@ public static class S2Verification
         var original = session.CaptureCity(World(session));
         Action<CitySaveData>[] corruptions =
         {
-            data => data.Version = 3,
+            data => data.Version = 4,
             data => data.Lamps[1].InstanceId = data.Lamps[0].InstanceId,
             data => data.Lamps[0].Location = (FlashlightLocation)999,
             data => data.Lamps[0].LastTestPassed = true,

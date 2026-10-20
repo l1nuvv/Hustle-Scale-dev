@@ -33,6 +33,14 @@ namespace Inventory
         public bool IsCity { get; private set; }
         private bool HasTrading => IsFirstDeal || IsCity;
         public bool LotPurchased { get; private set; }
+        public int PurchasedLots { get; private set; }
+        private FlashlightUnit[] previousUnits;
+        private DealOrder[] previousOrders;
+        private Random cityRandom;
+        public DealOrder PreviousOrder(DealOrderId id) => previousOrders == null || (int)id < 0 || (int)id > 1 ? null : previousOrders[(int)id];
+        public bool CanPurchaseLot => !LotPurchased || (IsCity && PurchasedLots == 1 && OwnedLampCount == 0 && !IsCrateInVehicle);
+        public string LotPurchaseStatus => PurchasedLots >= 2 ? "Обе партии куплены" :
+            OwnedLampCount > 0 ? "Сначала продай остатки партии" : IsCrateInVehicle ? "Сначала выгрузи ящик" : "Нет денег";
         public bool HasTransportedCrate { get; private set; }
         public bool ShiftStarted { get; private set; }
         public bool IsPaused { get; private set; }
@@ -62,7 +70,7 @@ namespace Inventory
         {
             var order = Order(id);
             if (order.State == DealOrderState.Unavailable)
-                return "Недостаточно товара: нужно " + order.Quantity + ", осталось " + OwnedLampCount + ". Пополнения партии нет.";
+                return "Недостаточно товара: нужно " + order.Quantity + ", осталось " + OwnedLampCount + ".";
             if (ShiftEnded) return "Смена завершена.";
             if (order.State == DealOrderState.Locked) return "Это предложение пока недоступно: сначала выполни Б.";
             if (order.State == DealOrderState.Expired) return "Срок истёк: заказ не был принят. Оплаты нет.";
@@ -87,11 +95,27 @@ namespace Inventory
             if (ShiftEnded) return Reject("Смена завершена. Начни заново для новой попытки.", out message);
             if (!HasTrading) return Reject("The workshop fixture already owns its lamps.", out message);
             if (IsPaused) return Reject("Close the menu first.", out message);
-            if (LotPurchased) return Reject("This single lot has already been purchased.", out message);
+            if (!CanPurchaseLot) return Reject(IsCity ? LotPurchaseStatus : "This single lot has already been purchased.", out message);
             if (Balance < 180) return Reject("Not enough money: the lot costs $180.", out message);
+            if (IsCity)
+            {
+                // Roll only after all rejection checks; new identities never revive sold goods.
+                var purchased = new FlashlightUnit[3];
+                for (var i = 0; i < purchased.Length; i++)
+                    purchased[i] = new FlashlightUnit(cityRandom.Next(2) == 0 ? FlashlightCondition.Working : FlashlightCondition.BatteryFault);
+                if (LotPurchased)
+                {
+                    previousUnits = (FlashlightUnit[])units.Clone();
+                    previousOrders = new[] { orders[0], orders[1] };
+                    orders[0] = new DealOrder(DealOrderId.A, 2, 260, 0, DealOrderState.Available);
+                    orders[1] = new DealOrder(DealOrderId.B, 1, 125, 0, DealOrderState.Available);
+                }
+                Array.Copy(purchased, units, 3);
+            }
             Balance -= 180;
             Expenses += 180;
             LotPurchased = true;
+            PurchasedLots++;
             foreach (var unit in units) unit.Location = FlashlightLocation.Crate;
             return Complete("Purchased three lamps: -$180. Carry the crate back to the workshop.", out message);
         }

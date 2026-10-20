@@ -147,6 +147,7 @@ public static partial class S3Verification
     private static IEnumerator SlicePersistence()
     {
         PersistenceRoundTrip("fresh city");
+        S2Verification.SeedCity(save.Session);
         Open(CityTradeKind.Seller); Command("purchase"); Command("battery"); trade.CloseMenu();
         Open(CityTradeKind.A); Command("accept"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
@@ -184,7 +185,8 @@ public static partial class S3Verification
             "restored exact accounting");
         Open(CityTradeKind.A); Reject(() => trade.Execute("deliver"), "restored A cannot pay twice"); trade.CloseMenu();
         Open(CityTradeKind.B); Reject(() => trade.Execute("deliver"), "restored B cannot pay twice"); trade.CloseMenu();
-        Open(CityTradeKind.Seller); Reject(() => trade.Execute("purchase"), "restored lot cannot charge twice"); trade.CloseMenu();
+        Open(CityTradeKind.Seller); Check(save.Session.CanPurchaseLot && save.Session.PurchasedLots == 1,
+            "restored first lot offers optional restock without charging"); trade.CloseMenu();
         // Backup/corruption tests run against the current integrated state and its physical objects.
         walk.SetPaused(true); Check(save.Save(), "save paid state after UI moves");
         paid = JsonUtility.ToJson(save.Session.CaptureCity(save.World));

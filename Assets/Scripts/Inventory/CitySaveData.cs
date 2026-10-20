@@ -12,6 +12,9 @@ namespace Inventory
         public long Revenue, Expenses;
         public bool LotPurchased, HasTransportedCrate, IsCrateCarried;
         public bool IsCrateInVehicle;
+        public int PurchasedLots;
+        public CityLampData[] PreviousLamps;
+        public CityOrderData[] PreviousOrders;
         public double ElapsedSeconds;
         public CityLampData[] Lamps;
         public CityOrderData[] Orders;
@@ -23,6 +26,7 @@ namespace Inventory
     {
         public string InstanceId;
         public FlashlightCondition Condition;
+        public FlashlightCondition InitialCondition;
         public FlashlightLocation Location;
         public bool IsTested, LastTestPassed, IsPowered;
     }

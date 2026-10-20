@@ -39,7 +39,7 @@ public static partial class S3Verification
 
     private static void PrepareGoods(bool repair)
     {
-        save.NewGame(); walk.SetPaused(false);
+        NewFixture(); walk.SetPaused(false);
         Open(CityTradeKind.Seller); Command("purchase"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
         WalkRoute("seller to workshop for free choice", 83, -37, 80, -37, 80, -20, 65, 0, 35, -7, -15, -7, -42, 0, -65, 0, -65, 25, -69, 30);
@@ -70,7 +70,8 @@ public static partial class S3Verification
         Check(save.Session.Balance == 455 && save.Session.OwnedLampCount == 0 && !save.Session.ShiftEnded, "A then B free city");
         RoundTrip("A then B stock exhausted");
         WalkRoute("explore after both sales", -7, 8.4f, -7, -7, -15, -7, -42, 0, -65, 0, -65, 25);
-        Open(CityTradeKind.Seller); Check(!trade.Execute("purchase"), "exhausted seller cannot refill"); trade.CloseMenu();
+        Open(CityTradeKind.Seller); Check(save.Session.CanPurchaseLot && save.Session.PurchasedLots == 1,
+            "optional second lot offered without automatic purchase"); trade.CloseMenu();
         Check(save.Session.Order(DealOrderId.RepeatB).State == DealOrderState.Locked && save.Session.Balance == 455 && player.CanInteract,
             "exploration neither resets cash nor unlocks repeat offers");
 
@@ -108,7 +109,7 @@ public static partial class S3Verification
         Check(save.Session.Balance == 275, "expired orders can still use buyback");
 
         // Reproduce the reported startup confusion: inspect the actual UI and world labels.
-        save.NewGame(); walk.SetPaused(false);
+        NewFixture(); walk.SetPaused(false);
         InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.Tab)); yield return null; yield return null;
         InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
         Check(trade.MenuOpen && walk.IsPaused, "Tab opens map and inventory");
@@ -119,7 +120,7 @@ public static partial class S3Verification
         var mesh = paths.canvasRenderer.GetMesh();
         Check(mesh != null && mesh.vertexCount > 0, "responsive walking paths actually render");
         var labels = UnityEngine.Object.FindObjectsByType<Text>(FindObjectsSortMode.None).Where(t => t.isActiveAndEnabled).ToArray();
-        Check(labels.Any(t => t.text.Contains("ПРОДАВЕЦ ФОНАРЕЙ")) && labels.Any(t => t.text.Contains("МАСТЕРСКАЯ")), "map names both start and seller");
+        Check(labels.Any(t => t.text.Contains("ФОНАРИ И БАТАРЕИ")) && labels.Any(t => t.text.Contains("МАСТЕРСКАЯ")), "map names both start and seller");
         Check(!labels.Any(t => t.text.Contains("Seller") || t.text.Contains("Hands") || t.text.Contains("Crate") || t.text.Contains("Not tested")),
             "visible inventory vocabulary is Russian");
         foreach (var sign in UnityEngine.Object.FindObjectsByType<TextMesh>(FindObjectsSortMode.None))

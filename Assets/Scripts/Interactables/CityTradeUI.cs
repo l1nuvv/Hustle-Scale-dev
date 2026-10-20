@@ -193,8 +193,10 @@ namespace Interactables
                 else switch (current.Kind)
                     {
                         case CityTradeKind.Seller:
-                            ProductCard("Партия фонарей", "3 шт. · без проверки", "$180", lampIcon,
-                                () => Execute("purchase"), !session.LotPurchased && session.Balance >= 180, session.LotPurchased ? "Куплено" : "Нет денег");
+                            var crateHere = !session.LotPurchased || session.IsCrateCarried || save.World.CrateDock == CityCrateDock.Seller;
+                            ProductCard(session.LotPurchased ? "Вторая партия" : "Партия фонарей", "3 шт. · поломка каждого: 50%", "$180", lampIcon,
+                                () => Execute("purchase"), session.CanPurchaseLot && session.Balance >= 180 && crateHere,
+                                !crateHere && session.CanPurchaseLot ? "Принеси пустой ящик" : session.LotPurchaseStatus);
                             ProductCard("Батарея", "1 шт. · для ремонта", "$50", batteryIcon,
                                 () => Execute("battery"), session.Balance >= 50);
                             break;
@@ -224,6 +226,8 @@ namespace Interactables
                         case CityTradeKind.B:
                             var id = current.Kind == CityTradeKind.A ? DealOrderId.A : DealOrderId.B;
                             var order = session.Order(id);
+                            if (session.PurchasedLots == 2)
+                                Line("Партия 2 · прежний заказ: " + State(session.PreviousOrder(id).State));
                             Line(order.Quantity + " исправных после теста · $" + order.Payment +
                                 "\n" + (order.State == DealOrderState.Accepted ? "Осталось " + WorkshopView.Clock(Math.Max(0, order.DeadlineSeconds - session.ElapsedSeconds)) :
                                 (id == DealOrderId.A ? "09:00" : "18:00") + " с принятия"));
