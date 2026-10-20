@@ -81,9 +81,11 @@ namespace Interactables
                 return;
             }
             if (s.InHands != null)
-            { Show(s.InHands.IsTested ? "ВЕРНИ ФОНАРЬ В ЯЩИК" : "ПОСТАВЬ ФОНАРЬ НА СТОЛ",
+            {
+                Show(s.InHands.IsTested ? "ВЕРНИ ФОНАРЬ В ЯЩИК" : "ПОСТАВЬ ФОНАРЬ НА СТОЛ",
                 s.InHands.IsTested ? "E на его кнопке у ящика. Проверенный исправный товар можно доставить в руках." :
-                "E на деревянной столешнице — поставить фонарь для проверки.", s.InHands.IsTested ? crate : bench); return; }
+                "E на деревянной столешнице — поставить фонарь для проверки.", s.InHands.IsTested ? crate : bench); return;
+            }
             var working = 0;
             var unknown = 0;
             foreach (var unit in s.Units)

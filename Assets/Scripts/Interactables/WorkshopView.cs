@@ -77,7 +77,8 @@ namespace Interactables
                 switch (action)
                 {
                     case WorkshopActionKind.Crate: return session.IsCrateCarried ? "E — Поставить ящик в мастерской" : "E — Взять ящик со всеми фонарями";
-                    case WorkshopActionKind.Unit: return !WorkshopSession.IsOwned(session.Units[index]) ?
+                    case WorkshopActionKind.Unit:
+                        return !WorkshopSession.IsOwned(session.Units[index]) ?
                         "Фонарь " + (index + 1) + (session.LotPurchased ? " уже продан" : " принадлежит продавцу") :
                         "E — Фонарь " + (index + 1) + ": " + FirstDealText.Condition(session.Units[index]) +
                         (session.Units[index].Location == FlashlightLocation.Hands ? " · вернуть в ящик" : " · взять из ящика");

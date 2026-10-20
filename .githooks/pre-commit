@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+case "${1:-}" in
+    "")
+        mapfile -d '' -t files < <(git diff --cached --name-only --diff-filter=ACM -z -- '*.cs' '*.meta')
+        ;;
+    --all)
+        mapfile -d '' -t files < <(git ls-files -z -- '*.cs' '*.meta')
+        ;;
+    *)
+        printf 'Usage: %s [--all]\n' "$0" >&2
+        exit 2
+        ;;
+esac
+
+cs_files=()
+meta_files=()
+for file in "${files[@]}"; do
+    [[ -f "$file" ]] || continue
+    # Formatting the working copy must not stage another change in a partially staged file.
+    if [[ "${1:-}" != --all ]] && ! git diff --quiet -- "$file"; then
+        printf 'Stage or unstage all changes in %s before committing.\n' "$file" >&2
+        exit 1
+    fi
+    case "$file" in
+        *.cs) cs_files+=("$file") ;;
+        *.meta) meta_files+=("$file") ;;
+    esac
+done
+
+if ((${#cs_files[@]})); then
+    printf 'Formatting %s C# files using .editorconfig...\n' "${#cs_files[@]}"
+    # Folder mode uses Unity's source files directly, without restoring generated IDE projects.
+    # Whitespace formatting preserves APIs, identifiers and serialized field names.
+    dotnet format whitespace . --folder --include "${cs_files[@]}" --verbosity normal
+fi
+
+if ((${#meta_files[@]})); then
+    printf 'Cleaning trailing spaces in %s Unity meta files...\n' "${#meta_files[@]}"
+    for file in "${meta_files[@]}"; do
+        # Keep unchanged timestamps so Unity does not reimport every asset on each commit.
+        if grep -q '[[:blank:]]$' "$file"; then
+            sed -i 's/[[:blank:]]*$//' "$file"
+        fi
+    done
+fi
+
+if [[ "${1:-}" != --all ]] && ((${#files[@]})); then
+    git add -- "${files[@]}"
+fi
+
+git diff --check
+git diff --cached --check

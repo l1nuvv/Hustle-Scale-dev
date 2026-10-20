@@ -130,8 +130,11 @@ public static class FirstDealCharacterBuilder
         foreach (var group in parts.GroupBy(p => p.GetComponent<Renderer>().sharedMaterial))
         {
             var mesh = new Mesh { name = role + "_" + pivot.name.Replace(" ", "") + "_" + group.Key.name };
-            mesh.CombineMeshes(group.Select(p => new CombineInstance { mesh = p.sharedMesh,
-                transform = pivot.worldToLocalMatrix * p.transform.localToWorldMatrix }).ToArray(), true, true);
+            mesh.CombineMeshes(group.Select(p => new CombineInstance
+            {
+                mesh = p.sharedMesh,
+                transform = pivot.worldToLocalMatrix * p.transform.localToWorldMatrix
+            }).ToArray(), true, true);
             var path = Folder + "/" + mesh.name + ".asset";
             var saved = AssetDatabase.LoadAssetAtPath<Mesh>(path);
             if (saved == null) { AssetDatabase.CreateAsset(mesh, path); saved = mesh; }

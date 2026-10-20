@@ -16,7 +16,8 @@ namespace Inventory
         public bool isOpened;
 
         // Для прямого открытия инвентаря кнопкой
-        [FormerlySerializedAs("_toggleInventoryKey")] [SerializeField]
+        [FormerlySerializedAs("_toggleInventoryKey")]
+        [SerializeField]
         private KeyCode toggleInventoryKey = KeyCode.Tab;
 
         private PlayerInput _playerInput;

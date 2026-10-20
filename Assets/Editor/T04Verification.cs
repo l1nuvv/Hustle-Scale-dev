@@ -203,20 +203,20 @@ public static class T04Verification
     {
         var missing = 0;
         foreach (var root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
-        foreach (var transform in root.GetComponentsInChildren<Transform>(true))
-        {
-            missing += GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(transform.gameObject);
-            foreach (var component in transform.GetComponents<MonoBehaviour>())
+            foreach (var transform in root.GetComponentsInChildren<Transform>(true))
             {
-                if (component == null) continue;
-                var serialized = new SerializedObject(component);
-                var property = serialized.GetIterator();
-                while (property.NextVisible(true))
-                    if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue == null &&
-                        !property.objectReferenceEntityIdValue.Equals(default(EntityId)))
-                        missing++;
+                missing += GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(transform.gameObject);
+                foreach (var component in transform.GetComponents<MonoBehaviour>())
+                {
+                    if (component == null) continue;
+                    var serialized = new SerializedObject(component);
+                    var property = serialized.GetIterator();
+                    while (property.NextVisible(true))
+                        if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue == null &&
+                            !property.objectReferenceEntityIdValue.Equals(default(EntityId)))
+                            missing++;
+                }
             }
-        }
         Check(missing == 0, "trade scene has no missing scripts or broken serialized references");
     }
 

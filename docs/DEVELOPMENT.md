@@ -46,6 +46,8 @@ One feature/fix with its relevant tests and `.meta` may be one commit. Do not sp
 
 Before committing: review `git diff --check`, `git diff --stat`, diff content, and `git status --short`; stage explicit files (`git add path1 path2`, not blind `git add -A`); record which checks ran and their outcomes. Preserve another developer's existing staged and unstaged changes in their original state. Do not use force resets or destructive cleanups. During an existing rebase, do not stage, commit, continue or abort it without explicit authorization for that operation.
 
+The versioned formatting hook is `.githooks/pre-commit`. Enable it locally with `git config core.hooksPath .githooks` (requires a .NET SDK and Git Bash). On commit it formats staged C# files using `dotnet format whitespace` and `.editorconfig`, trims trailing spaces in staged `.meta` files, and stops on errors or partially staged source files. Run `bash .githooks/pre-commit --all` to format all tracked C# and `.meta` files without staging them. Folder mode avoids restoring Unity-generated IDE projects; the hook does not apply analyzer fixes or change serialized identifiers.
+
 ## 4. Verification contract
 
 - Evidence tiers: **inspected only**, **static checks**, **Unity compilation**, **EditMode tests**, **PlayMode/manual tests**, and **player playtest** are distinct. Never replace one with claims about another.
