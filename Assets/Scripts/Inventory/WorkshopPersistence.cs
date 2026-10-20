@@ -19,10 +19,11 @@ namespace Inventory
             if (!IsCity) throw new InvalidOperationException("Only city sessions use this save format.");
             var data = new CitySaveData
             {
-                Version = 1, Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
+                Version = 2, Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
                 Expenses = Expenses, SpareBatteries = SpareBatteries, RepairSeconds = RepairSeconds,
                 LotPurchased = LotPurchased, HasTransportedCrate = HasTransportedCrate,
                 IsCrateCarried = IsCrateCarried, ElapsedSeconds = ElapsedSeconds, World = world,
+                IsCrateInVehicle = IsCrateInVehicle,
                 Lamps = new CityLampData[units.Length], Orders = new CityOrderData[2]
             };
             for (var i = 0; i < units.Length; i++)
@@ -53,6 +54,7 @@ namespace Inventory
             restored.LotPurchased = data.LotPurchased;
             restored.HasTransportedCrate = data.HasTransportedCrate;
             restored.IsCrateCarried = data.IsCrateCarried;
+            restored.IsCrateInVehicle = data.IsCrateInVehicle;
             restored.ElapsedSeconds = data.ElapsedSeconds;
             for (var i = 0; i < restored.units.Length; i++)
             {
@@ -82,7 +84,7 @@ namespace Inventory
         private static bool ValidateCity(CitySaveData data, out string message)
         {
             message = "Некорректное или несовместимое сохранение города.";
-            if (data == null || data.Version != 1 || data.InitialBalance != 300 || data.Balance < 0 ||
+            if (data == null || (data.Version != 1 && data.Version != 2) || data.InitialBalance != 300 || data.Balance < 0 ||
                 data.Revenue < 0 || data.Expenses < 0 || data.Revenue > int.MaxValue ||
                 data.Expenses > (long)int.MaxValue * 50 + 180 || data.SpareBatteries < 0 ||
                 (long)data.InitialBalance + data.Revenue - data.Expenses != data.Balance ||
@@ -127,6 +129,7 @@ namespace Inventory
                 else if (lamp.Location != FlashlightLocation.Seller) owned++;
             }
             if (hands > 1 || benches > 1 || (data.IsCrateCarried && hands != 0) ||
+                (data.IsCrateInVehicle && (data.Version < 2 || data.IsCrateCarried || !data.LotPurchased || !data.HasTransportedCrate)) ||
                 (!data.LotPurchased && (data.IsCrateCarried || data.HasTransportedCrate)) ||
                 (data.IsCrateCarried && !data.HasTransportedCrate) ||
                 data.Expenses != (data.LotPurchased ? 180L : 0) + ((long)data.SpareBatteries + data.RepairSeconds / 240) * 50)
@@ -156,6 +159,12 @@ namespace Inventory
             if (data.Revenue != revenue) return false;
 
             var world = data.World;
+            if (data.IsCrateInVehicle && (world == null || !world.HasVehiclePose)) return false;
+            if (world != null && world.HasVehiclePose &&
+                (!ValidPosition(world.VehiclePosition) || !Finite(world.VehicleEuler.x) ||
+                 !Finite(world.VehicleEuler.y) || !Finite(world.VehicleEuler.z) ||
+                 Math.Abs(world.VehicleEuler.x) > 360 || Math.Abs(world.VehicleEuler.y) > 360 ||
+                 Math.Abs(world.VehicleEuler.z) > 360)) return false;
             if (world == null || !ValidPosition(world.PlayerPosition) || !Finite(world.PlayerYaw) ||
                 Math.Abs(world.PlayerYaw) > 360 || !Finite(world.CameraPitch) || Math.Abs(world.CameraPitch) > 85 ||
                 !Enum.IsDefined(typeof(CityCrateDock), world.CrateDock) ||

@@ -67,6 +67,7 @@ namespace Player
             if (Session != null) Session.TransactionCompleted -= RequestSave;
             Session = session;
             World = world;
+            if (vehicle != null) vehicle.RestoreCityPose(world);
             Session.TransactionCompleted += RequestSave;
             dirty = false;
             SessionReplaced?.Invoke();
@@ -94,6 +95,12 @@ namespace Player
             if (loading || Session == null) return false;
             if (IsDriving) { Message = "Сначала выйди из автомобиля для сохранения."; return false; }
             BeforeSave?.Invoke();
+            if (vehicle != null)
+            {
+                World.HasVehiclePose = true;
+                World.VehiclePosition = vehicle.transform.position;
+                World.VehicleEuler = vehicle.transform.eulerAngles;
+            }
             World.PlayerPosition = transform.position;
             World.PlayerYaw = transform.eulerAngles.y;
             World.CameraPitch = player.CameraPitch;
@@ -108,6 +115,14 @@ namespace Player
             if (!store.TryLoad(backup, out var data, out var candidate, out var message))
             {
                 Message = message + " Текущее состояние не изменено.";
+                loading = true;
+                walk.SetPaused(true);
+                loading = false;
+                return false;
+            }
+            if (candidate.IsCrateInVehicle && (vehicle == null || vehicle.CargoFloor == null || vehicle.CargoGate == null))
+            {
+                Message = "Машина с багажником недоступна. Текущее состояние не изменено.";
                 loading = true;
                 walk.SetPaused(true);
                 loading = false;

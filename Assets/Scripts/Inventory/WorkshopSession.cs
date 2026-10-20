@@ -15,6 +15,7 @@ namespace Inventory
 
         public IReadOnlyList<FlashlightUnit> Units { get; }
         public bool IsCrateCarried { get; private set; }
+        public bool IsCrateInVehicle { get; private set; }
         public int Balance { get; private set; }
         public int SpareBatteries { get; private set; }
         public int RepairSeconds { get; private set; }
@@ -56,6 +57,7 @@ namespace Inventory
         public bool ToggleCrate(out string message)
         {
             if (!CanHandleItems(out message)) return false;
+            if (IsCrateInVehicle) return Reject("Сначала выгрузи ящик из багажника у дока.", out message);
             if (InHands != null) return Reject("Return the lamp before carrying the crate.", out message);
             IsCrateCarried = !IsCrateCarried;
             if (IsCrateCarried) HasTransportedCrate = true;
@@ -66,6 +68,7 @@ namespace Inventory
         public bool ToggleUnit(int index, out string message)
         {
             if (!CanHandleItems(out message)) return false;
+            if (IsCrateInVehicle) return Reject("Сначала выгрузи ящик из багажника у дока.", out message);
             if (index < 0 || index >= units.Length) return Reject("Unknown lamp.", out message);
             if (IsCrateCarried) return Reject("Dock the crate first.", out message);
             var unit = units[index];

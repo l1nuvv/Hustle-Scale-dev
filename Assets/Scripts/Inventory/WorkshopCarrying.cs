@@ -2,6 +2,26 @@ namespace Inventory
 {
     public sealed partial class WorkshopSession
     {
+        public bool LoadVehicleCrate(out string message)
+        {
+            if (!CanHandleItems(out message)) return false;
+            if (!IsCity || IsCrateInVehicle || !IsCrateCarried || InHands != null)
+                return Reject("Возьми ящик в руки у дока; с фонарём в руках погрузка невозможна.", out message);
+            IsCrateCarried = false;
+            IsCrateInVehicle = true;
+            return Complete("Ящик закреплён в багажнике. Выгрузка — у дока продавца или мастерской.", out message);
+        }
+
+        // The city view validates physical access and the destination dock before this transition.
+        public bool UnloadVehicleCrate(out string message)
+        {
+            if (!CanHandleItems(out message)) return false;
+            if (!IsCity || !IsCrateInVehicle || IsCrateCarried || InHands != null)
+                return Reject("Для выгрузки ящика освободи руки.", out message);
+            IsCrateInVehicle = false;
+            return Complete("Ящик выгружен на обозначенный док.", out message);
+        }
+
         // Each of the three unique lamps has a persistent inventory slot; batteries share slot 4.
         // Storage never changes the physical delivery rules: goods must be presented in hands/crate.
         public bool StowHeld(out string message)

@@ -11,6 +11,7 @@ namespace Inventory
         public int Balance, InitialBalance, SpareBatteries, RepairSeconds;
         public long Revenue, Expenses;
         public bool LotPurchased, HasTransportedCrate, IsCrateCarried;
+        public bool IsCrateInVehicle;
         public double ElapsedSeconds;
         public CityLampData[] Lamps;
         public CityOrderData[] Orders;
@@ -42,6 +43,8 @@ namespace Inventory
         public Vector3 PlayerPosition;
         public float PlayerYaw, CameraPitch;
         public CityCrateDock CrateDock;
+        public bool HasVehiclePose;
+        public Vector3 VehiclePosition, VehicleEuler;
         public CityPlacedLamp[] PlacedLamps;
     }
 

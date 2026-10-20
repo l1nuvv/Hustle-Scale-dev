@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 namespace Player
 {
     // One city vehicle. Seating owns the two camera/input contexts; wheel physics
-    // remains in FixedUpdate. This does not participate in the trade prototype.
+    // remains in FixedUpdate. CityTradeView owns cargo interactions through WorkshopSession.
     [RequireComponent(typeof(Rigidbody))]
     public sealed class CityUtilityVehicle : MonoBehaviour
     {
@@ -20,6 +20,11 @@ namespace Player
         [SerializeField] private float motorTorque = 330;
         [SerializeField, Range(0, 1)] private float cameraMotion = 0.6f;
         private Rigidbody body;
+        private Vector3 spawnPosition;
+        private Quaternion spawnRotation;
+        public Transform CargoFloor { get; private set; }
+        public Transform CargoGate { get; private set; }
+        public Vector3 CargoPosition => CargoFloor.localPosition + Vector3.up * (CargoFloor.localScale.y / 2 + 0.175f);
         private CharacterController capsule;
         private PlayerInput walkingInput;
         private InputActionMap actions;
@@ -53,6 +58,10 @@ namespace Player
         private void Awake()
         {
             body = GetComponent<Rigidbody>();
+            spawnPosition = transform.position;
+            spawnRotation = transform.rotation;
+            CargoFloor = transform.Find("Bed floor");
+            CargoGate = transform.Find("Tailgate");
             capsule = walker.GetComponent<CharacterController>();
             walkingInput = walker.GetComponent<PlayerInput>();
             cameraRest = drivingCamera.transform.localPosition;
@@ -77,7 +86,7 @@ namespace Player
                 var door = transform.TransformPoint(new Vector3(-1.1f, 1, 0.4f));
                 var delta = door - walkingCamera.transform.position;
                 nearDoor = walker.CanInteract && delta.magnitude < 3 &&
-                    Vector3.Dot(walkingCamera.transform.forward, delta.normalized) > 0.25f;
+                    Vector3.Dot(walkingCamera.transform.forward, delta.normalized) > 0.25f && !LookingAtCargo();
                 if (nearDoor && interact.WasPressedThisFrame()) TryEnter();
                 return;
             }
@@ -170,7 +179,10 @@ namespace Player
 
         public bool TryEnter()
         {
-            if (IsDriving || Speed > 0.8f) return false;
+            if (IsDriving || Speed > 0.8f || LookingAtCargo()) return false;
+            var trade = walker.GetComponent<Interactables.CityTradeView>();
+            if (trade != null && trade.Session != null && trade.Session.IsCrateCarried)
+            { message = "Сначала погрузи ящик: E у заднего борта багажника."; return false; }
             var door = transform.TransformPoint(new Vector3(-1.1f, 1, 0.4f));
             var approach = door - walkingCamera.transform.position;
             if (approach.magnitude > 3) return false;
@@ -230,6 +242,7 @@ namespace Player
                 motor.Stop();
                 rolling.Stop();
                 message = "";
+                walker.GetComponent<CitySaveController>()?.RequestSave();
                 return true;
             }
             message = "Оба выхода перекрыты. Подъедь к свободному месту.";
@@ -250,6 +263,27 @@ namespace Player
             Cursor.lockState = value ? CursorLockMode.None : CursorLockMode.Locked;
             Cursor.visible = value;
             if (motor != null) { if (value) { motor.Pause(); rolling.Pause(); } else { motor.UnPause(); rolling.UnPause(); } }
+        }
+
+        public void RestoreCityPose(Inventory.CityWorldData world)
+        {
+            if (IsDriving) return;
+            body.position = world.HasVehiclePose ? world.VehiclePosition : spawnPosition;
+            body.rotation = world.HasVehiclePose ? Quaternion.Euler(world.VehicleEuler) : spawnRotation;
+            if (!body.isKinematic)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+            }
+            previousVelocity = Vector3.zero;
+        }
+
+        private bool LookingAtCargo()
+        {
+            return Physics.Raycast(walkingCamera.transform.position, walkingCamera.transform.forward,
+                out var hit, 2.5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
+                hit.collider.TryGetComponent<Interactables.CityTradePoint>(out var point) &&
+                point.Kind == Interactables.CityTradeKind.Cargo;
         }
 
         private void OnApplicationFocus(bool focused) { if (!focused && IsDriving) SetPaused(true); }
@@ -296,7 +330,7 @@ namespace Player
                   "\nW/S — газ / тормоз / назад · A/D — руль · пробел — тормоз" +
                   "\nМышь — осмотр · E — выйти после остановки · V — качание камеры" +
                   "\n" + (paused ? "ПАУЗА · Esc — продолжить" : "Esc — пауза · " + message)
-                : "E — сесть в машину мастерской\nWASD — движение · пробел — тормоз · E — выйти после остановки");
+                : "E — сесть в машину мастерской\n" + message);
             GUI.matrix = old;
         }
 

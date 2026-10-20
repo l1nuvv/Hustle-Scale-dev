@@ -342,7 +342,7 @@ public static class S2Verification
         var original = session.CaptureCity(World(session));
         Action<CitySaveData>[] corruptions =
         {
-            data => data.Version = 2,
+            data => data.Version = 3,
             data => data.Lamps[1].InstanceId = data.Lamps[0].InstanceId,
             data => data.Lamps[0].Location = (FlashlightLocation)999,
             data => data.Lamps[0].LastTestPassed = true,
