@@ -24,10 +24,18 @@ namespace Interactables
         private Coroutine feedback;
         private Coroutine messageExpiry;
         private int blinkIndex = -1;
+        private FirstDealAudio audioFeedback;
         public WorkshopSession Session => session;
         public bool IsFirstDeal => firstDeal;
 
-        private void Awake() => session = firstDeal ? WorkshopSession.CreateFirstDeal() : new WorkshopSession();
+        private void Awake()
+        {
+            session = firstDeal ? WorkshopSession.CreateFirstDeal() : new WorkshopSession();
+            if (firstDeal) audioFeedback = gameObject.AddComponent<FirstDealAudio>();
+        }
+
+        public void PlaySound(FirstDealSound sound, bool menuConfirmation = false) =>
+            audioFeedback?.Play(sound, menuConfirmation);
         private void OnEnable() => session.Changed += Refresh;
         private void Start() => Refresh();
         private void OnDisable()
@@ -79,6 +87,7 @@ namespace Interactables
                 !session.IsCrateCarried && Vector3.Distance(hand.position, crate.position) > 2.5f)
             {
                 ShowMessage("Bring the crate to this station first.");
+                PlaySound(FirstDealSound.Warning);
                 return;
             }
             bool success;
@@ -94,6 +103,10 @@ namespace Interactables
                 default: return;
             }
             ShowMessage((success ? "" : "Cannot: ") + message);
+            PlaySound(!success ? FirstDealSound.Warning : action == WorkshopActionKind.Test ?
+                (session.OnBench.LastTestPassed ? FirstDealSound.TestPassed : FirstDealSound.TestFailed) :
+                action == WorkshopActionKind.Repair ? FirstDealSound.Repair :
+                action == WorkshopActionKind.BuyBattery ? FirstDealSound.Purchase : FirstDealSound.Contact);
             if (success && action == WorkshopActionKind.Test && !session.OnBench.LastTestPassed)
             {
                 if (feedback != null) StopCoroutine(feedback);

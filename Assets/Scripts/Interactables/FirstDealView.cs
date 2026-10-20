@@ -111,7 +111,12 @@ namespace Interactables
                 action == FirstDealActionKind.DeliverB ? DealOrderId.B : DealOrderId.RepeatB;
             var session = workshop.Session;
             var blocked = FirstDealText.DeliveryBlockReason(session, id);
-            if (blocked.Length > 0) { workshop.ShowMessage(blocked); return; }
+            if (blocked.Length > 0)
+            {
+                workshop.ShowMessage(blocked);
+                workshop.PlaySound(FirstDealSound.Warning);
+                return;
+            }
             var presented = new List<string>();
             foreach (var unit in session.Units)
             {
@@ -121,8 +126,9 @@ namespace Interactables
                     presented.Add(unit.InstanceId);
                 if (presented.Count == session.Order(id).Quantity) break;
             }
-            session.DeliverOrder(id, presented, out var message);
+            var success = session.DeliverOrder(id, presented, out var message);
             workshop.ShowMessage(message);
+            workshop.PlaySound(success ? FirstDealSound.Sale : FirstDealSound.Warning);
         }
 
         public void OpenMenu(bool seller, bool pauseOnly = false)
@@ -170,6 +176,7 @@ namespace Interactables
                 EventSystem.current.SetSelectedGameObject(closeButton.gameObject);
             }
             workshop.ShowMessage(message);
+            workshop.PlaySound(success ? FirstDealSound.Purchase : FirstDealSound.Warning, true);
         }
 
         public string GetPrompt(FirstDealActionKind action)
@@ -203,6 +210,7 @@ namespace Interactables
                 if (reason.Length > 0) menuMessage = reason;
             }
             workshop.ShowMessage(menuMessage);
+            if (!success) workshop.PlaySound(FirstDealSound.Warning, true);
             RefreshMenu();
             EventSystem.current.SetSelectedGameObject((declineButtons[index].interactable ? declineButtons[index] : closeButton).gameObject);
         }
@@ -219,11 +227,12 @@ namespace Interactables
             var ids = new List<string>();
             foreach (var unit in s.Units)
                 if (unit.Location == FlashlightLocation.Hands || (s.IsCrateCarried && unit.Location == FlashlightLocation.Crate)) ids.Add(unit.InstanceId);
-            s.SellBack(ids, out var message);
+            var success = s.SellBack(ids, out var message);
             workshop.ShowMessage(message);
             OpenMenu(true);
             menuMessage = message;
             RefreshMenu();
+            workshop.PlaySound(success ? FirstDealSound.Sale : FirstDealSound.Warning, true);
         }
 
         public void OpenSummary()
