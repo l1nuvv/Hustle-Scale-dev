@@ -22,7 +22,7 @@ namespace Interactables
             }
 
             // Находим InventoryManager в сцене
-            _inventoryManager = FindFirstObjectByType<InventoryManager>();
+            _inventoryManager = FindAnyObjectByType<InventoryManager>();
             if (_inventoryManager == null)
             {
                 Debug.LogWarning("InventoryManager не найден в сцене. Подбор предметов может не работать корректно.");
@@ -72,7 +72,7 @@ namespace Interactables
             }
 
             // В крайнем случае ищем InventoryManager в сцене снова
-            var sceneInventory = FindFirstObjectByType<InventoryManager>();
+            var sceneInventory = FindAnyObjectByType<InventoryManager>();
             if (sceneInventory != null)
             {
                 sceneInventory.AddItem(item, amount);

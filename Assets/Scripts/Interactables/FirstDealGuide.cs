@@ -117,7 +117,7 @@ namespace Interactables
 
         private static void ApplyColors()
         {
-            foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            foreach (var r in FindObjectsByType<Renderer>())
             {
                 Color color;
                 if (r.name.StartsWith("Readable.Blue")) color = new Color(0.08f, 0.4f, 0.85f);

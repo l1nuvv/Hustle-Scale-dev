@@ -12,7 +12,8 @@ namespace Inventory.InventoryScriptableObjects
     public class Item : ScriptableObject
     {
         public int id;
-        public string name;
+        // Serialized item display name, independent of the Unity asset name.
+        public new string name;
         public Sprite icon; // For UI
         public GameObject worldPrefab; // Item prefab in the world
         public GameObject heldPrefab; // Prefab in the player hand
