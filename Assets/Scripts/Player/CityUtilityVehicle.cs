@@ -180,7 +180,7 @@ namespace Player
             IsDriving = true;
             nearDoor = false;
             message = "";
-            walkOverlay.enabled = false;
+            if (walkOverlay != null) walkOverlay.enabled = false;
             walkingInput.enabled = false;
             walker.enabled = false;
             capsule.enabled = false;
@@ -218,9 +218,15 @@ namespace Player
                 capsule.enabled = true;
                 walker.enabled = true;
                 walkingInput.enabled = true;
-                walkOverlay.enabled = true;
+                if (walkOverlay != null) walkOverlay.enabled = true;
                 walkingCamera.gameObject.SetActive(true);
-                walkOverlay.SetPaused(false);
+                if (walkOverlay != null) walkOverlay.SetPaused(false);
+                else
+                {
+                    walker.SetMovementEnabled(true);
+                    walker.SetCameraControlEnabled(true);
+                    walker.SetCursorLocked(true);
+                }
                 motor.Stop();
                 rolling.Stop();
                 message = "";

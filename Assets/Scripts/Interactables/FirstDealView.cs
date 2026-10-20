@@ -38,6 +38,8 @@ namespace Interactables
         private WorkshopCarryController carry;
         public bool MenuOpen => menu.activeSelf;
         public bool OffersRead { get; private set; }
+        // Development scenes may hold the clock without changing the session rules.
+        public bool ClockSuspended { get; set; }
 
         private void Awake()
         {
@@ -81,7 +83,7 @@ namespace Interactables
             if (MenuOpen || !hasFocus) return;
             // Tick before PlayerInput dispatches E, so deliveries see this frame's deadline.
             if (player.transform.position.z < 0.8f) session.StartShift();
-            session.AdvanceActiveSeconds(Time.deltaTime);
+            if (!ClockSuspended) session.AdvanceActiveSeconds(Time.deltaTime);
         }
 
         private void LateUpdate()

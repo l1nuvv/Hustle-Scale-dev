@@ -90,6 +90,14 @@ V4 characters, 2026-10-20: three original prefabs in `Assets/Prefabs/FirstDealCh
 
 Unity 6000.6.0f1: **Tools > V4 > Verify Characters and Integration** passed **129** checks; V1 routes passed **72**, and V2 models/trade passed **110** after integration. Three character views were visually inspected. Evidence: `Logs/Codex-V4-verification.log`, `Logs/V4-*.png`, and the V1/V2 logs. See the roadmap for the limited capsule/character Editor render comparison. Owner art acceptance, independent player observation and Player performance remain pending. No Player build or archive was created.
 
+## Development playground
+
+Open `Assets/Scenes/DevelopmentSandbox.unity` or **Tools > Development Sandbox > Open Playground**, then enter Play Mode. The separate 260 × 220 m scene contains the live FIRST DEAL workshop/traders, a utility vehicle and driving circuit, steps/slopes/narrow gaps, a covered flashlight corridor, all 15 existing prefabs as linked display samples, placement surfaces and a streetscape scale area. The 10 m grid and seven named hierarchy groups support further editing; the creation menu refuses to overwrite an existing playground.
+
+**F2** opens zone teleports, the clock switch and a full scene/deal reset. Passive deal time starts held; enable it to test deadlines. Repair still applies its normal four-minute cost. Normal trade, carrying and flashlight controls remain available. At the vehicle door, E enters/exits, WASD drives, Space brakes, and V switches camera motion. Driving suspends the trade interface and restores it on exit.
+
+Catalogue objects are display references with gameplay, cameras and audio disabled; use zone 01 for working interactions. `AppleRed` and `Slot` represent the legacy inventory/UI rather than a second inventory system. Edit shared source prefabs to propagate changes, or copy authored zone objects into a game scene. The utility vehicle is also saved as `Assets/Prefabs/DevelopmentSandbox/UtilityVehicle.prefab`; assign its walker and walking camera when using it in another scene. The playground is intended for Editor use and does not alter the current build scene list; include it explicitly if a future Player build needs it.
+
 ## Development
 
 - `AGENTS.md` - repository constraints and agent workflow.
