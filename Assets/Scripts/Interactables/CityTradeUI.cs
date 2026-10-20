@@ -9,12 +9,12 @@ namespace Interactables
 {
     public sealed partial class CityTradeView
     {
-        private GameObject canvasObject, panel, ownedEventSystem;
+        private GameObject canvasObject, panel, tradeBackdrop, ownedEventSystem;
         private RectTransform menuContent, safeArea;
         private UnityEngine.Rect lastSafeArea;
         private Vector2 lastScreen;
-        private Text hud, prompt, feedbackLabel, menuHeading, tradeSummary;
-        private RectTransform tradeSidebar;
+        private Text hud, orderHud, prompt, feedbackLabel, menuHeading;
+        private bool showControls;
         private RectTransform hudPanel, bottomContext;
         private Font font;
         private bool rebuilding;
@@ -27,6 +27,7 @@ namespace Interactables
         {
             textScale = Mathf.Clamp(scale, 1, 1.5f);
             if (hud != null) hud.fontSize = Mathf.RoundToInt(18 * textScale);
+            if (orderHud != null) orderHud.fontSize = Mathf.RoundToInt(18 * textScale);
             if (prompt != null) prompt.fontSize = Mathf.RoundToInt(20 * textScale);
             if (feedbackLabel != null) feedbackLabel.fontSize = Mathf.RoundToInt(18 * textScale);
             if (menuHeading != null) menuHeading.fontSize = Mathf.RoundToInt(24 * textScale);
@@ -44,9 +45,9 @@ namespace Interactables
             CityTradeKind.A => "Покупатель A",
             CityTradeKind.B => "Покупатель Б",
             CityTradeKind.Workshop => "Мастерская",
-            CityTradeKind.Crate => "Ящик · взять / выбрать фонарь",
-            CityTradeKind.SellerDock => "Место для ящика у продавца",
-            CityTradeKind.WorkshopDock => "Место для ящика в мастерской",
+            CityTradeKind.Crate => "Ящик",
+            CityTradeKind.SellerDock => "Док продавца",
+            CityTradeKind.WorkshopDock => "Док мастерской",
             _ => "Фонарь"
         };
         private static string State(DealOrderState state) => state switch
@@ -64,6 +65,7 @@ namespace Interactables
         private void BuildUI()
         {
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            BuildUiArtwork();
             if (EventSystem.current == null)
                 ownedEventSystem = new GameObject("City UI input", typeof(EventSystem), typeof(InputSystemUIInputModule));
             canvasObject = new GameObject("City trading UI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -76,14 +78,19 @@ namespace Interactables
             safeArea = safe;
             safe.anchorMin = Screen.safeArea.min / new Vector2(Screen.width, Screen.height);
             safe.anchorMax = Screen.safeArea.max / new Vector2(Screen.width, Screen.height);
-            hudPanel = Rect("Wallet and orders", safe, new Vector2(0.015f, 0.985f), new Vector2(0.73f, 0.985f));
+            hudPanel = Rect("Wallet and orders", safe, new Vector2(0.025f, 0.975f), new Vector2(0.975f, 0.975f));
             hudPanel.pivot = new Vector2(0.5f, 1);
-            hudPanel.gameObject.AddComponent<Image>().color = new Color(0.025f, 0.045f, 0.05f, 1);
-            hud = Label(hudPanel, "", 18); hud.alignment = TextAnchor.UpperLeft;
-            hud.rectTransform.offsetMin = new Vector2(14, 4); hud.rectTransform.offsetMax = new Vector2(-10, -4);
-            var context = Rect("Action context", safe, new Vector2(0.015f, 0.02f), new Vector2(0.985f, 0.02f));
+            var wallet = Rect("Wallet card", hudPanel, Vector2.zero, new Vector2(0.25f, 1));
+            Round(wallet, new Color(0.055f, 0.07f, 0.085f, 0.94f));
+            hud = Label(wallet, "", 18); hud.alignment = TextAnchor.MiddleLeft;
+            hud.rectTransform.offsetMin = new Vector2(18, 10); hud.rectTransform.offsetMax = new Vector2(-14, -10);
+            var orders = Rect("Orders card", hudPanel, new Vector2(0.62f, 0), Vector2.one);
+            Round(orders, new Color(0.055f, 0.07f, 0.085f, 0.94f));
+            orderHud = Label(orders, "", 18); orderHud.alignment = TextAnchor.MiddleLeft;
+            orderHud.rectTransform.offsetMin = new Vector2(18, 10); orderHud.rectTransform.offsetMax = new Vector2(-14, -10);
+            var context = Rect("Action context", safe, new Vector2(0.18f, 0.03f), new Vector2(0.82f, 0.03f));
             bottomContext = context; context.pivot = new Vector2(0.5f, 0);
-            context.gameObject.AddComponent<Image>().color = new Color(0.025f, 0.045f, 0.05f, 1);
+            Round(context, new Color(0.055f, 0.07f, 0.085f, 0.94f));
             var contextLayout = context.gameObject.AddComponent<VerticalLayoutGroup>();
             contextLayout.padding = new RectOffset(10, 10, 8, 8); contextLayout.spacing = 4;
             contextLayout.childControlWidth = contextLayout.childControlHeight = true;
@@ -93,32 +100,46 @@ namespace Interactables
             prompt.rectTransform.anchorMin = new Vector2(0.015f, 0.50f); prompt.rectTransform.anchorMax = new Vector2(0.985f, 1);
             feedbackLabel = Label(context, "", 18);
             feedbackLabel.rectTransform.anchorMin = new Vector2(0.015f, 0); feedbackLabel.rectTransform.anchorMax = new Vector2(0.985f, 0.50f);
-            var cross = Label(safe, "+", 22); cross.rectTransform.anchorMin = new Vector2(0.49f, 0.48f);
+            var cross = Label(safe, "·", 22); cross.rectTransform.anchorMin = new Vector2(0.49f, 0.48f);
             cross.rectTransform.anchorMax = new Vector2(0.51f, 0.52f);
-            panel = Rect("Trade menu", safe, new Vector2(0.04f, 0.06f), new Vector2(0.96f, 0.94f)).gameObject;
-            panel.AddComponent<Image>().color = new Color(0.035f, 0.055f, 0.06f, 1);
-            var header = Rect("Menu header", panel.transform, new Vector2(0.025f, 0.86f), new Vector2(0.975f, 0.98f));
-            header.gameObject.AddComponent<Image>().color = new Color(0.11f, 0.23f, 0.24f);
-            menuHeading = Label(header, "", 24); menuHeading.alignment = TextAnchor.MiddleLeft;
-            menuHeading.rectTransform.anchorMax = new Vector2(0.65f, 1);
-            menuHeading.rectTransform.offsetMin = new Vector2(16, 0);
-            var textSize = Rect("Text size", header, new Vector2(0.66f, 0), Vector2.one);
-            textSize.gameObject.AddComponent<Image>().color = new Color(0.09f, 0.17f, 0.18f);
+            tradeBackdrop = Rect("Trade backdrop", safe, Vector2.zero, Vector2.one).gameObject;
+            Surface(tradeBackdrop.transform, new Color(0.008f, 0.012f, 0.018f, 0.78f));
+            tradeBackdrop.SetActive(false);
+            panel = Rect("Trade menu", safe, Vector2.one * 0.5f, Vector2.one * 0.5f).gameObject;
+            panel.GetComponent<RectTransform>().sizeDelta = new Vector2(760, 480);
+            Round(panel.transform, new Color(0.065f, 0.085f, 0.105f));
+            var shadow = panel.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0, 0, 0, 0.3f); shadow.effectDistance = new Vector2(0, -6);
+            var header = Rect("Menu header", panel.transform, new Vector2(0, 1), Vector2.one);
+            header.pivot = new Vector2(0.5f, 1); header.sizeDelta = new Vector2(0, 96);
+            var badge = Rect("Market emblem", header, new Vector2(0, 0.5f), new Vector2(0, 0.5f));
+            badge.pivot = new Vector2(0, 0.5f); badge.anchoredPosition = new Vector2(28, 0); badge.sizeDelta = new Vector2(44, 44);
+            Round(badge, new Color(0.16f, 0.23f, 0.22f));
+            Label(badge, "H", 24).color = Mint;
+            var caption = Label(header, "HUSTLE & SCALE", 11); caption.color = Muted; caption.alignment = TextAnchor.MiddleLeft;
+            caption.rectTransform.offsetMin = new Vector2(88, 58); caption.rectTransform.offsetMax = new Vector2(-220, -18);
+            menuHeading = Label(header, "", 24); menuHeading.alignment = TextAnchor.MiddleLeft; menuHeading.fontStyle = FontStyle.Bold;
+            menuHeading.rectTransform.offsetMin = new Vector2(88, 12); menuHeading.rectTransform.offsetMax = new Vector2(-205, -30);
+            var purse = Rect("Wallet badge", header, new Vector2(1, 0.5f), new Vector2(1, 0.5f));
+            purse.pivot = new Vector2(1, 0.5f); purse.anchoredPosition = new Vector2(-28, 0); purse.sizeDelta = new Vector2(108, 44);
+            Round(purse, new Color(0.12f, 0.17f, 0.17f));
+            menuWallet = Label(purse, "", 20); menuWallet.color = Mint; menuWallet.fontStyle = FontStyle.Bold;
+            var textSize = Rect("Text size", header, new Vector2(1, 0.5f), new Vector2(1, 0.5f));
+            textSize.pivot = new Vector2(1, 0.5f); textSize.anchoredPosition = new Vector2(-144, 0); textSize.sizeDelta = new Vector2(44, 44);
+            Round(textSize, new Color(0.12f, 0.15f, 0.175f));
             textSizeButton = textSize.gameObject.AddComponent<Button>();
-            Label(textSize, "Текст 100% / 150%", 18);
+            textSizeButton.targetGraphic = textSize.GetComponent<Image>();
+            Label(textSize, "Aa", 18);
             textSizeButton.onClick.AddListener(() => SetTextScale(textScale < 1.5f ? 1.5f : 1));
-            tradeSidebar = Rect("Trade summary", panel.transform, new Vector2(0.025f, 0.04f), new Vector2(0.285f, 0.83f));
-            tradeSidebar.gameObject.AddComponent<Image>().color = new Color(0.07f, 0.13f, 0.14f);
-            tradeSummary = Label(tradeSidebar, "", 18); tradeSummary.alignment = TextAnchor.UpperLeft;
-            tradeSummary.rectTransform.offsetMin = new Vector2(14, 10); tradeSummary.rectTransform.offsetMax = new Vector2(-14, -14);
             var scroll = panel.AddComponent<ScrollRect>(); scroll.horizontal = false;
             menuScroll = scroll; scroll.movementType = ScrollRect.MovementType.Clamped;
-            var viewport = Rect("Viewport", panel.transform, new Vector2(0.31f, 0.04f), new Vector2(0.975f, 0.83f));
+            var viewport = Rect("Viewport", panel.transform, Vector2.zero, Vector2.one);
+            viewport.offsetMin = new Vector2(28, 20); viewport.offsetMax = new Vector2(-28, -100);
             viewport.gameObject.AddComponent<RectMask2D>();
             menuContent = Rect("Content", viewport, new Vector2(0, 1), Vector2.one);
             menuContent.pivot = new Vector2(0.5f, 1);
             var layout = menuContent.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 7; layout.padding = new RectOffset(12, 12, 12, 12);
+            layout.spacing = 12; layout.padding = new RectOffset(0, 0, 0, 0);
             layout.childControlWidth = layout.childControlHeight = true;
             layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
             menuContent.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
@@ -130,8 +151,7 @@ namespace Interactables
         private void ResizeHud()
         {
             if (hud == null || hudPanel == null) return;
-            hudPanel.anchorMax = new Vector2(Mathf.Lerp(0.50f, 0.73f, (textScale - 1) * 2), 0.985f);
-            hudPanel.sizeDelta = new Vector2(0, hud.preferredHeight + 12);
+            hudPanel.sizeDelta = new Vector2(0, Mathf.Max(hud.preferredHeight, orderHud.preferredHeight) + 24);
         }
 
         private void UpdateSafeArea()
@@ -155,24 +175,14 @@ namespace Interactables
                 var scrollPosition = menuScroll.verticalNormalizedPosition;
                 foreach (Transform child in menuContent) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
                 menuHeading.text = current != null ? Title(current.Kind) : "Карта и имущество";
-                tradeSidebar.gameObject.SetActive(current != null);
-                menuScroll.viewport.anchorMin = new Vector2(current != null ? 0.31f : 0.025f, 0.04f);
-                tradeSummary.fontSize = Mathf.RoundToInt(18 * textScale);
-                tradeSummary.text = "СЧЁТ\n$" + session.Balance + "\n\nБатареи: " + session.SpareBatteries +
-                    "\nФонари: " + session.OwnedLampCount + "\nВ руках: " +
-                    (session.IsCrateCarried ? "ящик" : session.InHands != null ? "фонарь" : "ничего") +
-                    "\n\n" + (current != null && (current.Kind == CityTradeKind.A || current.Kind == CityTradeKind.B)
-                        ? "Выбрано: " + Selection().Count + "\nПередача:\nв руках / в ящике"
-                        : "1. Купить\n2. Перевезти\n3. Проверить\n4. Передать") + "\n\nEsc / Tab — назад";
-                if (current == null) Line(hudText);
-                if (!message.StartsWith("Tab —", StringComparison.Ordinal)) Line(CityMessage(message));
+                menuWallet.text = "$" + session.Balance;
+                if (message.Length > 0 && (displayedMessage != message || Time.unscaledTime < messageUntil)) Line(CityMessage(message));
                 if (current == null)
                 {
                     BuildLocalMap();
-                    Line("1–3 — взять фонарь · G — убрать · Q — поставить · F — свет. E у ящика или стола — действия.");
-                    Line("Три слота фонарей; батареи хранятся отдельно. Для сдачи принеси товар в руках или в ящике.\n" +
-                        "Выручка $" + session.Revenue + " · расходы $" + session.Expenses +
-                        " · прибыль $" + (session.Balance - session.InitialBalance) + ". Продажа не заканчивает игру.");
+                    Line("$" + session.Balance + " · Батареи: " + session.SpareBatteries);
+                    Button(showControls ? "Скрыть управление" : "Управление", () => { showControls = !showControls; RebuildMenu(); });
+                    if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — поставить · F — свет\nTab — карта · Esc — пауза · F5 / F9 — сохранить / загрузить");
                     for (var i = 0; i < 3; i++)
                     {
                         var index = i; var unit = session.Units[i];
@@ -183,27 +193,24 @@ namespace Interactables
                 else switch (current.Kind)
                     {
                         case CityTradeKind.Seller:
-                            Line("ПАРТИЯ ФОНАРЕЙ", 22);
-                            Line(session.LotPurchased ? "Партия куплена. Пополнения нет." : "3 непроверенных фонаря · $180. Готовый ящик стоит рядом с прилавком.");
-                            Button("Купить партию · $180", () => Execute("purchase"), !session.LotPurchased);
-                            Line("Взять: E у ящика. Перевезти: E у заднего борта машины. Разгрузить: у дока мастерской.");
-                            Line("РАСХОДНИКИ", 22);
-                            Line("Запасная батарея · $50. Замена на верстаке: 1 батарея и +04:00, затем повторный тест.");
-                            Button("Купить батарею · $50", () => Execute("battery"), session.Balance >= 50);
+                            ProductCard("Партия фонарей", "3 шт. · без проверки", "$180", lampIcon,
+                                () => Execute("purchase"), !session.LotPurchased && session.Balance >= 180, session.LotPurchased ? "Куплено" : "Нет денег");
+                            ProductCard("Батарея", "1 шт. · для ремонта", "$50", batteryIcon,
+                                () => Execute("battery"), session.Balance >= 50);
                             break;
                         case CityTradeKind.Battery:
-                            Line("Одна запасная батарея стоит $50. Замена в мастерской расходует батарею и добавляет 04:00 игрового времени.");
+                            Line("Баланс $" + session.Balance + " · Батареи: " + session.SpareBatteries);
                             Button("Купить батарею · $50", () => Execute("battery")); break;
                         case CityTradeKind.Workshop:
                             Line("На столе: " + (session.OnBench == null ? "ничего" : FirstDealText.Condition(session.OnBench)) +
-                                "\nРемонт: 1 запасная батарея и +04:00. Заказ может истечь. После ремонта обязателен новый тест.");
+                                "\nБатареи: " + session.SpareBatteries);
                             Button("Положить / забрать фонарь", () => Execute("bench"));
                             Button("Проверить на столе", () => Execute("test"));
-                            Button("Заменить батарею · +04:00 · риск просрочки", () => Execute("repair")); break;
+                            Button("Заменить батарею · 1 шт. · +04:00", () => Execute("repair"));
+                            Line("После замены — повторный тест"); break;
                         case CityTradeKind.SellerDock:
                         case CityTradeKind.WorkshopDock:
                         case CityTradeKind.Crate:
-                            Line("Ящик ставится на жёлтую площадку у продавца или в мастерской. Взять ящик → E у заднего борта машины — погрузить. Выгрузка — E у багажника рядом с доком. С фонарём в руках сначала верни или убери его.");
                             Button(session.IsCrateCarried ? "Поставить ящик у этого дока" : "Взять ящик", () => Execute("crate"));
                             if (current.Kind == CityTradeKind.Crate)
                                 for (var i = 0; i < 3; i++)
@@ -217,24 +224,26 @@ namespace Interactables
                         case CityTradeKind.B:
                             var id = current.Kind == CityTradeKind.A ? DealOrderId.A : DealOrderId.B;
                             var order = session.Order(id);
-                            Line("Нужно " + order.Quantity + " проверенных исправных фонаря · выплата $" + order.Payment +
-                                ". Срок " + (id == DealOrderId.A ? "09:00" : "18:00") + " с принятия. При принятии оплаты нет.\n" +
-                                "Принадлежит тебе: " + session.OwnedLampCount + ". Товар не резервируется; оба заказа могут оказаться невыполнимы.");
+                            Line(order.Quantity + " исправных после теста · $" + order.Payment +
+                                "\n" + (order.State == DealOrderState.Accepted ? "Осталось " + WorkshopView.Clock(Math.Max(0, order.DeadlineSeconds - session.ElapsedSeconds)) :
+                                (id == DealOrderId.A ? "09:00" : "18:00") + " с принятия"));
                             if (order.State == DealOrderState.Available) Button("Принять заказ", () => Execute("accept"));
                             if (order.State == DealOrderState.Available || order.State == DealOrderState.Accepted)
                             {
-                                Line("Отказ / отмена навсегда закрывает только этот заказ. Товар и деньги остаются у тебя; штрафа нет.");
-                                Button(order.State == DealOrderState.Accepted ? "Отменить принятый заказ навсегда" : "Отказаться навсегда", () => Execute("close"));
+                                Button(order.State == DealOrderState.Accepted ? "Отменить навсегда" : "Отказаться навсегда", () => Execute("close"));
                             }
-                            else Line(order.State == DealOrderState.Cancelled ? "Заказ отменён навсегда. Товар и деньги сохранены." : session.OrderUnavailableReason(id));
-                            SelectGoods();
-                            Button("Передать выбранные · нужно ровно " + order.Quantity, () => Execute("deliver"), order.State == DealOrderState.Accepted);
+                            else Line(State(order.State));
+                            if (order.State == DealOrderState.Accepted)
+                            {
+                                SelectGoods();
+                                Button("Передать · " + Selection().Count + "/" + order.Quantity, () => Execute("deliver"));
+                            }
                             break;
                         case CityTradeKind.Buyback:
-                            Line("Выкуп доступен после покупки. Только проверенные: исправный $60, неисправный $35. Передача всей выбранной группы без возврата.");
+                            Line("После теста: исправный $60 · неисправный $35");
                             SelectGoods(); Button("Продать выбранные остатки", () => Execute("sell")); break;
                     }
-                var close = Button("Вернуться в город · Esc / Tab", CloseMenu);
+                var close = BackButton();
                 Button first = null, restore = null;
                 foreach (var button in menuContent.GetComponentsInChildren<Button>())
                 {
@@ -244,7 +253,7 @@ namespace Interactables
                 }
                 EventSystem.current?.SetSelectedGameObject(focused == textSizeButton.gameObject ? textSizeButton.gameObject :
                     (restore != null ? restore : first != null ? first : close).gameObject);
-                Canvas.ForceUpdateCanvases();
+                FitTradeMenu();
                 menuScroll.verticalNormalizedPosition = focusName == null ? 1 : scrollPosition;
             }
             finally { rebuilding = false; }
@@ -282,30 +291,41 @@ namespace Interactables
             label.gameObject.AddComponent<LayoutElement>().minHeight = size + 12;
         }
         private Button Button(string value, Action action, bool enabled = true)
-            => ActionButton(menuContent, value, action, enabled);
+        {
+            var button = ActionButton(menuContent, value, action, enabled);
+            if (value == "Принять заказ" || value.StartsWith("Передать", StringComparison.Ordinal)) SetButtonTone(button, true);
+            return button;
+        }
 
         private Button ActionButton(Transform parent, string value, Action action, bool enabled = true)
         {
             var target = Rect(value, parent, Vector2.zero, Vector2.one);
             target.gameObject.AddComponent<LayoutElement>().minHeight = 44;
-            target.gameObject.AddComponent<Image>().color = new Color(0.09f, 0.17f, 0.18f);
+            Round(target, Color.white);
             var layout = target.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(12, 12, 8, 8);
             layout.childControlWidth = layout.childControlHeight = true;
             layout.childForceExpandHeight = false;
             var button = target.gameObject.AddComponent<Button>(); button.interactable = enabled;
-            var colors = button.colors;
-            colors.highlightedColor = colors.selectedColor = new Color(1.7f, 1.7f, 1.7f);
-            colors.disabledColor = new Color(0.75f, 0.75f, 0.75f); button.colors = colors;
+            button.targetGraphic = target.GetComponent<Image>();
             button.onClick.AddListener(() => action());
-            Label(target, value, 18).text = enabled ? value : value + " · недоступно";
+            var label = Label(target, value, 18);
+            label.alignment = TextAnchor.MiddleLeft;
+            label.text = value;
+            SetButtonTone(button, false);
             return button;
         }
+
+        private static void Surface(Transform target, Color color)
+        {
+            target.gameObject.AddComponent<Image>().color = color;
+        }
+
         private Text Label(Transform parent, string value, int size)
         {
             var label = Rect("Text", parent, Vector2.zero, Vector2.one).gameObject.AddComponent<Text>();
             label.font = font; label.fontSize = Mathf.RoundToInt(size * textScale); label.text = value;
-            label.color = new Color(0.97f, 0.95f, 0.85f); label.alignment = TextAnchor.MiddleCenter;
+            label.color = Paper; label.alignment = TextAnchor.MiddleCenter;
             label.raycastTarget = false; label.horizontalOverflow = HorizontalWrapMode.Wrap;
             return label;
         }

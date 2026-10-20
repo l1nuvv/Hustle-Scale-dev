@@ -26,11 +26,10 @@ namespace Interactables
         private readonly List<CityTradePoint> points = new List<CityTradePoint>();
         private Material bodyMaterial, accentMaterial;
         private CityTradePoint current;
-        private string message = "Tab — карта района. Продавец фонарей — под жёлтым навесом на рынке.";
+        private string message = "";
         private string displayedMessage;
         private float messageUntil;
         private readonly bool[] selected = new bool[3];
-        private string hudText;
         public bool MenuOpen => panel != null && panel.activeSelf;
         public WorkshopSession Session => session;
         public IReadOnlyList<CityTradePoint> Points => points;
@@ -66,7 +65,7 @@ namespace Interactables
         {
             if (session != null) session.Changed -= Refresh;
             session = save.Session;
-            message = "Tab — карта района. Продавец фонарей — под жёлтым навесом на рынке.";
+            message = "";
             if (MenuOpen) { panel.SetActive(false); current = null; }
             if (session == null) return;
             foreach (var pose in save.World.PlacedLamps)
@@ -122,11 +121,12 @@ namespace Interactables
                 lamps[i].localPosition = unit.Location == FlashlightLocation.Hands ? new Vector3(0.35f, -0.22f, 0.82f) :
                     unit.Location == FlashlightLocation.Bench ? new Vector3(-72, 1.37f, 34) : new Vector3((i - 1) * 0.36f, 0.415f, 0);
             }
-            hudText = "Деньги: $" + session.Balance + " · Время: " + WorkshopView.Clock(session.ElapsedSeconds) +
-                "\nБатареи: " + session.SpareBatteries + " · В руках: " +
-                (session.IsCrateCarried ? "ящик" : session.InHands != null ? "фонарь" : "ничего") +
-                "\n" + OrderSummary(DealOrderId.A) + "   |   " + OrderSummary(DealOrderId.B) + "\nTab — карта · Esc — пауза";
-            hud.text = hudText;
+            hud.text = "<b>$" + session.Balance + "</b>  ·  " + WorkshopView.Clock(session.ElapsedSeconds);
+            var activeA = session.Order(DealOrderId.A).State == DealOrderState.Accepted;
+            var activeB = session.Order(DealOrderId.B).State == DealOrderState.Accepted;
+            orderHud.text = (activeA ? OrderSummary(DealOrderId.A) : "") + (activeA && activeB ? "\n" : "") +
+                (activeB ? OrderSummary(DealOrderId.B) : "");
+            orderHud.transform.parent.gameObject.SetActive(activeA || activeB);
             ResizeHud();
             if (MenuOpen) RebuildMenu();
         }
@@ -134,8 +134,8 @@ namespace Interactables
         private string OrderSummary(DealOrderId id)
         {
             var order = session.Order(id);
-            return FirstDealText.OrderName(id) + ": " + State(order.State) + (order.State == DealOrderState.Accepted ?
-                " · осталось " + WorkshopView.Clock(Math.Max(0, order.DeadlineSeconds - session.ElapsedSeconds)) : "");
+            return FirstDealText.OrderName(id) + " · " + order.Quantity + " шт. · " +
+                WorkshopView.Clock(Math.Max(0, order.DeadlineSeconds - session.ElapsedSeconds));
         }
 
         public bool Reachable(CityTradePoint point)
@@ -392,19 +392,20 @@ namespace Interactables
         {
             UpdateSafeArea();
             UpdatePauseUI();
+            tradeBackdrop.SetActive(MenuOpen);
             // Failed startup loads still need the recovery/new-game controls.
             if (session == null)
             {
-                hud.transform.parent.gameObject.SetActive(false);
+                hudPanel.gameObject.SetActive(false);
                 bottomContext.gameObject.SetActive(false); prompt.text = "";
                 return;
             }
             KeepMenuFocusVisible();
             canvasObject.SetActive(!save.IsDriving);
-            hud.transform.parent.gameObject.SetActive(!walk.IsPaused);
+            hudPanel.gameObject.SetActive(!walk.IsPaused && !MenuOpen);
             prompt.text = !walk.IsPaused && !save.IsDriving ? raycast.FocusLabel : "";
             if (displayedMessage != message)
-            { displayedMessage = message; messageUntil = Time.unscaledTime + 8; }
+            { displayedMessage = message; messageUntil = Time.unscaledTime + 4; }
             feedbackLabel.text = !walk.IsPaused && Time.unscaledTime < messageUntil ? CityMessage(message) : "";
             bottomContext.gameObject.SetActive(!walk.IsPaused && (prompt.text.Length > 0 || feedbackLabel.text.Length > 0));
         }
@@ -427,6 +428,7 @@ namespace Interactables
             if (plasterMaterial != null) Destroy(plasterMaterial);
             if (yardMaterial != null) Destroy(yardMaterial);
             DisposeFeedback();
+            DisposeUiArtwork();
         }
     }
 }

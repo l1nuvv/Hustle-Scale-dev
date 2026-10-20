@@ -25,8 +25,9 @@ namespace Interactables
             SliceProp(walk.WorkbenchPrefab, "Верстак", new Vector3(-72, 0.61f, 34), new Vector3(1, 1, 1.3f));
             var tester = SliceProp(walk.TesterPrefab, "Нагрузочный тестер", new Vector3(-71, 1.28f, 34), Vector3.one * 0.8f);
             tester.localRotation = Quaternion.Euler(-20, 0, 0);
-            Board("ДИАГНОСТИКА\nE — тест / замена батареи", new Vector3(-72, 2.65f, 34.8f), 0, new Vector2(3.4f, 0.65f));
-            Board("ПОСЛЕ РЕМОНТА — ПОВТОРНЫЙ ТЕСТ", new Vector3(-72, 1.95f, 34.8f), 0, new Vector2(3.4f, 0.4f));
+            Board("01 / ДИАГНОСТИКА", new Vector3(-72, 2.95f, 34.8f), 0, new Vector2(3.4f, 0.4f));
+            Board("ТЕСТ → РЕМОНТ → ТЕСТ", new Vector3(-72, 1.35f, 34.8f), 0, new Vector2(3.4f, 0.3f));
+            BuildWorkshopDetails();
             // Flush yard markings leave the whole dock and its vehicle approach clear.
             foreach (var x in new[] { -70.1f, -67.9f })
                 Decor("Граница разгрузки", new Vector3(x, 0.045f, 32), new Vector3(0.08f, 0.01f, 2), accentMaterial);
@@ -43,10 +44,52 @@ namespace Interactables
                     if (renderer.name.Contains("floor", StringComparison.OrdinalIgnoreCase)) renderer.sharedMaterial = bodyMaterial;
         }
 
+        private void BuildWorkshopDetails()
+        {
+            // Shallow trims follow the existing room shell; all additions are visual only.
+            Decor("Пол мастерской", new Vector3(-65, 0.025f, 30), new Vector3(23.5f, 0.02f, 19.5f), bodyMaterial);
+            foreach (var x in new[] { -76.72f, -53.28f })
+            {
+                Decor("Нижняя панель стены", new Vector3(x, 0.7f, 30), new Vector3(0.04f, 1.3f, 19.5f), workshopMaterial);
+                Decor("Рейка панели стены", new Vector3(x, 1.38f, 30), new Vector3(0.06f, 0.06f, 19.5f), bodyMaterial);
+            }
+            Decor("Нижняя панель задней стены", new Vector3(-65, 0.7f, 39.72f), new Vector3(23.5f, 1.3f, 0.04f), workshopMaterial);
+            Decor("Рейка задней стены", new Vector3(-65, 1.38f, 39.7f), new Vector3(23.5f, 0.06f, 0.06f), bodyMaterial);
+            // The free-standing tool station now has a full-height back, rather than floating signs.
+            Decor("Перегородка рабочего места", new Vector3(-72, 1.65f, 35.12f), new Vector3(4.2f, 3.3f, 0.16f), plasterMaterial);
+            foreach (var x in new[] { -74.15f, -69.85f })
+                Decor("Рама рабочего места", new Vector3(x, 1.65f, 35), new Vector3(0.08f, 3.3f, 0.12f), workshopMaterial);
+            foreach (var x in new[] { -74.5f, -69.5f })
+                Decor("Граница рабочего места", new Vector3(x, 0.043f, 33), new Vector3(0.06f, 0.01f, 4), accentMaterial);
+            Decor("Задняя граница рабочего места", new Vector3(-72, 0.043f, 35), new Vector3(5, 0.01f, 0.06f), accentMaterial);
+            foreach (var y in new[] { 0.35f, 1.15f, 1.95f })
+                Decor("Полка хранения мастерской", new Vector3(-57, y, 38.8f), new Vector3(5, 0.08f, 0.7f), bodyMaterial);
+            foreach (var x in new[] { -59.45f, -54.55f })
+                Decor("Стойка хранения мастерской", new Vector3(x, 1.2f, 38.8f), new Vector3(0.08f, 2.4f, 0.7f), workshopMaterial);
+            for (var i = 0; i < 4; i++)
+            {
+                var position = new Vector3(-58.8f + i * 1.15f, 0.65f, 38.8f);
+                Decor("Коробка запчастей", position, new Vector3(0.9f, 0.5f, 0.55f), plasterMaterial);
+                Decor("Маркировка коробки", position + new Vector3(0, 0, -0.28f), new Vector3(0.22f, 0.28f, 0.015f), accentMaterial);
+            }
+            Board("ЗАПЧАСТИ / ХРАНЕНИЕ", new Vector3(-57, 2.5f, 39.3f), 0, new Vector2(4, 0.4f));
+            // A threshold and shallow wall fixtures identify the exit without narrowing the doorway.
+            Decor("Порог мастерской", new Vector3(-65, 0.045f, 20), new Vector3(2.4f, 0.02f, 0.4f), accentMaterial);
+            foreach (var x in new[] { -67f, -63f })
+            {
+                Decor("Корпус входного света", new Vector3(x, 2.7f, 19.7f), new Vector3(0.22f, 0.45f, 0.16f), bodyMaterial);
+                Decor("Рассеиватель входного света", new Vector3(x, 2.7f, 19.6f), new Vector3(0.16f, 0.3f, 0.03f), accentMaterial);
+            }
+        }
+
         private void BuildWorkshopYard()
         {
             yardMaterial = new Material(bodyMaterial) { color = new Color(0.34f, 0.36f, 0.32f) };
             Decor("Площадка двора мастерской", new Vector3(-65, 0.08f, 14), new Vector3(25, 0.04f, 10), yardMaterial);
+            for (var x = -75; x <= -55; x += 5)
+                Decor("Шов покрытия двора", new Vector3(x, 0.105f, 14), new Vector3(0.025f, 0.005f, 10), bodyMaterial);
+            for (var z = 10; z <= 18; z += 4)
+                Decor("Поперечный шов двора", new Vector3(-65, 0.105f, z), new Vector3(25, 0.005f, 0.025f), bodyMaterial);
             foreach (var x in new[] { -77.3f, -52.7f })
             {
                 Box("Низкое ограждение двора", root, new Vector3(x, 0.35f, 14), new Vector3(0.22f, 0.7f, 10), workshopMaterial);

@@ -26,16 +26,19 @@ namespace Interactables
 
         private static string CityMessage(string text)
         {
-            if (text.StartsWith("Delivered B", StringComparison.Ordinal)) return "Заказ Б оплачен: +$125. Можно выбрать другую сделку или продолжить прогулку.";
-            if (text.StartsWith("Accepted ", StringComparison.Ordinal)) return "Заказ принят. Срок пошёл с этого момента; меню и пауза останавливают время.";
-            if (text.StartsWith("Order ", StringComparison.Ordinal)) return "Заказ закрыт навсегда. Деньги и фонари остались у тебя.";
+            if (text.StartsWith("Purchased three lamps", StringComparison.Ordinal)) return "Партия куплена · −$180";
+            if (text.StartsWith("Battery purchased", StringComparison.Ordinal)) return "Батарея куплена · −$50";
+            if (text.StartsWith("Delivered A", StringComparison.Ordinal)) return "Заказ A · +$260";
+            if (text.StartsWith("Delivered B", StringComparison.Ordinal)) return "Заказ Б · +$125";
+            if (text.StartsWith("Accepted ", StringComparison.Ordinal)) return "Заказ принят";
+            if (text.StartsWith("Order ", StringComparison.Ordinal)) return "Заказ закрыт навсегда";
             return text switch
             {
-                "Crate returned to its dock." => "Ящик поставлен на площадку. E на ящике — выбрать фонарь.",
-                "Crate in hands. All stored lamps move with it." => "Ящик в руках. Отнести: мастерская, покупатели или скупка. Tab — карта.",
-                "Lamp retrieved from bench." => "Фонарь в руках. E на ящике — вернуть, G — убрать в карман.",
-                "Take a lamp from the crate first." => "E на ящике — взять фонарь. Затем E на рабочем столе.",
-                "Lamp placed on bench. Run the test." => "Фонарь на столе. Выбери «Проверить на столе».",
+                "Crate returned to its dock." => "Ящик на площадке",
+                "Crate in hands. All stored lamps move with it." => "Ящик в руках",
+                "Lamp retrieved from bench." => "Фонарь в руках",
+                "Take a lamp from the crate first." => "Сначала возьми фонарь из ящика",
+                "Lamp placed on bench. Run the test." => "Фонарь на столе · нужен тест",
                 "Dock the crate first." => "Сначала поставь ящик на жёлтую площадку у продавца или в мастерской.",
                 "Place a lamp on the bench first." => "Возьми фонарь из ящика. E у рабочего стола — положить фонарь.",
                 "Unknown lamp." => "Такого фонаря нет.",

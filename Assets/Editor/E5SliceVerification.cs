@@ -14,7 +14,7 @@ using UnityEngine.UI;
 
 public static partial class S3Verification
 {
-    private const string SliceOutput = "docs/ArtDirection/UnityTest/E5-owner-fixes";
+    private const string SliceOutput = "docs/ArtDirection/UnityTest/E5-interface-environment";
     private static int sliceOriginalSize;
     private static readonly List<int> sliceSizes = new List<int>();
 
@@ -62,7 +62,7 @@ public static partial class S3Verification
         foreach (var text in GameObject.Find("City trading UI").GetComponentsInChildren<Text>())
         {
             if (text.text.Length == 0) continue;
-            Check(text.preferredHeight <= text.rectTransform.rect.height + 1,
+            Check(text.preferredHeight <= text.rectTransform.rect.height + 0.01f,
                 context + " text height " + text.text + " preferred " + text.preferredHeight + " actual " + text.rectTransform.rect.height);
             Check(text.rectTransform.rect.width >= text.fontSize, context + " nonzero text width");
         }
@@ -181,6 +181,16 @@ public static partial class S3Verification
                     }
                     trade.CloseMenu();
                 }
+                yield return null; yield return null;
+                Canvas.ForceUpdateCanvases();
+                var hudCards = GameObject.Find("Wallet and orders");
+                Check(hudCards != null, "HUD returns after trade menu");
+                foreach (var text in hudCards.GetComponentsInChildren<Text>())
+                    Check(text.preferredHeight <= text.rectTransform.rect.height + 1,
+                        "wallet and order cards fit " + size + " " + scale);
+                var wallet = hudCards.transform.Find("Wallet card").GetComponent<RectTransform>();
+                var orders = hudCards.transform.Find("Orders card").GetComponent<RectTransform>();
+                Check(wallet.anchorMax.x < orders.anchorMin.x, "HUD cards leave central view clear");
                 // The map is a separate long flow with world-relative labels.
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState(UnityEngine.InputSystem.Key.Tab)); yield return null; yield return null;
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
