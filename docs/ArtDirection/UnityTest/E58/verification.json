@@ -1,0 +1,44 @@
+{
+  "sourceHead": "4a68ad1bb59076bfd8773cf38f72787f52e531a6",
+  "profileSourceSha256": "9A20C02AEAACA8D720775FCA779C0A82972453E06E4149D944AFFB91AB8EFD19",
+  "build": {
+    "result": "succeeded",
+    "job": "build-4a8610d4ab",
+    "durationSeconds": 13.7757078,
+    "sizeMB": 183.25,
+    "errors": 0,
+    "warnings": 3,
+    "path": "Temp/E58Player/HustleScale.exe",
+    "scenes": [
+      "Assets/Scenes/CityGreybox.unity"
+    ],
+    "backend": "Mono",
+    "development": true
+  },
+  "hostOS": "Windows 11 (10.0.26200)",
+  "playerExitCode": 0,
+  "budgetApprovedByOwner": true,
+  "budget": {
+    "p95Ms": 16.67,
+    "allocatedBytes": 536870912,
+    "reservedBytes": 1073741824,
+    "gcBytesMean": 1024,
+    "scope": "Seven warmed offscreen stations, 1600x900, current host; station-end Unity memory snapshots"
+  },
+  "stationsPassed": 7,
+  "screenshotsInspected": 7,
+  "limitations": [
+    "Not visible-window FPS or minimum hardware",
+    "GPU time and draw calls unavailable",
+    "Not a complete trade route, soak test, or human acceptance"
+  ],
+  "completedAtUtc": "2026-10-20T19:30:59.2925189Z",
+  "preExistingUncommittedAssetAndSettingsPaths": [
+    "Assets/Prefabs/FirstDealLighting/Warm diffuser.mat",
+    "ProjectSettings/EditorBuildSettings.asset",
+    "ProjectSettings/ProjectSettings.asset",
+    "Assets/Resources.meta",
+    "Assets/_Recovery.meta",
+    "Assets/_Recovery/"
+  ]
+}

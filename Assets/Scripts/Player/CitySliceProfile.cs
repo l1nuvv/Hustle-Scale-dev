@@ -88,14 +88,16 @@ namespace Player
                 ramMB = SystemInfo.systemMemorySize, gpuMB = SystemInfo.graphicsMemorySize, width = Screen.width, height = Screen.height,
                 quality = QualitySettings.GetQualityLevel(), vSync = QualitySettings.vSyncCount, targetFps = Application.targetFrameRate,
                 development = Debug.isDebugBuild, mainThreadAvailable = mainThread.Valid, drawsAvailable = draws.Valid, gcAvailable = gc.Valid,
-                conditions = "Hidden development Player: explicit URP StandardRequest to 1600x900 RenderTexture each frame; Canvas uses ScreenSpaceCamera for offscreen capture. Scripted camera stations; 3s warmup + 8s samples each; no deep profiling. Editor idle and open. Main Thread includes waits. This is an offscreen rendered workload, not presentation/display FPS. GPU time unavailable. Saves isolated beside report."
+                conditions = "Hidden development Player: explicit URP StandardRequest to screen-sized RenderTexture each frame; Canvas uses ScreenSpaceCamera for offscreen capture. Scripted camera stations; 3s warmup + 8s samples each; no deep profiling. Editor idle and open. Main Thread includes waits. This is an offscreen rendered workload, not presentation/display FPS. GPU time unavailable. Saves isolated beside report. Memory values are station-end snapshots, not process peaks."
             };
             var segments = new List<Segment>();
-            var positions = new[] { new Vector3(87, 0.08f, -40), new Vector3(-65, 0.08f, 10), new Vector3(-69, 0.08f, 30), new Vector3(-29, 0.08f, 8.4f) };
-            var targets = new[] { new Vector3(88, 1.3f, -36.9f), new Vector3(-65, 2, 25), new Vector3(-72, 1.2f, 34), new Vector3(-29, 1.3f, 10.5f) };
-            var names = new[] { "seller", "yard", "workshop", "buyer-A", "buyer-menu-150" };
+            var positions = new[] { new Vector3(87, 0.08f, -30), new Vector3(-62, 0.08f, 4), new Vector3(-69, 0.08f, 30), new Vector3(-28, 0.08f, 5), new Vector3(-28, 0.08f, 5), new Vector3(-38, 0.08f, 0), new Vector3(-38, 0.08f, 0) };
+            var targets = new[] { new Vector3(88, 1.8f, -36.9f), new Vector3(-65, 1.2f, 18), new Vector3(-72, 1.2f, 34), new Vector3(-27.5f, 1.7f, 11), new Vector3(-27.5f, 1.7f, 11), new Vector3(-42, 2.4f, 3), new Vector3(-42, 2.4f, 3) };
+            var names = new[] { "seller", "yard", "workshop", "buyer-A", "buyer-menu-150", "wayfinding", "pause-menu-150" };
             for (var station = 0; station < names.Length; station++)
             {
+                trade.CloseMenu();
+                trade.SetTextScale(station >= 4 ? 1.5f : 1f);
                 walk.SetPaused(false);
                 var index = Mathf.Min(station, positions.Length - 1);
                 var angles = Quaternion.LookRotation(targets[index] - (positions[index] + Vector3.up * 1.65f)).eulerAngles;
@@ -104,9 +106,20 @@ namespace Player
                 if (station == 4)
                 {
                     foreach (var point in trade.Points)
-                        if (point.Kind == CityTradeKind.A) { trade.Open(point); break; }
+                        if (point.Kind == CityTradeKind.A)
+                        {
+                            var feet = new Vector3(point.transform.position.x, 0.08f, point.transform.position.z - 2.1f);
+                            var aim = Quaternion.LookRotation(point.GetComponent<Collider>().bounds.center - (feet + Vector3.up * 1.65f)).eulerAngles;
+                            player.RestorePose(feet, aim.y, Mathf.DeltaAngle(0, aim.x));
+                            Physics.SyncTransforms();
+                            trade.Open(point);
+                            break;
+                        }
+                    if (!trade.MenuOpen)
+                    { Debug.LogError("E5 profile buyer menu did not open."); Application.Quit(3); yield break; }
                     trade.SetTextScale(1.5f);
                 }
+                if (station == 6) walk.SetPaused(true);
                 yield return new WaitForSecondsRealtime(3);
                 CaptureStation(names[station]);
                 yield return null;
