@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using Inventory.InventoryScriptableObjects;
-using Player;
 using Player.Movement;
 using UnityEngine;
-using UnityEngine.Serialization;
+using UnityEngine.InputSystem;
+using PlayerInput = Player.PlayerInput;
 
 namespace Inventory
 {
@@ -14,11 +14,6 @@ namespace Inventory
         public Transform inventoryPanel;
         public List<InventorySlot> slots = new();
         public bool isOpened;
-
-        // Для прямого открытия инвентаря кнопкой
-        [FormerlySerializedAs("_toggleInventoryKey")]
-        [SerializeField]
-        private KeyCode toggleInventoryKey = KeyCode.Tab;
 
         private PlayerInput _playerInput;
 
@@ -66,8 +61,8 @@ namespace Inventory
 
         private void Update()
         {
-            // Прямое управление инвентарем кнопкой Tab для отладки
-            if (_playerInput == null && Input.GetKeyDown(toggleInventoryKey))
+            // Keep the standalone prototype usable without a PlayerInput component.
+            if (_playerInput == null && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
             {
                 ToggleInventoryManually();
             }
