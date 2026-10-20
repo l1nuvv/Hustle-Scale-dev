@@ -84,8 +84,8 @@ namespace Player.Movement
 
         public void MovePlayer()
         {
-            if (_body == null || !_body.enabled) return;
-            var input = _movementEnabled && _cursorLocked ? Vector2.ClampMagnitude(_input.MoveInput, 1f) : Vector2.zero;
+            if (!_movementEnabled || _body == null || !_body.enabled) return;
+            var input = _cursorLocked ? Vector2.ClampMagnitude(_input.MoveInput, 1f) : Vector2.zero;
             var speed = baseMovementSpeed * (_input.IsSprinting ? speedMultiplier : 1f);
             var velocity = (transform.forward * input.y + transform.right * input.x) * speed;
             if (_body.isGrounded && _verticalSpeed < 0) _verticalSpeed = -2f;

@@ -1,0 +1,11 @@
+E5.7 isolated Play Mode verification
+PASS repeated restore: fresh city
+PASS repeated restore: accepted order, purchase and carried crate
+PASS repeated restore: pocket + powered world lamp + repaired untested bench + accepted A
+PASS repeated restore: A and B completed, repaired stock exhausted
+PASS live rejection: truncated JSON, checksum mismatch, duplicate ID with valid checksum
+PASS real corrupt startup, F9 retry, explicit uGUI backup recovery and resave
+PASS repeated restore: new game after recovery failure
+PASS repeated restore: crate in vehicle
+PASS backup-only startup, failed backup, new-game cancel/confirm, vehicle cargo startup
+E5.7 RESULT PASS: 608 assertions; Unity 6000.6.0f1

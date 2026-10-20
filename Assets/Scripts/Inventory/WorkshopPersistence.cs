@@ -139,10 +139,13 @@ namespace Inventory
             {
                 var order = data.Orders[i];
                 var duration = i == 0 ? 540 : 1080;
+                // JsonUtility can round a deadline upward by a few double ULPs.
+                // This tolerance only validates its origin; actual expiry checks remain exact.
+                const double deadlineOriginTolerance = 0.000001;
                 if (order == null || order.Id != (DealOrderId)i || !Enum.IsDefined(typeof(DealOrderState), order.State) ||
                     order.State == DealOrderState.Locked || order.State == DealOrderState.Expired ||
                     !Finite(order.DeadlineSeconds) || order.DeadlineSeconds < 0 ||
-                    order.DeadlineSeconds > data.ElapsedSeconds + duration) return false;
+                    order.DeadlineSeconds > data.ElapsedSeconds + duration + deadlineOriginTolerance) return false;
                 var wasAccepted = order.State == DealOrderState.Accepted || order.State == DealOrderState.Completed ||
                     order.State == DealOrderState.Failed || order.State == DealOrderState.Cancelled;
                 if ((wasAccepted && order.DeadlineSeconds < duration) ||

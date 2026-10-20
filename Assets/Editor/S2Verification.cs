@@ -201,6 +201,7 @@ public static class S2Verification
         try
         {
             VerifyRoundTrips();
+            VerifyFractionalDeadline();
             VerifyTime();
             VerifyInvalidSnapshots();
             VerifyFiles();
@@ -309,6 +310,24 @@ public static class S2Verification
         loaded = RoundTrip(session, "early buyback all stock");
         Check(!loaded.SellBack(ids, out _) && loaded.Balance == session.Balance, "no duplicate buyback after reload");
         Check(session.Balance == 275 && session.OwnedLampCount == 0, "buyback accounting");
+    }
+
+    private static void VerifyFractionalDeadline()
+    {
+        var session = City();
+        session.AdvanceActiveSeconds(240.37627213913947);
+        Must(session.AcceptOrder(DealOrderId.B, out _));
+        var store = new CitySaveStore(System.IO.Path.Combine(folder, "fractional-deadline.json"));
+        Must(store.TrySave(session.CaptureCity(World(session)), out _));
+        Check(store.TryLoad(false, out var data, out var restored, out var message), "fractional accepted deadline survives JSON: " + message);
+        Check(Math.Abs(session.ElapsedSeconds - restored.ElapsedSeconds) < 1e-9 &&
+            Math.Abs(session.Order(DealOrderId.B).DeadlineSeconds - restored.Order(DealOrderId.B).DeadlineSeconds) < 1e-9,
+            "fractional time precision");
+        data.Orders[1].DeadlineSeconds += 0.001;
+        Check(!WorkshopSession.TryRestoreCity(data, out _, out _), "meaningful deadline extension still rejected");
+        restored.SetPaused(false);
+        restored.AdvanceActiveSeconds(restored.Order(DealOrderId.B).DeadlineSeconds - restored.ElapsedSeconds);
+        Check(restored.Order(DealOrderId.B).State == DealOrderState.Failed, "restored fractional deadline expires at exact boundary");
     }
 
     private static void VerifyTime()

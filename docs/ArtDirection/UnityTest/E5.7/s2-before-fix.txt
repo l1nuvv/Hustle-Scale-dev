@@ -1,0 +1,4 @@
+S2 RESULT FAIL: System.InvalidOperationException: S2: fractional accepted deadline survives JSON: Некорректное или несовместимое сохранение города.
+  at S2Verification.Check (System.Boolean value, System.String context) [0x00020] in E:\Code\Hustle_Scale\Hustle-Scale_dev\Assets\Editor\S2Verification.cs:224
+  at S2Verification.VerifyFractionalDeadline () [0x00050] in E:\Code\Hustle_Scale\Hustle-Scale_dev\Assets\Editor\S2Verification.cs:322
+  at S2Verification.Run () [0x00059] in E:\Code\Hustle_Scale\Hustle-Scale_dev\Assets\Editor\S2Verification.cs:204

@@ -20,7 +20,8 @@ public static partial class S3Verification
     private const string Override = "HustleScale.S2SaveOverride";
     private static bool IsS4 => SessionState.GetBool(Key + ".S4", false);
     private static bool IsE5 => SessionState.GetBool(Key + ".E5", false);
-    private static string Stage => IsE5 ? "E5" : IsS4 ? "S4" : "S3";
+    private static bool IsE57 => SessionState.GetBool(Key + ".E57", false);
+    private static string Stage => IsE57 ? "E5.7" : IsE5 ? "E5" : IsS4 ? "S4" : "S3";
     private static string Log => "Logs/Codex-" + Stage + "-playmode.log";
     private static IEnumerator routine;
     private static int checks, frame;
@@ -86,6 +87,7 @@ public static partial class S3Verification
         SessionState.EraseBool(Key); SessionState.EraseString(Key + ".Scene"); SessionState.EraseString(Override);
         SessionState.EraseBool(Key + ".S4");
         SessionState.EraseBool(Key + ".E5");
+        SessionState.EraseBool(Key + ".E57");
         if (scene.Length > 0) EditorSceneManager.OpenScene(scene);
         // Keep the isolated fixture under Temp for failure diagnosis; never touch the user's save.
     }
@@ -246,6 +248,12 @@ public static partial class S3Verification
         save = trade.GetComponent<CitySaveController>(); walk = trade.GetComponent<CityGreyboxWalk>();
         player = trade.GetComponent<PlayerController>(); eye = player.GetComponentInChildren<Camera>();
         Check(save.Session != null && trade.Session == save.Session, "one shared session");
+        if (IsE57)
+        {
+            var persistence = SlicePersistence();
+            while (persistence.MoveNext()) yield return persistence.Current;
+            yield break;
+        }
         CheckLampPresentation("seller");
         foreach (var kind in new[] { CityTradeKind.Seller, CityTradeKind.Battery, CityTradeKind.Buyback,
             CityTradeKind.A, CityTradeKind.B, CityTradeKind.Workshop, CityTradeKind.SellerDock, CityTradeKind.WorkshopDock }) Approach(kind);
