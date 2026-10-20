@@ -238,7 +238,7 @@ namespace Interactables
             session.IsCrateCarried && session.Units[i].Location == FlashlightLocation.Crate;
 
         public string CargoPrompt => session == null ? "Багажник" :
-            session.IsCrateInVehicle ? "E — выгрузить ящик на док продавца / мастерской (подъедь задним бортом)" :
+            session.IsCrateInVehicle ? "E — взять ящик из багажника" :
             "E — погрузить ящик в багажник · сначала возьми ящик в руки";
 
         private void TransferCargo()
@@ -246,24 +246,7 @@ namespace Interactables
             if (vehicle == null || vehicle.IsDriving || vehicle.Speed > 0.1f)
             { message = "Останови машину перед погрузкой или выгрузкой."; return; }
             if (!session.IsCrateInVehicle) ActionFeedback("cargo", session.LoadVehicleCrate(out message));
-            else
-            {
-                var rear = vehicle.CargoGate.position;
-                CityCrateDock dock;
-                if (Vector3.Distance(rear, SellerDock) <= 2.5f) dock = CityCrateDock.Seller;
-                else if (Vector3.Distance(rear, WorkshopDock) <= 2.5f) dock = CityCrateDock.Workshop;
-                else { message = "Подъедь задним бортом к доку продавца или мастерской (2,5 м)."; return; }
-                // Never place the crate inside the parked vehicle, player or another obstacle.
-                var destination = dock == CityCrateDock.Seller ? SellerDock : WorkshopDock;
-                if (Physics.CheckBox(destination, new Vector3(0.625f, 0.175f, 0.325f),
-                        Quaternion.identity, ~0, QueryTriggerInteraction.Ignore))
-                { message = "Док занят. Освободи место для ящика."; return; }
-                var previous = save.World.CrateDock;
-                save.World.CrateDock = dock;
-                var success = session.UnloadVehicleCrate(out message);
-                if (!success) save.World.CrateDock = previous;
-                ActionFeedback("cargo", success);
-            }
+            else ActionFeedback("cargo", session.UnloadVehicleCrate(out message));
             Refresh();
         }
         private List<string> Selection()

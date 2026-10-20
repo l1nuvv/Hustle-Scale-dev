@@ -69,11 +69,13 @@ public static class CityCargoVerification
             Check(!WorkshopSession.TryRestoreCity(broken, out _, out _), "reject invalid pose");
             restored.SetPaused(false);
             Check(restored.UnloadVehicleCrate(out _), "unload");
+            Check(restored.IsCrateCarried && !restored.IsCrateInVehicle, "unload takes crate directly into hands");
             Check(!restored.UnloadVehicleCrate(out _), "no repeated unload");
             data.World.CrateDock = CityCrateDock.Workshop;
             Check(store.TrySave(restored.CaptureCity(data.World), out _) && store.TryLoad(false, out data, out restored, out _), "unloaded snapshot round trip");
-            Check(!restored.IsCrateInVehicle && !restored.IsCrateCarried && data.World.CrateDock == CityCrateDock.Workshop, "unloaded location retained");
+            Check(!restored.IsCrateInVehicle && restored.IsCrateCarried && data.World.CrateDock == CityCrateDock.Workshop, "carried crate retained after unload and reload");
             restored.SetPaused(false);
+            Check(restored.ToggleCrate(out _), "put carried crate down before taking a lamp");
             Check(restored.ToggleUnit(0, out _) && restored.StowHeld(out _) && restored.ToggleCrate(out _) && restored.LoadVehicleCrate(out _), "load remaining cargo with pocket lamp");
             Check(restored.EquipSlot(0, out _), "hold pocket lamp after loading");
             var occupied = JsonUtility.ToJson(restored.CaptureCity(data.World));

@@ -6,20 +6,21 @@ namespace Inventory
         {
             if (!CanHandleItems(out message)) return false;
             if (!IsCity || IsCrateInVehicle || !IsCrateCarried || InHands != null)
-                return Reject("Возьми ящик в руки у дока; с фонарём в руках погрузка невозможна.", out message);
+                return Reject("Возьми ящик в руки; с фонарём в руках погрузка невозможна.", out message);
             IsCrateCarried = false;
             IsCrateInVehicle = true;
-            return Complete("Ящик закреплён в багажнике. Выгрузка — у дока продавца или мастерской.", out message);
+            return Complete("Ящик в багажнике. E у заднего борта — взять.", out message);
         }
 
-        // The city view validates physical access and the destination dock before this transition.
+        // The city view validates physical access to the stopped vehicle.
         public bool UnloadVehicleCrate(out string message)
         {
             if (!CanHandleItems(out message)) return false;
             if (!IsCity || !IsCrateInVehicle || IsCrateCarried || InHands != null)
                 return Reject("Для выгрузки ящика освободи руки.", out message);
             IsCrateInVehicle = false;
-            return Complete("Ящик выгружен на обозначенный док.", out message);
+            IsCrateCarried = true;
+            return Complete("Ящик в руках.", out message);
         }
 
         // Each of the three unique lamps has a persistent inventory slot; batteries share slot 4.

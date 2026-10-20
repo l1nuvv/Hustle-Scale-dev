@@ -252,6 +252,31 @@ public static partial class S3Verification
         PersistenceBindings("cargo startup", true);
         Check(save.Session.IsCrateInVehicle && trade.Crate.parent == UnityEngine.Object.FindAnyObjectByType<CityUtilityVehicle>().transform,
             "cargo startup attaches to vehicle");
+        var vehicle = UnityEngine.Object.FindAnyObjectByType<CityUtilityVehicle>();
+        var body = vehicle.GetComponent<Rigidbody>();
+        vehicle.transform.SetPositionAndRotation(new Vector3(0, 0.5f, 0), Quaternion.identity);
+        body.linearVelocity = Vector3.zero; body.angularVelocity = Vector3.zero;
+        Physics.SyncTransforms();
+        var cargoPoint = Point(CityTradeKind.Cargo);
+        Check(Vector3.Distance(vehicle.CargoGate.position, CityTradeView.SellerDock) > 2.5f &&
+            Vector3.Distance(vehicle.CargoGate.position, CityTradeView.WorkshopDock) > 2.5f, "cargo test is away from both docks");
+        walk.SetPaused(false);
+        var rear = vehicle.CargoGate.position;
+        Aim(cargoPoint, new Vector3(rear.x, 0.08f, rear.z - 5));
+        cargoPoint.Interact();
+        Check(save.Session.IsCrateInVehicle && !save.Session.IsCrateCarried, "remote cargo interaction rejected");
+        Approach(CityTradeKind.Cargo);
+        body.linearVelocity = Vector3.forward;
+        cargoPoint.Interact();
+        Check(save.Session.IsCrateInVehicle && !save.Session.IsCrateCarried, "moving vehicle unload rejected");
+        body.linearVelocity = Vector3.zero;
+        cargoPoint.Interact();
+        Check(save.Session.IsCrateCarried && !save.Session.IsCrateInVehicle && trade.Crate.parent == eye.transform &&
+            !trade.Crate.GetComponent<Collider>().enabled, "take crate directly from stopped vehicle away from docks");
+        PersistenceRoundTrip("crate carried after vehicle unload away from docks");
+        walk.SetPaused(false); Approach(CityTradeKind.Cargo); cargoPoint.Interact();
+        Check(save.Session.IsCrateInVehicle && !save.Session.IsCrateCarried && trade.Crate.parent == vehicle.transform,
+            "reload carried crate into vehicle away from docks");
         File.AppendAllText(Log, "PASS backup-only startup, failed backup, new-game cancel/confirm, vehicle cargo startup\n");
     }
 }
