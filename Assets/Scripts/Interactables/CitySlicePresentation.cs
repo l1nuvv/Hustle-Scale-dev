@@ -35,8 +35,7 @@ namespace Interactables
             foreach (var x in new[] { -66.26f, -63.74f })
                 Decor("Наличник входа", new Vector3(x, 1.4f, 19.75f), new Vector3(0.08f, 2.8f, 0.1f), workshopMaterial);
             Decor("Козырёк входа", new Vector3(-65, 3.85f, 19.3f), new Vector3(3.2f, 0.12f, 1.1f), workshopMaterial);
-            for (var i = 0; i < 4; i++)
-                Decor("Шов мощения двора", new Vector3(-65, 0.085f, 12 + i * 1.5f), new Vector3(6, 0.006f, 0.015f), bodyMaterial);
+            BuildWorkshopYard();
             // Colour accents stay on fixtures: floors/walls retain different materials.
             var room = GameObject.Find("Interior | WORKSHOP / BASE");
             if (room != null)
@@ -44,10 +43,35 @@ namespace Interactables
                     if (renderer.name.Contains("floor", StringComparison.OrdinalIgnoreCase)) renderer.sharedMaterial = bodyMaterial;
         }
 
+        private void BuildWorkshopYard()
+        {
+            yardMaterial = new Material(bodyMaterial) { color = new Color(0.34f, 0.36f, 0.32f) };
+            Decor("Площадка двора мастерской", new Vector3(-65, 0.08f, 14), new Vector3(25, 0.04f, 10), yardMaterial);
+            foreach (var x in new[] { -77.3f, -52.7f })
+            {
+                Box("Низкое ограждение двора", root, new Vector3(x, 0.35f, 14), new Vector3(0.22f, 0.7f, 10), workshopMaterial);
+                Decor("Крышка ограждения", new Vector3(x, 0.72f, 14), new Vector3(0.3f, 0.06f, 10), bodyMaterial);
+            }
+            // A wide, unobstructed central approach is shared by foot traffic and cargo.
+            foreach (var x in new[] { -68.5f, -61.5f })
+                Decor("Граница проезда двора", new Vector3(x, 0.106f, 14), new Vector3(0.12f, 0.01f, 10), accentMaterial);
+            foreach (var x in new[] { -75f, -72.5f })
+            {
+                Decor("Складской контейнер двора", new Vector3(x, 0.5f, 17), new Vector3(1.8f, 1, 1.2f), bodyMaterial);
+                Decor("Крышка контейнера", new Vector3(x, 1.04f, 17), new Vector3(1.9f, 0.08f, 1.3f), workshopMaterial);
+            }
+            foreach (var y in new[] { 0.35f, 1.15f, 1.95f })
+                Decor("Полка двора", new Vector3(-55, y, 17.5f), new Vector3(2.6f, 0.08f, 0.6f), bodyMaterial);
+            foreach (var x in new[] { -56.25f, -53.75f })
+                Decor("Стойка стеллажа двора", new Vector3(x, 1.15f, 17.5f), new Vector3(0.08f, 2.3f, 0.6f), bodyMaterial);
+            Decor("Запас материалов двора", new Vector3(-55, 0.67f, 17.5f), new Vector3(2.1f, 0.5f, 0.5f), plasterMaterial);
+            Board("ДВОР МАСТЕРСКОЙ\nСвободный проезд — по центру", new Vector3(-73, 1.65f, 18.7f), 0, new Vector2(4.4f, 0.65f));
+        }
+
         private void BuildSliceCharacters()
         {
-            sellerReaction = Character("Продавец", new Vector3(89.1f, 0.08f, -36), 0);
-            buyerReaction = Character("Покупатель A", new Vector3(-27.8f, 0.08f, 11.8f), 0);
+            sellerReaction = Character("Продавец", new Vector3(89.1f, 0.08f, -37.75f), 180);
+            buyerReaction = Character("Покупатель A", new Vector3(-26, 0.08f, 10.3f), 0);
             feedbackAudio = root.gameObject.AddComponent<AudioSource>();
             feedbackAudio.playOnAwake = false; feedbackAudio.spatialBlend = 0; feedbackAudio.volume = 0.12f;
             feedbackAudio.ignoreListenerPause = true;

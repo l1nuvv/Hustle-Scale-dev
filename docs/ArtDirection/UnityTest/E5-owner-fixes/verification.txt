@@ -1,0 +1,9 @@
+E5 isolated Play Mode verification
+PASS route seller to workshop carrying: 208.1m; model 52.0s at 4m/s (collision simulation, not human timing)
+PASS route workshop to battery: 180.7m; model 45.2s at 4m/s (collision simulation, not human timing)
+PASS route battery to workshop: 180.7m; model 45.2s at 4m/s (collision simulation, not human timing)
+PASS route workshop to B carrying: 105.7m; model 26.4s at 4m/s (collision simulation, not human timing)
+PASS route B to A carrying: 28.8m; model 7.2s at 4m/s (collision simulation, not human timing)
+PASS route workshop to buyback carrying: 136.0m; model 34.0s at 4m/s (collision simulation, not human timing)
+PASS E5 layouts: 1280x720, 1600x900, 1600x1000, 2100x900 at 100/150%; NPC pause/disable, keyboard, result. Captures: docs/ArtDirection/UnityTest/E5-owner-fixes
+E5 RESULT PASS: 41613 assertions; Unity 6000.6.0f1

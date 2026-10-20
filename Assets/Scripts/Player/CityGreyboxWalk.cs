@@ -21,6 +21,7 @@ namespace Player
         public GameObject WorkerPrefab => workerPrefab;
         public GameObject WorkbenchPrefab => workbenchPrefab;
         public GameObject TesterPrefab => testerPrefab;
+        public bool ConfirmNewGame => _confirmNewGame;
 
         private void Awake()
         {
@@ -58,6 +59,7 @@ namespace Player
             if (!paused && _save != null && _save.Session == null) paused = true;
             var changed = _paused != paused;
             _paused = paused;
+            if (!paused) _confirmNewGame = false;
             if (_save != null && _save.Session != null) _save.Session.SetPaused(paused);
             _player.SetMovementEnabled(!paused);
             _player.SetCameraControlEnabled(!paused);
@@ -70,35 +72,19 @@ namespace Player
             if (!focused) SetPaused(true);
         }
 
-        private void OnGUI()
+        public void PauseAction(string action)
         {
-            if (_trade.MenuOpen) return;
-            if (!_paused) return;
-            var width = Mathf.Min(600, Screen.width - 24);
-            var height = Mathf.Min(310, Screen.height - 24);
-            GUILayout.BeginArea(new Rect((Screen.width - width) / 2, (Screen.height - height) / 2, width, height), GUI.skin.box);
-            GUILayout.Label("ГОРОД · ПАУЗА");
-            GUILayout.Label("WASD — идти · мышь — осмотр · Shift — бег · E — взаимодействие · Tab — карта и имущество");
-            if (_confirmNewGame)
+            if (!_paused || _trade.MenuOpen) return;
+            switch (action)
             {
-                GUILayout.Label("Начать новую игру? Деньги, предметы и сделки текущей игры будут сброшены.");
-                if (GUILayout.Button("Подтвердить новую игру · Enter")) { _confirmNewGame = false; _save.NewGame(); }
-                if (GUILayout.Button("Назад · Esc")) _confirmNewGame = false;
+                case "resume": SetPaused(false); break;
+                case "save" when !_confirmNewGame: _save.Save(); break;
+                case "load" when !_confirmNewGame: _save.Load(false); break;
+                case "backup" when !_confirmNewGame && _save.HasBackup: _save.Load(true); break;
+                case "new": _confirmNewGame = true; break;
+                case "cancel": _confirmNewGame = false; break;
+                case "confirm" when _confirmNewGame: _confirmNewGame = false; _save.NewGame(); break;
             }
-            else
-            {
-                GUI.enabled = _save.Session != null;
-                if (GUILayout.Button("Продолжить · Esc")) SetPaused(false);
-                if (GUILayout.Button("Сохранить · F5")) _save.Save();
-                GUI.enabled = true;
-                if (GUILayout.Button("Загрузить основной файл · F9")) _save.Load(false);
-                GUI.enabled = _save.HasBackup;
-                if (GUILayout.Button("Загрузить резервную копию · B")) _save.Load(true);
-                GUI.enabled = true;
-                if (GUILayout.Button("Новая игра… · N")) _confirmNewGame = true;
-            }
-            GUILayout.Label(_save.Message, new GUIStyle(GUI.skin.label) { wordWrap = true });
-            GUILayout.EndArea();
         }
     }
 }

@@ -193,7 +193,8 @@ namespace Interactables
                 switch (command)
                 {
                     case "purchase" when kind == CityTradeKind.Seller: success = session.PurchaseLot(out message); break;
-                    case "battery" when kind == CityTradeKind.Battery: success = session.BuyBattery(out message); break;
+                    case "battery" when kind == CityTradeKind.Battery || kind == CityTradeKind.Seller:
+                        success = session.BuyBattery(out message); break;
                     case "bench" when kind == CityTradeKind.Workshop: success = session.ToggleBench(out message); break;
                     case "test" when kind == CityTradeKind.Workshop: success = session.Test(out message); break;
                     case "repair" when kind == CityTradeKind.Workshop: success = session.Repair(out message); break;
@@ -363,17 +364,41 @@ namespace Interactables
         {
             var target = Box(title, root, position, new Vector3(0.7f, 0.35f, 0.3f), bodyMaterial);
             AddPoint(target, kind);
-            if (kind == CityTradeKind.Seller || kind == CityTradeKind.A || kind == CityTradeKind.Workshop)
+            if (kind == CityTradeKind.Seller || kind == CityTradeKind.A || kind == CityTradeKind.B || kind == CityTradeKind.Workshop ||
+                kind == CityTradeKind.SellerDock || kind == CityTradeKind.WorkshopDock)
                 target.Find("Visual").gameObject.SetActive(false);
-            // A label belongs on the counter, with depth testing, rather than floating through walls.
+            // The visible storefront card is also an E target; keep the lower counter target reachable.
             var dock = kind == CityTradeKind.SellerDock || kind == CityTradeKind.WorkshopDock;
-            Board(title, position + new Vector3(0, dock ? 0.1f : -0.35f, -0.2f), 0, new Vector2(2, 0.28f));
+            if (dock)
+            {
+                var sign = position + new Vector3(0.9f, 0.6f, 0.6f);
+                Board("ДОК ЯЩИКА", sign, 0, new Vector2(1.45f, 0.35f));
+                Decor("Опора дока", sign + Vector3.down * 0.45f, new Vector3(0.06f, 0.9f, 0.06f), bodyMaterial);
+            }
+            else if (kind == CityTradeKind.A || kind == CityTradeKind.B)
+            {
+                var card = Board("ЗАКАЗ " + title, position + new Vector3(0, 0.8f, -0.65f), 0, new Vector2(3.5f, 0.55f));
+                card.GetComponent<Collider>().enabled = true; AddPoint(card, kind);
+            }
+            else if (kind == CityTradeKind.Seller)
+            {
+                var card = Board("E — МАГАЗИН", position + new Vector3(0, 0.05f, 0.75f), 180, new Vector2(1.8f, 0.3f));
+                card.GetComponent<Collider>().enabled = true; AddPoint(card, kind);
+            }
+            else Board(title, position + new Vector3(0, -0.35f, -0.2f), 0, new Vector2(2, 0.28f));
         }
 
         private void LateUpdate()
         {
-            if (session == null) return;
             UpdateSafeArea();
+            UpdatePauseUI();
+            // Failed startup loads still need the recovery/new-game controls.
+            if (session == null)
+            {
+                hud.transform.parent.gameObject.SetActive(false);
+                bottomContext.gameObject.SetActive(false); prompt.text = "";
+                return;
+            }
             KeepMenuFocusVisible();
             canvasObject.SetActive(!save.IsDriving);
             hud.transform.parent.gameObject.SetActive(!walk.IsPaused);
@@ -400,6 +425,7 @@ namespace Interactables
             if (signMaterial != null) Destroy(signMaterial);
             if (workshopMaterial != null) Destroy(workshopMaterial);
             if (plasterMaterial != null) Destroy(plasterMaterial);
+            if (yardMaterial != null) Destroy(yardMaterial);
             DisposeFeedback();
         }
     }

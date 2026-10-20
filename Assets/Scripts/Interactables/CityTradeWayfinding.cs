@@ -9,7 +9,7 @@ namespace Interactables
     // Presentation for this fixed neighbourhood; no change to trade rules or save data.
     public sealed partial class CityTradeView
     {
-        private Material signMaterial, workshopMaterial, plasterMaterial;
+        private Material signMaterial, workshopMaterial, plasterMaterial, yardMaterial;
 
         private static string Location(FlashlightLocation location) => location switch
         {
@@ -47,6 +47,26 @@ namespace Interactables
 
         private void BuildWayfinding()
         {
+            // LocalBoard creates sibling text and board objects. Hiding only TextMesh
+            // leaves its orange backing coplanar with our replacement.
+            var replacedBoards = new[] { new Vector3(-42, 2.4f, 3), new Vector3(-65, 3.3f, 19.55f),
+                new Vector3(-77.45f, 3, 30), new Vector3(65, 3.2f, 19.55f), new Vector3(-65, 3.2f, -55.7f) };
+            foreach (var renderer in FindObjectsByType<MeshRenderer>())
+            {
+                if (!renderer.name.StartsWith("Local board |", StringComparison.Ordinal)) continue;
+                foreach (var position in replacedBoards)
+                    if (Vector3.Distance(renderer.transform.position, position) < 0.8f)
+                    { renderer.gameObject.SetActive(false); break; }
+            }
+            var oldCounter = GameObject.Find("MARKET future counter");
+            if (oldCounter != null)
+            {
+                oldCounter.GetComponent<Renderer>().enabled = false;
+                // Match the actual replacement counter, instead of retaining a 2m
+                // invisible solid box through the seller's body.
+                oldCounter.transform.position = new Vector3(88, 0.6f, -36.9f);
+                oldCounter.transform.localScale = new Vector3(4.5f, 1.2f, 1);
+            }
             foreach (var label in FindObjectsByType<TextMesh>(FindObjectsSortMode.None))
             {
                 if (label.transform.IsChildOf(root)) continue;
@@ -92,11 +112,11 @@ namespace Interactables
 
             Board("МАСТЕРСКАЯ", new Vector3(-65, 3.2f, 19.3f), 0, new Vector2(6.6f, 0.9f));
             Board("МАСТЕРСКАЯ", new Vector3(-77.6f, 3, 30), 90, new Vector2(6.6f, 0.9f));
-            Board("ПРОДАВЕЦ ФОНАРЕЙ\n3 фонаря · $180", new Vector3(88, 3, -27), 180, new Vector2(7, 1.3f));
+            Board("ФОНАРИ И БАТАРЕИ", new Vector3(88, 3.05f, -35.85f), 180, new Vector2(4.5f, 0.5f));
             Board("БАТАРЕИ · $50", new Vector3(65, 3.2f, 19.3f), 0, new Vector2(6, 0.9f));
             Board("СКУПКА ФОНАРЕЙ", new Vector3(-65, 3.2f, -55.7f), 0, new Vector2(6.6f, 0.9f));
             Board("← МАСТЕРСКАЯ\nПРОДАВЕЦ ФОНАРЕЙ →", new Vector3(-42, 2.4f, 3), 0, new Vector2(5.6f, 1.2f));
-            Board("↑ БАТАРЕИ\nПРОДАВЕЦ ФОНАРЕЙ →", new Vector3(65, 2.4f, -14), 0, new Vector2(5.6f, 1.2f));
+            Board("ФОНАРИ И БАТАРЕИ →", new Vector3(65, 2.4f, -14), 0, new Vector2(5.6f, 0.65f));
 
             // Recognisable workbench and stall silhouettes, outside all movement clearances.
             BuildSliceWorkshop();
@@ -118,7 +138,7 @@ namespace Interactables
         private void Decor(string title, Vector3 position, Vector3 size, Material material)
         { Box(title, root, position, size, material).GetComponent<Collider>().enabled = false; }
 
-        private void Board(string title, Vector3 position, float yaw, Vector2 size)
+        private Transform Board(string title, Vector3 position, float yaw, Vector2 size)
         {
             if (signMaterial == null)
             {
@@ -144,6 +164,7 @@ namespace Interactables
                 label.transform.localScale = Vector3.one * Mathf.Min(1, (size.x - 0.2f) / Mathf.Max(0.01f, bounds.x),
                     (size.y - 0.1f) / Mathf.Max(0.01f, bounds.y));
             }
+            return board;
         }
 
         private static Vector2 MapPosition(float x, float z) => new Vector2((x + 105) / 220, (z + 70) / 135);
@@ -163,7 +184,7 @@ namespace Interactables
             MapLabel(map, "БАТАРЕИ\n$50", 65, 47);
             MapLabel(map, "ПОКУПАТЕЛИ\nА: 2 за $260 · Б: 1 за $125", -16, 27);
             MapLabel(map, "СКУПКА\n$60 / $35", -65, -38);
-            MapLabel(map, "ПРОДАВЕЦ ФОНАРЕЙ\n3 шт. за $180 · жёлтый навес", 72, -54);
+            MapLabel(map, "ФОНАРИ И БАТАРЕИ\nпартия $180 · батарея $50", 72, -54);
             var p = transform.position;
             if (p.x >= -105 && p.x <= 115 && p.z >= -70 && p.z <= 65)
             {
