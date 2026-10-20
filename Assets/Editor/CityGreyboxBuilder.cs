@@ -191,6 +191,7 @@ public static class CityGreyboxBuilder
             Directions(links, new Vector3(173, 3, -275), "SE: PARK ~180m\nNW: BASE ~540m");
         }
         ApplyWorkshopNeighbourhood();
+        CityUtilityVehicleBuilder.EnsureVehicle();
         EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("CITY WALKING PATCH: four 6m diagonal links; four existing volumes reshaped; map and controller preserved. Save after review.");
     }
