@@ -25,6 +25,9 @@ namespace Interactables
         private Coroutine messageExpiry;
         private int blinkIndex = -1;
         private FirstDealAudio audioFeedback;
+        private FirstDealMotion crateMotion;
+        private FirstDealMotion[] lampMotions;
+        private bool[] soldLamps;
         public WorkshopSession Session => session;
         public bool IsFirstDeal => firstDeal;
 
@@ -32,12 +35,29 @@ namespace Interactables
         {
             session = firstDeal ? WorkshopSession.CreateFirstDeal() : new WorkshopSession();
             if (firstDeal) audioFeedback = gameObject.AddComponent<FirstDealAudio>();
+            if (firstDeal)
+            {
+                crateMotion = new FirstDealMotion(crate);
+                lampMotions = new FirstDealMotion[lamps.Length];
+                soldLamps = new bool[lamps.Length];
+                for (var i = 0; i < lamps.Length; i++) lampMotions[i] = new FirstDealMotion(lamps[i]);
+            }
         }
 
         public void PlaySound(FirstDealSound sound, bool menuConfirmation = false) =>
             audioFeedback?.Play(sound, menuConfirmation);
-        private void OnEnable() => session.Changed += Refresh;
+        private void OnEnable()
+        {
+            session.Changed += Refresh;
+            Refresh();
+        }
         private void Start() => Refresh();
+        private void Update()
+        {
+            if (!firstDeal || session.IsPaused || session.ShiftEnded) return;
+            crateMotion.Tick(Time.deltaTime);
+            foreach (var motion in lampMotions) motion.Tick(Time.deltaTime);
+        }
         private void OnDisable()
         {
             session.Changed -= Refresh;
@@ -47,6 +67,7 @@ namespace Interactables
             messageExpiry = null;
             if (feedbackLabel != null) feedbackLabel.text = "";
             foreach (var light in indicators) if (light != null) light.enabled = false;
+            SettleMotions();
         }
 
         public string GetPrompt(WorkshopActionKind action, int index)
@@ -103,6 +124,8 @@ namespace Interactables
                 default: return;
             }
             ShowMessage((success ? "" : "Cannot: ") + message);
+            if (success && firstDeal && (action == WorkshopActionKind.Test || action == WorkshopActionKind.Repair))
+                lampMotions[IndexOf(session.OnBench)].React(action == WorkshopActionKind.Repair);
             PlaySound(!success ? FirstDealSound.Warning : action == WorkshopActionKind.Test ?
                 (session.OnBench.LastTestPassed ? FirstDealSound.TestPassed : FirstDealSound.TestFailed) :
                 action == WorkshopActionKind.Repair ? FirstDealSound.Repair :
@@ -142,12 +165,15 @@ namespace Interactables
 
         private void Refresh()
         {
-            if (feedback != null && (blinkIndex < 0 || session.OnBench != session.Units[blinkIndex] ||
+            if (feedback != null && (session.ShiftEnded || blinkIndex < 0 || session.OnBench != session.Units[blinkIndex] ||
                 !session.OnBench.IsTested || session.OnBench.LastTestPassed))
             { StopCoroutine(feedback); feedback = null; blinkIndex = -1; }
             var restingDock = firstDeal && !session.HasTransportedCrate ? sellerDock : dock;
-            Attach(crate, session.IsCrateCarried ? hand : restingDock, session.IsCrateCarried ?
-                (firstDeal ? new Vector3(0, -1, 1.2f) : new Vector3(0, -0.65f, 0.85f)) : Vector3.zero);
+            var crateParent = session.IsCrateCarried ? hand : restingDock;
+            var crateOffset = session.IsCrateCarried ?
+                (firstDeal ? new Vector3(0, -1, 1.2f) : new Vector3(0, -0.65f, 0.85f)) : Vector3.zero;
+            if (firstDeal) crateMotion.Attach(crateParent, crateOffset, isActiveAndEnabled);
+            else Attach(crate, crateParent, crateOffset);
             if (firstDeal)
             {
                 for (var i = 0; i < 3; i++)
@@ -161,14 +187,28 @@ namespace Interactables
             {
                 var unit = session.Units[i];
                 var sold = unit.Location == FlashlightLocation.BuyerA || unit.Location == FlashlightLocation.BuyerB || unit.Location == FlashlightLocation.BoughtBack;
-                lamps[i].gameObject.SetActive(!sold);
-                if (sold) { indicators[i].enabled = false; continue; }
+                if (sold)
+                {
+                    indicators[i].enabled = false;
+                    if (firstDeal && !soldLamps[i])
+                    {
+                        soldLamps[i] = true;
+                        lampMotions[i].Sell(hand);
+                        // A settled sale cannot remain an interaction target during its visual exit.
+                        foreach (var collider in lamps[i].GetComponentsInChildren<Collider>()) collider.enabled = false;
+                    }
+                    else if (!firstDeal) lamps[i].gameObject.SetActive(false);
+                    continue;
+                }
+                lamps[i].gameObject.SetActive(true);
                 var parent = unit.Location == FlashlightLocation.Crate || unit.Location == FlashlightLocation.Seller ? storageSlots[i] :
                     unit.Location == FlashlightLocation.Bench ? bench : hand;
-                Attach(lamps[i], parent, unit.Location == FlashlightLocation.Hands ?
-                    new Vector3(0.35f, -0.4f, 0.65f) : Vector3.zero);
+                var offset = unit.Location == FlashlightLocation.Hands ? new Vector3(0.35f, -0.4f, 0.65f) : Vector3.zero;
+                if (firstDeal) lampMotions[i].Attach(parent, offset, isActiveAndEnabled);
+                else Attach(lamps[i], parent, offset);
                 if (feedback == null || i != blinkIndex) indicators[i].enabled = unit.IsTested && unit.LastTestPassed;
             }
+            if (session.ShiftEnded) SettleMotions();
             if (status == null) return;
             if (firstDeal)
             {
@@ -200,17 +240,34 @@ namespace Interactables
             target.localRotation = Quaternion.identity;
         }
 
+        private void SettleMotions()
+        {
+            if (!firstDeal) return;
+            crateMotion.Settle();
+            foreach (var motion in lampMotions) motion.Settle();
+        }
+
         private IEnumerator Blink(int index)
         {
             for (var i = 0; i < 3; i++)
             {
                 indicators[index].enabled = true;
-                yield return new WaitForSeconds(0.12f);
+                yield return WaitForFeedbackTime(0.12f);
                 indicators[index].enabled = false;
-                yield return new WaitForSeconds(0.12f);
+                yield return WaitForFeedbackTime(0.12f);
             }
             feedback = null;
             blinkIndex = -1;
+        }
+
+        private IEnumerator WaitForFeedbackTime(float seconds)
+        {
+            var elapsed = 0f;
+            while (elapsed < seconds)
+            {
+                yield return null;
+                if (!session.IsPaused) elapsed += Time.deltaTime;
+            }
         }
     }
 }

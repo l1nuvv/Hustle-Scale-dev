@@ -123,8 +123,13 @@ public static class V2Verification
             Check(s.AcceptOrder(DealOrderId.A, out _) && s.AcceptOrder(DealOrderId.B, out _), "accept A and B");
             Check(s.ToggleCrate(out _), "carry tested batch");
             Check(s.DeliverOrder(DealOrderId.A, new[] { ids[0], ids[2] }, out _), "deliver A");
+            // This synchronous fixture inspects settled models; F2 verifies the intervening frames.
+            workshop.enabled = false;
+            workshop.enabled = true;
             Check(!lamps[0].gameObject.activeSelf && !lamps[2].gameObject.activeSelf, "sold A models disappear");
             Check(s.DeliverOrder(DealOrderId.B, new[] { ids[1] }, out _), "deliver repaired lamp B");
+            workshop.enabled = false;
+            workshop.enabled = true;
             Check(!lamps[1].gameObject.activeSelf && s.Balance == 455, "all models sold and original $455 ledger retained");
             Check(!s.DeliverOrder(DealOrderId.B, new[] { ids[1] }, out _) && s.Balance == 455, "repeated delivery cannot pay twice");
             File.AppendAllText(LogPath, "V2 RESULT PASS " + checks + " checks\n");
