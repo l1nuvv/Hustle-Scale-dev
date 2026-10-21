@@ -63,14 +63,13 @@ The versioned formatting hook is `.githooks/pre-commit`. Enable it locally with 
 
 ## 5. Codex token efficiency
 
-- First inspect task-specific paths and use precise `rg -n`, `rg --files`, `git diff --name-only`; cap output rather than dumping large files.
-- Search in `Assets/Scripts/` first for C#, then `Assets/Scenes/`, `Assets/Prefabs/`, `Assets/Settings/`, `ProjectSettings/` only when runtime integration or serialization is relevant.
-- `.rgignore` removes bulky bundled TextMesh Pro resources from default ripgrep searches. To inspect excluded assets explicitly, use a scoped path search with `-u`/`--no-ignore`, or read the file directly. Never treat ignore rules as a reason to skip a necessary dependency.
-- Reuse confirmed context and run relevant tests rather than the whole suite after every trivial edit. Record only material discoveries. Do not automatically generate repository maps or task summaries in every session.
-- Use the narrowest relevant build and tests. Do not create ZIP archives, release packages, or standalone candidates unless the user explicitly requests packaging or a release. An older plan's packaging criterion does not override this rule; reuse existing artifacts when sufficient.
-- Avoid multi-agent workflows unless tasks are truly independent. Never concurrently modify the same Unity scene/prefab or `.meta` across worktrees.
-- Do not assume local skill names or `SKILL.md` availability. Use an existing, relevant skill only when its trigger and expected outputs fit. Introduce a custom skill after repeated manual work reveals a stable workflow, not proactively.
-- Token usage is affected by prompts, returned output and tool use; an ignore file cannot guarantee any particular savings. Never exclude critical project files solely to reduce tokens.
+The canonical project rules are in [AGENTS.md](../AGENTS.md), under Efficient investigation. Keep that policy in one place rather than copying it into skills, hooks or recurring prompts.
+
+- Prevent unnecessary context at the source: use scoped searches and relevant file ranges; preserve full build/test logs outside the prompt and report inspected results with their paths. Never treat truncation as proof that no errors or matches exist.
+- At a genuine context handoff, carry the goal, approvals, production gate, confirmed findings, affected paths, unrelated changes, checks/results and next action. Revalidate affected facts after changes. Do not create automatic maps or per-turn summary files.
+- The OpenCode lean-context message-transform hook is not a Codex plugin API. These rules adapt its context-minimization goal; they do not delete prior messages or reasoning. Do not edit session transcripts to simulate it, inject the full Ponytail ruleset, or install redundant hooks.
+- Model, reasoning effort and compaction settings remain explicit choices; this policy does not lower them automatically. Savings require a comparable measurement, and no percentage is guaranteed.
+- Use agents only when authorized and useful for independent work. Never concurrently modify the same Unity scene/prefab or `.meta` across worktrees.
 
 ## 6. Ignore and metadata rules
 
