@@ -4,7 +4,7 @@
 
 Status: locally integrated repository policy, 2026-10-18; adapted from archive v0.3.1 to the actual working tree. Actual code, Git state, and confirmed test results remain the technical source of truth.
 
-**Current baseline, 2026-10-18:** Unity 6000.6.0f1, package manifests, migrated settings and asset metadata are versioned. Any further migration needs a separate task. Local installed `.agents/` skills and supplied `/references/*.zip` archives are ignored. FIRST DEAL is enabled in the global build scene list.
+**Technical baseline:** Unity 6000.6.0f1, package manifests, migrated settings and asset metadata are versioned. Any further migration needs a separate task. Local installed `.agents/` skills and supplied `/references/*.zip` archives are ignored. `ProjectSettings/EditorBuildSettings.asset` enables CityGreybox; FirstDealTrade is present but disabled (checked 2026-10-21).
 
 ## 1. Working priority
 
@@ -12,7 +12,7 @@ The owner-approved production sequence and stage gates are in [DEVELOPMENT_PLAN.
 
 1. Verify the relevant actual project state, dependency manifests and scene references; reuse confirmed findings. Unity remains 6000.6.0f1. Preserve the adopted settings; neither rollback nor further migration is authorized by this policy.
 2. Reuse existing FIRST DEAL, city trade/saves, sandbox and art samples. Test uncertain actions in a focused fixture; validate the integrated loop in a compact district around the city workshop. Do not rebuild the project to replay completed stages.
-3. Current next gate (2026-10-21): E5 remains accepted. The owner approved E6.1: one optional second city trading cycle, with independent RNG for each purchased lamp. Implementation and verification are recorded under E6 in `docs/ROADMAP.md`; next is human acceptance E6.6. Each lot costs $180, restock is offered once after all first-lot goods are sold, and new A/B orders retain the existing terms. City save v4 preserves both lots and free crate placement, and reads v1/v2/v3; FIRST DEAL remains deterministic. Automated checks do not establish human acceptance or new Player/performance evidence.
+3. Current gate and evidence: [ROADMAP](ROADMAP.md#current-status). E4/E5 are accepted; E6.6 awaits human acceptance after usability fixes. Current city behavior/save contract is in [CITY_GAMEPLAY](CITY_GAMEPLAY.md); use [PLAYTEST](PLAYTEST.md) for observations. Do not duplicate the changing task ledger here.
 4. After loop acceptance, finish one representative vertical slice, then expand in complete playable increments. Complete the first-version experience before final content/polish and release verification. Assess saves and performance as risks arise, not only at the end.
 
 For each task, name the question, bounded scope and completion criterion. Do not expand the whole map, finish all visuals or add unrelated mechanics while an earlier required gate remains open. New gameplay rules still need actual specification; the approved sequence does not supply missing rules.
@@ -91,8 +91,22 @@ The current `.gitattributes` uses Git LFS for many media/binary file types and `
 
 Keep only files that reduce recurring ambiguity. Initial set: `README.md`, `AGENTS.md`, `docs/DEVELOPMENT.md`, `docs/ENGINEERING_STANDARD.md`, `.editorconfig`, `.rgignore`, plus existing `.gitignore` and `.gitattributes`. A detailed GDD and FIRST DEAL specification can be imported later **only with explicit approval and accurate current versions**; external documents are not silently presumed to live in the repository.
 
+The documentation map is in [README](../README.md). Keep changing task status in ROADMAP, production order in DEVELOPMENT_PLAN, current city behavior in CITY_GAMEPLAY, and dated evidence in the relevant ledger. FIRST_DEAL describes the separate fixture; PLAYTEST provides the current human-observation protocol. Do not copy full results into every entry point. Mark historical prompts and observations with their scope/date, preserve asset notices, and check local links/anchors when moving sections. A source-derived behavior summary is not approval of new game rules.
+
 Do **not** create `CONTRIBUTING.md`, ADR directories, CODEOWNERS, GitHub Actions, a custom task tracker, `.codex/skills/`, release workflows, or a universal Unity skill yet. Add them in response to a specific repeated bottleneck or delivery requirement.
 
 ## 8. Completion report
 
 Report the exact files touched; what changed and why; Git commit hash if created; checks performed with environment/result; and what remains unverified. A local commit is a checkpoint, **not** a guarantee the game runs.
+
+
+## 9. Development playground
+
+
+Use this playground for focused mechanic experiments and reproducing defects. Integrated gameplay, distances and player choice are evaluated in the compact city district; completing every future feature on the playground is not a production milestone. Keep the existing scene rather than recreating it for the new plan.
+
+Open `Assets/Scenes/DevelopmentSandbox.unity` or **Tools > Development Sandbox > Open Playground**, then enter Play Mode. The separate 260 × 220 m scene contains the live FIRST DEAL workshop/traders, a utility vehicle and driving circuit, steps/slopes/narrow gaps, a covered flashlight corridor, all 15 existing prefabs as linked display samples, placement surfaces and a streetscape scale area. The 10 m grid and seven named hierarchy groups support further editing; the creation menu refuses to overwrite an existing playground.
+
+**F2** opens zone teleports, the clock switch and a full scene/deal reset. Passive deal time starts held; enable it to test deadlines. Repair still applies its normal four-minute cost. Normal trade, carrying and flashlight controls remain available. At the vehicle door, E enters/exits, WASD drives, Space brakes, and V switches camera motion. Driving suspends the trade interface and restores it on exit.
+
+Catalogue objects are display references with gameplay, cameras and audio disabled; use zone 01 for working interactions. `AppleRed` and `Slot` represent the legacy inventory/UI rather than a second inventory system. Edit shared source prefabs to propagate changes, or copy authored zone objects into a game scene. The utility vehicle is also saved as `Assets/Prefabs/DevelopmentSandbox/UtilityVehicle.prefab`; assign its walker and walking camera when using it in another scene. The playground is intended for Editor use and does not alter the current build scene list; include it explicitly if a future Player build needs it.
