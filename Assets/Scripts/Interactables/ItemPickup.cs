@@ -11,6 +11,7 @@ namespace Interactables
 
         // Ссылка на InventoryManager для прямой коммуникации
         private InventoryManager _inventoryManager;
+        private bool consumed;
 
         private void Start()
         {
@@ -43,6 +44,7 @@ namespace Interactables
         // Публичный метод для подбора предмета через raycast
         public bool PickupItem(GameObject player)
         {
+            if (consumed || !gameObject.activeInHierarchy) return false;
             if (item == null)
             {
                 Debug.LogError(
@@ -52,37 +54,21 @@ namespace Interactables
 
             Debug.Log($"Подбираем предмет: {item.name}");
 
-            // Сначала пробуем использовать InventoryManager из кэша
-            if (_inventoryManager != null)
+            var destination = _inventoryManager;
+            if (destination == null && player != null) destination = player.GetComponentInChildren<InventoryManager>();
+            if (destination == null) destination = FindAnyObjectByType<InventoryManager>();
+            if (destination == null)
             {
-                _inventoryManager.AddItem(item, amount);
-                Debug.Log($"Предмет {item.name} добавлен в инвентарь через кэшированный _inventoryManager");
-                Destroy(gameObject);
-                return true;
+                Debug.LogError("Не удалось найти InventoryManager! Предмет не может быть добавлен в инвентарь.");
+                return false;
             }
+            if (!destination.AddItem(item, amount)) return false;
 
-            // Если InventoryManager не кэширован, ищем его в игроке
-            var playerInventory = player.GetComponentInChildren<InventoryManager>();
-            if (playerInventory != null)
-            {
-                playerInventory.AddItem(item, amount);
-                Debug.Log($"Предмет {item.name} добавлен в инвентарь через playerInventory");
-                Destroy(gameObject);
-                return true;
-            }
-
-            // В крайнем случае ищем InventoryManager в сцене снова
-            var sceneInventory = FindAnyObjectByType<InventoryManager>();
-            if (sceneInventory != null)
-            {
-                sceneInventory.AddItem(item, amount);
-                Debug.Log($"Предмет {item.name} добавлен в инвентарь через sceneInventory");
-                Destroy(gameObject);
-                return true;
-            }
-
-            Debug.LogError("Не удалось найти InventoryManager! Предмет не может быть добавлен в инвентарь.");
-            return false;
+            // Destroy is deferred until the end of the frame; consume the interaction now.
+            consumed = true;
+            gameObject.SetActive(false);
+            Destroy(gameObject);
+            return true;
         }
     }
 }

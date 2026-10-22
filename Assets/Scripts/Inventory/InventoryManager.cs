@@ -169,11 +169,11 @@ namespace Inventory
             }
         }
 
-        public void AddItem(Item item, int amount)
+        public bool AddItem(Item item, int amount)
         {
-            if (item == null || slots.Count == 0)
+            if (item == null || amount <= 0 || amount > item.maxStack || slots.Count == 0)
             {
-                return;
+                return false;
             }
 
             // Сначала ищем существующий стак
@@ -184,7 +184,7 @@ namespace Inventory
                     continue;
                 }
 
-                if (!slot.IsEmpty && slot.item == item && slot.amount + amount <= item.maxStack)
+                if (!slot.IsEmpty && slot.item == item && slot.amount <= item.maxStack - amount)
                 {
                     slot.amount += amount;
                     if (slot.itemAmountText != null)
@@ -192,7 +192,7 @@ namespace Inventory
                         slot.itemAmountText.text = slot.amount.ToString();
                     }
 
-                    return;
+                    return true;
                 }
             }
 
@@ -221,9 +221,10 @@ namespace Inventory
                         UpdateInventoryUI();
                     }
 
-                    return;
+                    return true;
                 }
             }
+            return false;
         }
 
         // Обновление UI инвентаря

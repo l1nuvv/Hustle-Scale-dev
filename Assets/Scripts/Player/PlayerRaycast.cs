@@ -65,8 +65,9 @@ namespace Player
             if (pickup != null) { pickup.PickupItem(gameObject); return; }
             if (inventoryManager != null && hit.collider.TryGetComponent<InventorySlot>(out var slot) && slot.item != null)
             {
-                inventoryManager.AddItem(slot.item, slot.amount);
+                if (!inventoryManager.AddItem(slot.item, slot.amount)) return;
                 hit.collider.enabled = false;
+                slot.gameObject.SetActive(false);
                 Destroy(slot.gameObject);
             }
         }
