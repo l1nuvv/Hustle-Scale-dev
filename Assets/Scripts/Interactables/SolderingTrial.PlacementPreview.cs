@@ -108,7 +108,8 @@ namespace Interactables
             }
             if (currentGhost == null) return;
             PlacementPreviewPosition = transform.TransformPoint(position);
-            PlacementReady = PlacementPreviewTarget != RepairTarget.None && repairHover == PlacementPreviewTarget;
+            PlacementReady = state.HeldTool != SolderingTrialState.Tool.None ? dockHovered :
+                PlacementPreviewTarget != RepairTarget.None && repairHover == PlacementPreviewTarget;
             var colour = PlacementReady ? new Color(0.25f, 1f, 0.55f) : new Color(0.18f, 0.75f, 1f);
             ghostEdge.SetColor("_OutlineColor", colour);
             colour.a = PlacementReady ? 0.23f : 0.13f;

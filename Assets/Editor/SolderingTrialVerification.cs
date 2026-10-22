@@ -123,7 +123,7 @@ public static class SolderingTrialVerification
             var aim = typeof(SolderingTrial).GetField("aim", BindingFlags.NonPublic | BindingFlags.Instance);
             Action<float, bool, bool> step = (dt, pressing, operating) => tick.Invoke(trial, new object[] { dt, pressing, operating });
             trial.ResetTrial();
-            Check(trial.Instruction == "Возьмите припой слева — E", "fresh trial starts with solder rather than an unnecessary iron pickup");
+            Check(trial.Instruction == "Возьмите припой слева — ЛКМ", "fresh trial starts with solder rather than an unnecessary iron pickup");
             trial.State.SelectTool(SolderingTrialState.Tool.Iron);
             aim.SetValue(trial, Vector2.zero);
             step(0.3f, true, true);
@@ -131,20 +131,20 @@ public static class SolderingTrialVerification
             step(4, false, true);
             step(0.3f, true, true);
             Check(trial.State.Progress == 0 && !trial.SmokePlaying && !trial.SoundPlaying, "unprepared contact has no work feedback");
-            Check(trial.Instruction == "Сначала нужен припой. Положите паяльник — E",
+            Check(trial.Instruction == "Сначала нужен припой. Положите паяльник — ЛКМ по силуэту",
                 "hot iron without solder explains the missing material and tool change");
             trial.State.SelectTool(SolderingTrialState.Tool.None);
             step(0, false, true);
-            Check(trial.Instruction == "Возьмите припой слева — E", "empty hands are directed to solder spool");
+            Check(trial.Instruction == "Возьмите припой слева — ЛКМ", "empty hands are directed to solder spool");
             trial.State.SelectTool(SolderingTrialState.Tool.Solder);
             step(0, false, true);
             Check(trial.Instruction == "Удерживайте ЛКМ — уложить припой", "wire over joint explains the lowering button");
             step(0.3f, true, true);
             Check(trial.State.HasSolder, "wireEnd must physically reach joint");
-            Check(trial.Instruction == "Припой уложен. Положите катушку — E", "placed solder confirms success and next tool change");
+            Check(trial.Instruction == "Припой уложен. Положите катушку — ЛКМ по силуэту", "placed solder confirms success and next tool change");
             trial.State.SelectTool(SolderingTrialState.Tool.None);
             step(0, false, true);
-            Check(trial.Instruction == "Возьмите паяльник справа — E", "iron is requested only after material is placed");
+            Check(trial.Instruction == "Возьмите паяльник справа — ЛКМ", "iron is requested only after material is placed");
             trial.State.SelectTool(SolderingTrialState.Tool.Iron);
             aim.SetValue(trial, new Vector2(0.2f, 0));
             step(1, true, true);
@@ -225,7 +225,7 @@ public static class SolderingTrialVerification
         steps.Add((() =>
         {
             Check(trial.Active, "world E ray enters bench");
-            Check(trial.Instruction == "Возьмите припой слева — E" && !trial.State.Powered,
+            Check(trial.Instruction == "Возьмите припой слева — ЛКМ" && !trial.State.Powered,
                 "first instruction requests solder while iron is still cold");
             key(null);
         }, 0.25));
@@ -233,27 +233,30 @@ public static class SolderingTrialVerification
         steps.Add((() =>
         {
             Check(trial.HoveredTool == SolderingTrialState.Tool.Solder, "visible spool under screen cursor is the pickup target");
-            key(Key.E);
+            click(true);
         }, 0.06));
         steps.Add((() =>
         {
             Check(trial.State.HeldTool == SolderingTrialState.Tool.Solder && trial.IsToolAnimating && !trial.HasContact,
                 "pickup animates from dock and cannot apply material in transit");
-            key(null); guide(trial.JointScreenPosition);
+            click(false); guide(trial.JointScreenPosition);
         }, 0.25));
         steps.Add((() => click(true), 0.45));
-        steps.Add((() => { Check(trial.State.HasSolder && trial.State.Progress == 0, "LMB lowers wire and deposits solder"); click(false); key(Key.E); }, 0.25));
+        steps.Add((() => { Check(trial.State.HasSolder && trial.State.Progress == 0, "LMB lowers wire and deposits solder"); click(false); }, 0.15));
+        steps.Add((() => guide(trial.ToolDockScreenPosition(trial.State.HeldTool)), 0.15));
+        steps.Add((() => click(true), 0.10));
+        steps.Add((() => click(false), 0.35));
         steps.Add((() => { key(null); guide(trial.ToolScreenPosition(SolderingTrialState.Tool.Iron)); }, 0.25));
         steps.Add((() =>
         {
             Check(trial.HoveredTool == SolderingTrialState.Tool.Iron, "visible iron under screen cursor is the pickup target");
-            key(Key.E);
+            click(true);
         }, 0.06));
         steps.Add((() =>
         {
             Check(trial.State.HeldTool == SolderingTrialState.Tool.Iron && trial.IsToolAnimating && !trial.HasContact,
                 "iron pickup animates without soldering in transit");
-            key(null); guide(trial.JointScreenPosition);
+            click(false); guide(trial.JointScreenPosition);
         }, 4.3));
         steps.Add((() => { Check(trial.State.Ready, "heat advances with real frame time"); click(true); }, 0.8));
         steps.Add((() =>

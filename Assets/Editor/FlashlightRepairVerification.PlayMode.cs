@@ -199,15 +199,21 @@ public static partial class FlashlightRepairVerification
                 var pickup = target == SolderingTrial.RepairTarget.Flashlight || target == SolderingTrial.RepairTarget.Cover;
                 Check(pickup ? outline == (Transform)Field(t, target == SolderingTrial.RepairTarget.Flashlight ? "flashlight" : "cover") : outline == null,
                     "pickup-only outline agrees with current action " + target);
-                key(Key.E);
+                click(true);
             }, 0.10);
-            add(() => { Check(t.RepairAnimating && !t.PlacementPreviewVisible, "E starts short part transfer and hides preview " + target); key(null); }, 0.50);
+            add(() => { Check(t.RepairAnimating && !t.PlacementPreviewVisible, "LMB starts short part transfer and hides preview " + target); click(false); }, 0.50);
         };
         Action<SolderingTrial.RepairTarget> turn = target =>
         {
             add(() => aimAt(target), 0.15);
             add(() => { Check(t.HoveredRepairTarget == target && t.GetComponent<PickupOutline>().Target == null, "captive fastener has action feedback without pickup outline " + target); click(true); }, 0.75);
             add(() => click(false), 0.15);
+        };
+        Action returnTool = () =>
+        {
+            add(() => guide(t.ToolDockScreenPosition(t.State.HeldTool)), 0.15);
+            add(() => { Check(t.PlacementReady, "tool dock silhouette is actionable"); click(true); }, 0.10);
+            add(() => click(false), 0.35);
         };
         Action exitReturn = () =>
         {
@@ -218,12 +224,16 @@ public static partial class FlashlightRepairVerification
         };
         add(() => key(Key.E), 0.25);
         add(() => { Check(t.Active && t.Instruction.Contains("сначала припой"), "world E enters M3 and explains solder first"); key(null); }, 0.15);
+        float normalLens = 0;
+        add(() => { normalLens = Camera.main.fieldOfView; InputSystem.QueueStateEvent(mouse, new MouseState { buttons = 2 }); }, 0.4);
+        add(() => { Check(Camera.main.fieldOfView < normalLens && !t.RepairAnimating, "held RMB magnifies without picking up"); click(false); }, 0.4);
+        add(() => Check(Mathf.Approximately(Camera.main.fieldOfView, normalLens), "RMB release restores normal lens"), 0.1);
         takePart(SolderingTrial.RepairTarget.Flashlight);
         add(() => Check(t.Repair.Flashlight == FlashlightRepairState.ItemPlace.Held, "closed flashlight is held before placement"), 0.1);
         add(() => key(Key.P), 0.15);
         add(() => { Check(t.WorkPaused, "P pauses with flashlight in hand"); key(null); aimAt(SolderingTrial.RepairTarget.WorkMat); }, 0.15);
-        add(() => key(Key.E), 0.15);
-        add(() => { Check(!t.RepairAnimating && t.Repair.Flashlight == FlashlightRepairState.ItemPlace.Held, "E cannot place item during pause"); key(Key.P); }, 0.15);
+        add(() => click(true), 0.15);
+        add(() => { Check(!t.RepairAnimating && t.Repair.Flashlight == FlashlightRepairState.ItemPlace.Held, "LMB cannot place item during pause"); click(false); key(Key.P); }, 0.15);
         add(() => key(null), 0.15);
         exitReturn();
         takePart(SolderingTrial.RepairTarget.WorkMat);
@@ -245,13 +255,14 @@ public static partial class FlashlightRepairVerification
         takePart(SolderingTrial.RepairTarget.Tray);
         add(() => Check(t.Repair.CanUseTools && t.State.Accessible, "lid in visible tray opens tool access"), 0.1);
         add(() => guide(t.ToolScreenPosition(SolderingTrialState.Tool.Solder)), 0.15);
-        add(() => { Check(t.HoveredTool == SolderingTrialState.Tool.Solder, "M2 spool pickup remains available with cover removed"); key(Key.E); }, 0.1);
-        add(() => { key(null); guide(t.JointScreenPosition); }, 0.4);
+        add(() => { Check(t.HoveredTool == SolderingTrialState.Tool.Solder, "M2 spool pickup remains available with cover removed"); click(true); }, 0.1);
+        add(() => { click(false); guide(t.JointScreenPosition); }, 0.4);
         add(() => click(true), 0.5);
-        add(() => { Check(t.State.HasSolder && t.State.Progress == 0, "LMB prepares joint with actual wire contact"); click(false); key(Key.E); }, 0.4);
+        add(() => { Check(t.State.HasSolder && t.State.Progress == 0, "LMB prepares joint with actual wire contact"); click(false); }, 0.15);
+        returnTool();
         add(() => { key(null); guide(t.ToolScreenPosition(SolderingTrialState.Tool.Iron)); }, 0.15);
-        add(() => { Check(t.HoveredTool == SolderingTrialState.Tool.Iron, "M2 iron pickup remains available"); key(Key.E); }, 0.1);
-        add(() => { key(null); guide(t.JointScreenPosition); }, 0.4);
+        add(() => { Check(t.HoveredTool == SolderingTrialState.Tool.Iron, "M2 iron pickup remains available"); click(true); }, 0.1);
+        add(() => { click(false); guide(t.JointScreenPosition); }, 0.4);
         float pausedHeat = 0;
         add(() => key(Key.P), 0.15);
         add(() => { Check(t.WorkPaused, "P pauses during heat-up"); pausedHeat = t.State.Heat; key(null); }, 0.5);
@@ -269,10 +280,11 @@ public static partial class FlashlightRepairVerification
         exitReturn();
         add(() => Check(t.State.Progress == partial && t.Repair.Cover == FlashlightRepairState.CoverPlace.Tray, "return preserves partial solder and removed lid"), 0.1);
         add(() => guide(t.ToolScreenPosition(SolderingTrialState.Tool.Iron)), 0.15);
-        add(() => key(Key.E), 0.1);
-        add(() => { key(null); guide(t.JointScreenPosition); }, 0.4);
+        add(() => click(true), 0.1);
+        add(() => { click(false); guide(t.JointScreenPosition); }, 0.4);
         add(() => click(true), 3.0);
-        add(() => { Check(t.State.Complete && !t.Repair.Complete && !t.BeamEnabled, "solder completion alone is not operation success"); click(false); key(Key.E); }, 0.4);
+        add(() => { Check(t.State.Complete && !t.Repair.Complete && !t.BeamEnabled, "solder completion alone is not operation success"); click(false); }, 0.15);
+        returnTool();
         add(() => key(null), 0.15);
         takePart(SolderingTrial.RepairTarget.Cover);
         takePart(SolderingTrial.RepairTarget.WorkMat);
@@ -291,7 +303,7 @@ public static partial class FlashlightRepairVerification
         }, 0.15);
         // A second pickup followed by a mid-animation R must not duplicate a part.
         add(() => aimAt(SolderingTrial.RepairTarget.Flashlight), 0.15);
-        add(() => key(Key.E), 0.1);
+        add(() => click(true), 0.1);
         Vector3 pausedPosition = Vector3.zero;
         add(() => { Check(t.RepairAnimating, "second sequence starts after R"); key(Key.P); }, 0.15);
         add(() => { Check(t.WorkPaused && t.RepairAnimating, "P freezes in-flight part transfer"); pausedPosition = ((Transform)Field(t, "flashlight")).localPosition; key(null); }, 0.3);

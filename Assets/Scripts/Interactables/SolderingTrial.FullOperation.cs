@@ -120,8 +120,8 @@ namespace Interactables
                 repairHover = target;
                 distance = hit.distance;
             }
-            TickFastener(seconds, lower.IsPressed());
-            if (repairHover == RepairTarget.Power && lower.WasPressedThisFrame()) repair.TogglePower();
+            TickFastener(seconds, lower.IsPressed() && !pointerConsumedUntilRelease);
+            if (repairHover == RepairTarget.Power && lower.WasPressedThisFrame() && !pointerConsumedUntilRelease) repair.TogglePower();
         }
 
         private bool HandleRepairTake()
@@ -268,23 +268,23 @@ namespace Interactables
             if (repairHover == RepairTarget.Fastener0 || repairHover == RepairTarget.Fastener1)
                 return "Удерживайте ЛКМ — повернуть крепление на ¼";
             if (repair.Flashlight == FlashlightRepairState.ItemPlace.Supply)
-                return "E — взять фонарик · сначала припой, затем паяльник";
-            if (repair.Flashlight == FlashlightRepairState.ItemPlace.Held) return "Наведите на коврик — E поставить фонарик";
+                return "ЛКМ — взять фонарик · сначала припой, затем паяльник";
+            if (repair.Flashlight == FlashlightRepairState.ItemPlace.Held) return "Наведите на коврик — ЛКМ поставить фонарик";
             if (repair.Cover == FlashlightRepairState.CoverPlace.Held)
                 return repairHover == RepairTarget.WorkMat || (repairHover != RepairTarget.Tray && repair.ReturningCover)
-                    ? "E над силуэтом корпуса — вернуть крышку" : "E над силуэтом в заднем лотке — положить крышку";
+                    ? "ЛКМ над силуэтом корпуса — вернуть крышку" : "ЛКМ над силуэтом в заднем лотке — положить крышку";
             if (repair.Cover == FlashlightRepairState.CoverPlace.Attached)
             {
                 if (repair.Complete && repair.Assembled) return "Фонарик проверен: свет работает · R — повторить";
                 if (repair.Tested && !state.Complete) return "Света нет: откройте корпус и запаяйте соединение";
                 if (repair.Assembled) return state.Complete ? "ЛКМ по выключателю — проверить свет" : "Ослабьте два крепления — удерживайте ЛКМ";
-                if (repair.BothLoose && !state.Complete) return "E по крышке — снять; внутри сначала припой";
-                if (repair.BothLoose) return "Закрепите оба крепления или снимите крышку — E";
+                if (repair.BothLoose && !state.Complete) return "ЛКМ по крышке — снять; внутри сначала припой";
+                if (repair.BothLoose) return "Закрепите оба крепления или снимите крышку — ЛКМ";
                 return state.Complete ? "Закрепите второе крепление — ЛКМ" : "Ослабьте второе крепление — ЛКМ";
             }
             if (state.Complete) return state.HeldTool != SolderingTrialState.Tool.None
-                ? "Пайка готова. Положите инструмент — E" : "E — взять крышку из лотка сзади";
-            if (repairHover == RepairTarget.Cover) return "E — взять крышку (соединение ещё повреждено)";
+                ? "Пайка готова. Положите инструмент — ЛКМ по силуэту" : "ЛКМ — взять крышку из лотка сзади";
+            if (repairHover == RepairTarget.Cover) return "ЛКМ — взять крышку (соединение ещё повреждено)";
             return null; // Existing M2 material / heat / physical-contact instructions.
         }
     }
