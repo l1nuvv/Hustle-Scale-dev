@@ -1,11 +1,13 @@
 using System;
 using System.Collections;
+using System.Linq;
 using Interactables;
 using Inventory;
 using Player.Movement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using Unity.Profiling;
 
 namespace Player
 {
@@ -49,6 +51,13 @@ namespace Player
             var oldMouseEnabled = input.MouseInputEnabled;
             var oldCaptureDelta = Time.captureDeltaTime;
             var oldTimeScale = Time.timeScale;
+            var oldTargetFps = Application.targetFrameRate;
+            var oldVsync = QualitySettings.vSyncCount;
+            if (!Application.isEditor)
+                foreach (var argument in Environment.GetCommandLineArgs())
+                    if (argument.StartsWith("-physics-fps=", StringComparison.Ordinal) &&
+                        int.TryParse(argument.Substring(13), out var fps) && fps >= 10 && fps <= 240)
+                    { QualitySettings.vSyncCount = 0; Application.targetFrameRate = fps; }
             var mouse = InputSystem.AddDevice<Mouse>("Physics verification mouse");
             var target = new GameObject("Physics audit parent interaction", typeof(GrayboxInteractable));
             var shape = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -134,6 +143,28 @@ namespace Player
                 log("PASS current camera, child collider, hold/repress, wall, range, UI and destroyed target");
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                 input.MouseInputEnabled = false;
+                using (var simulate = ProfilerRecorder.StartNew(ProfilerCategory.Physics, "Physics.Simulate", 64))
+                using (var queries = ProfilerRecorder.StartNew(ProfilerCategory.Physics, "Physics Queries", 64))
+                using (var sync = ProfilerRecorder.StartNew(ProfilerCategory.Physics, "Physics.SyncTransforms", 64))
+                {
+                    var realElapsed = 0f;
+                    var maxFrame = 0f;
+                    for (var i = 0; i < 32; i++)
+                    {
+                        yield return null;
+                        realElapsed += Time.unscaledDeltaTime;
+                        maxFrame = Mathf.Max(maxFrame, Time.unscaledDeltaTime);
+                    }
+                    log("REAL frame rate target=" + Application.targetFrameRate + " measured=" + (32 / realElapsed).ToString("F1") +
+                        "Hz maxFrame=" + (maxFrame * 1000).ToString("F2") + "ms; Editor=" + Application.isEditor);
+                    foreach (var recorder in new[] { simulate, queries, sync })
+                    {
+                        var samples = recorder.ToArray();
+                        log("PROFILER " + recorder.Valid + " samples=" + samples.Length + " mean=" +
+                            (samples.Length == 0 ? "n/a" : samples.Average(s => s.Value).ToString("F1")));
+                    }
+                    log("PROFILER order: Physics.Simulate ns/frame; Physics Queries count/frame; Physics.SyncTransforms ns/frame. Includes zero samples; no before/after speed claim.");
+                }
                 foreach (var fps in new[] { 15, 60, 144 })
                 {
                     Time.captureDeltaTime = 1f / fps;
@@ -169,6 +200,8 @@ namespace Player
             {
                 Time.timeScale = oldTimeScale;
                 Time.captureDeltaTime = oldCaptureDelta;
+                Application.targetFrameRate = oldTargetFps;
+                QualitySettings.vSyncCount = oldVsync;
                 input.MouseInputEnabled = oldMouseEnabled;
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                 if (mouse.added) InputSystem.RemoveDevice(mouse);
@@ -202,6 +235,18 @@ namespace Player
                 for (var i = 0; i < 40; i++) body.Move(new Vector3(1, 0, 1).normalized * 0.1f + Vector3.down * 0.03f);
                 check(controller.transform.position.x > 442 && controller.transform.position.z < 441.7f,
                     "diagonal movement slides along wall");
+                var corner = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                corner.transform.SetParent(root.transform);
+                corner.transform.position = origin + new Vector3(2, 1, 0);
+                corner.transform.localScale = new Vector3(0.2f, 2, 8);
+                Physics.SyncTransforms();
+                controller.RestorePose(origin + Vector3.up * 0.03f, 0, 0);
+                for (var i = 0; i < 40; i++) body.Move(new Vector3(1, 0, 1).normalized * 0.1f + Vector3.down * 0.03f);
+                check(controller.transform.position.x > 441.3f && controller.transform.position.x < 441.7f &&
+                    controller.transform.position.z > 441.3f && controller.transform.position.z < 441.7f, "corner stops both axes");
+                for (var i = 0; i < 20; i++) body.Move(Vector3.back * 0.1f + Vector3.down * 0.03f);
+                check(controller.transform.position.z < 440, "player can back out of the corner");
+                corner.SetActive(false);
                 wall.SetActive(false);
                 var left = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 var right = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -217,7 +262,16 @@ namespace Player
                     check(width > 0.6f ? controller.transform.position.z > 442.8f : controller.transform.position.z < 438,
                         "capsule respects corridor width " + width);
                 }
-                log("PASS real capsule wall, slide and 0.8m/0.4m corridors in temporary geometry");
+                log("PASS real capsule wall, slide, corner/reverse and 0.8m/0.4m corridors in temporary geometry");
+                foreach (var direction in new[] { Vector3.left, Vector3.right, Vector3.forward, Vector3.back })
+                {
+                    controller.RestorePose(direction * 490 + Vector3.up * 0.05f, Quaternion.LookRotation(direction).eulerAngles.y, 0);
+                    for (var i = 0; i < 240; i++) body.Move(direction * 0.1f + Vector3.down * 0.03f);
+                    check(Vector3.Dot(controller.transform.position, direction) > 495 &&
+                        Mathf.Abs(controller.transform.position.x) < 496 && Mathf.Abs(controller.transform.position.z) < 496 &&
+                        controller.transform.position.y > -0.1f, "actual city boundary and floor " + direction + ": " + controller.transform.position);
+                }
+                log("PASS actual city capsule boundaries on all four outer road axes");
             }
             finally
             {

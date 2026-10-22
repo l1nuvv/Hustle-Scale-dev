@@ -16,6 +16,7 @@ public static class T04Verification
 {
     private const string LogPath = "Logs/Codex-T04-verification.log";
     private const string RunningKey = "T04.running";
+    private static bool ReverseBuyers => SessionState.GetBool(RunningKey + ".Reverse", false);
     private static WorkshopView workshop;
     private static FirstDealView deal;
     private static PlayerController player;
@@ -69,7 +70,12 @@ public static class T04Verification
     }
 
     [MenuItem("Tools/T04/Verify Trade")]
-    public static void Run()
+    public static void Run() => RunScenario(false);
+
+    [MenuItem("Tools/T04/Verify Trade B Then A")]
+    public static void RunReverse() => RunScenario(true);
+
+    private static void RunScenario(bool reverse)
     {
         if (EditorApplication.isPlaying || UnityEngine.SceneManagement.SceneManager.GetActiveScene().isDirty)
             throw new InvalidOperationException("Stop Play Mode and save the current scene first.");
@@ -78,6 +84,7 @@ public static class T04Verification
         VerifyDomain();
         EditorSceneManager.OpenScene(FirstDealTradeBuilder.ScenePath);
         VerifyReferences();
+        SessionState.SetBool(RunningKey + ".Reverse", reverse);
         SessionState.SetBool(RunningKey, true);
         EditorApplication.isPlaying = true;
     }
@@ -314,6 +321,7 @@ public static class T04Verification
     {
         EditorApplication.update -= Finish;
         Application.logMessageReceived -= Error; SessionState.SetBool(RunningKey, false);
+        SessionState.EraseBool(RunningKey + ".Reverse");
         var result = completed && !failed ? "T04 RESULT PASS" : "T04 RESULT FAIL";
         File.AppendAllText(LogPath, result + "\n"); Debug.Log(result);
         if (Application.isBatchMode) EditorApplication.Exit(completed && !failed ? 0 : 1);
@@ -370,8 +378,9 @@ public static class T04Verification
                     Check(UnityEngine.Object.FindAnyObjectByType<FirstDealGuide>() != null && GameObject.Find("Next action").GetComponent<Text>().text.Contains("ПРОЧИТАЙ ЗАКАЗЫ"), "contextual guide starts at offers board");
                     Check(PlayerSettings.resizableWindow && PlayerSettings.defaultScreenWidth == 1600 && PlayerSettings.defaultScreenHeight == 900,
                         "standalone defaults use a resizable 1600 by 900 window");
-                    Check(EditorBuildSettings.scenes.Count(s => s.enabled) == 1 && EditorBuildSettings.scenes.Any(s => s.enabled && s.path == FirstDealTradeBuilder.ScenePath),
-                        "build list starts the playable T04 scenario");
+                    Check(EditorBuildSettings.scenes.Count(s => s.enabled) == 1 && EditorBuildSettings.scenes.Any(s => s.enabled && s.path == CityGreyboxBuilder.ScenePath) &&
+                        UnityEngine.SceneManagement.SceneManager.GetActiveScene().path == FirstDealTradeBuilder.ScenePath,
+                        "production starts the city; this run explicitly loads the separate FIRST DEAL fixture");
                     GameObject.Find("Resume / leave without buying").GetComponent<Button>().onClick.Invoke();
                     Check(workshop.Session.Balance == 300 && !workshop.Session.ShiftStarted, "scene initializes at $300 inside workshop before clock starts");
                     AimAt("OFFERS BOARD", new Vector3(-4, 0.05f, 4.5f));
@@ -448,23 +457,28 @@ public static class T04Verification
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                     TestUnit(workshop.Session, 0); TestUnit(workshop.Session, 2); TestUnit(workshop.Session, 1, true);
                     workshop.Session.ToggleCrate(out _);
-                    AimAt("A | 2 TESTED WORKING | $260 | BEFORE 09:00", new Vector3(-7, 0.05f, -3.2f)); Next(); break;
+                    AimAt(ReverseBuyers ? "B | 1 TESTED WORKING | $125 | BEFORE 18:00" : "A | 2 TESTED WORKING | $260 | BEFORE 09:00",
+                        new Vector3(ReverseBuyers ? 6 : -7, 0.05f, -3.2f)); Next(); break;
                 case 8:
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.E)); Next(); break;
                 case 9:
-                    Check(workshop.Session.Balance == 330 && workshop.Session.Order(DealOrderId.A).State == DealOrderState.Completed,
-                        "A E transfers two carried tested lamps once after $50 repair");
-                    Check(workshop.Session.Units.Count(u => u.Location == FlashlightLocation.BuyerA) == 2,
-                        "A removes exactly two physical owned lamps");
-                    Check(Enumerable.Range(0, 3).Where(i => workshop.Session.Units[i].Location == FlashlightLocation.BuyerA)
+                    var firstBuyer = ReverseBuyers ? DealOrderId.B : DealOrderId.A;
+                    var firstLocation = ReverseBuyers ? FlashlightLocation.BuyerB : FlashlightLocation.BuyerA;
+                    Check(workshop.Session.Balance == (ReverseBuyers ? 195 : 330) && workshop.Session.Order(firstBuyer).State == DealOrderState.Completed,
+                        firstBuyer + " E transfers carried tested lamps once after $50 repair");
+                    Check(workshop.Session.Units.Count(u => u.Location == firstLocation) == (ReverseBuyers ? 1 : 2),
+                        "first buyer removes exactly the delivered physical lamps");
+                    Check(Enumerable.Range(0, 3).Where(i => workshop.Session.Units[i].Location == firstLocation)
                         .All(i => !lampVisuals[i].gameObject.activeSelf), "sold lamp visuals disappear");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-                    AimAt("B | 1 TESTED WORKING | $125 | BEFORE 18:00", new Vector3(6, 0.05f, -3.2f)); Next(); break;
+                    AimAt(ReverseBuyers ? "A | 2 TESTED WORKING | $260 | BEFORE 09:00" : "B | 1 TESTED WORKING | $125 | BEFORE 18:00",
+                        new Vector3(ReverseBuyers ? -7 : 6, 0.05f, -3.2f)); Next(); break;
                 case 10:
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.E)); Next(); break;
                 case 11:
                     Check(workshop.Session.Balance == 455 && workshop.Session.Order(DealOrderId.B).State == DealOrderState.Completed &&
-                        workshop.Session.Order(DealOrderId.RepeatB).State == DealOrderState.Unavailable, "B E completes combined route at $455 without an impossible repeat offer");
+                        workshop.Session.Order(DealOrderId.A).State == DealOrderState.Completed &&
+                        workshop.Session.Order(DealOrderId.RepeatB).State == DealOrderState.Unavailable, "second buyer E completes combined route at $455 without an impossible repeat offer");
                     Check(GameObject.Find("Workshop state").GetComponent<Text>().text.Contains("$455"), "HUD receives updated trade wallet");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState()); Next(); break;
                 case 12:

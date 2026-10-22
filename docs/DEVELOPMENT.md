@@ -17,7 +17,7 @@ Read from files on 2026-10-22; no Editor launch or compilation during this docum
 | Input / UI | Player Settings activeInputHandler = 1; gameplay uses `Player.PlayerInput`'s runtime action map. Main trade UI is uGUI; UI Toolkit availability is not evidence of a second implemented game UI |
 | Language / API | Unity-supported C# 9; local generated Assembly-CSharp.csproj agrees on LangVersion 9.0. Player Settings serialize apiCompatibilityLevel = 6 (`NET_Standard` in [Unity 6.6 reference source](https://github.com/Unity-Technologies/UnityCsReference/blob/6000.6/Editor/Mono/PlayerSettings.bindings.cs)), with no per-platform API entries. Unity 6.6's Standard profile is .NET Standard 2.1; extra Framework APIs require a target check. The generated IDE target v4.7.1 is not proof of the Player API profile |
 | Scenes / build | [EditorBuildSettings](../ProjectSettings/EditorBuildSettings.asset): CityGreybox enabled; FirstDealTrade disabled. SampleScene, FirstDealGraybox, FirstDealWorkshop, DevelopmentSandbox and ArtDirectionTest exist as separate fixtures |
-| Tests | Custom Editor menu harness in `Assets/Editor`, plus opt-in Player harness/profile. No project NUnit Test/TestCase or UnityTest methods and no project asmdef were found under Assets during this audit. Installed Test Framework does not imply a Test Runner suite |
+| Tests | Custom Editor menu harness in `Assets/Editor`, plus opt-in Player harness/profile. The physics audit added `Assets/Tests/Editor/HustleScale.Physics.Tests.asmdef`: one EditMode UnityTest enters Play Mode and calls the shared city physics checks. Runtime predefined assembly boundaries are unchanged; other harness assertion counts are not NUnit test counts |
 
 The exact manifest may contain additional packages; presence does not prove runtime use. Previous Windows64 Player checks do not establish all supported release platforms. Local `.agents/` skills and `references/*.zip` are ignored; daily work uses versioned docs. Migration, package updates and changing Player Settings require a separate authorized task.
 
@@ -90,6 +90,7 @@ Inspect the harness prerequisites before running: some enter/leave Play Mode, op
 | Scope | Menu / source |
 | --- | --- |
 | FIRST DEAL identity/settlement/routes | `Tools/T06/Verify Invariants and Routes` — [T06Verification](../Assets/Editor/T06Verification.cs); T03 workshop, T05 outcomes for their narrower concerns |
+| Physics / collision / current-camera E / placement | `Tools/Physics/Verify Collision and Interaction`, or Test Runner → EditMode → `PhysicsInteractionTests`. Same shared checks in opt-in Development Player phase `physics`; commands, limits and evidence: [physics audit](PHYSICS_COLLISION_INTERACTION_AUDIT.md) |
 | City money/order/physical transfer | `Tools/S3/Verify City Trading in Play Mode` — [S3Verification](../Assets/Editor/S3Verification.cs) |
 | Two lots / RNG / domain refusals | `Tools/E6/Verify Restock and RNG` — [E6Verification](../Assets/Editor/E6Verification.cs); separate `Tools/E6/Verify Second Trading Cycle in Play Mode` for integration |
 | City save data/store | `Tools/S2/Verify City Save and Load` — [S2Verification](../Assets/Editor/S2Verification.cs) |

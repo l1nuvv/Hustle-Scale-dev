@@ -1,0 +1,6 @@
+{
+    "name": "HustleScale.Physics.Tests",
+    "references": ["Unity.InputSystem"],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
