@@ -10,6 +10,10 @@ namespace Interactables
     // City-only composition. WorkshopSession remains the sole item/money/order authority.
     public sealed partial class CityTradeView : MonoBehaviour
     {
+        [SerializeField] private CitySceneBindings sceneBindings;
+        [SerializeField] private GameObject cratePrefab;
+        public bool HasSceneConfiguration(CitySceneBindings owner) => sceneBindings == owner && cratePrefab != null &&
+            cratePrefab.GetComponent<Collider>() != null && GetComponent<CityGreyboxWalk>()?.WorklightPrefab != null;
         private CitySaveController save;
         private CityGreyboxWalk walk;
         private PlayerController player;
@@ -24,7 +28,6 @@ namespace Interactables
         private readonly Renderer[] lenses = new Renderer[4];
         private MaterialPropertyBlock lampProperties;
         private readonly List<CityTradePoint> points = new List<CityTradePoint>();
-        private Material bodyMaterial, accentMaterial;
         private CityTradePoint current;
         private string message = "";
         private string displayedMessage;
@@ -36,13 +39,15 @@ namespace Interactables
         public IReadOnlyList<CityTradePoint> Points => points;
         public Transform Crate => crate;
         public Transform Lamp(int index) => lamps[index];
-        public static readonly Vector3 SellerPosition = new Vector3(-56, 1.3f, 6);
-        public static readonly Vector3 SellerDock = SellerPosition + new Vector3(-5, -0.9f, 2);
-        public static readonly Vector3 WorkshopDock = new Vector3(-69, 0.4f, 32);
+        public Vector3 SellerPosition => sceneBindings.Seller.transform.position;
+        public Vector3 SellerDock => sceneBindings.Seller.CrateDock.position;
+        public Vector3 WorkshopDock => sceneBindings.Workshop.CrateDock.position;
         private bool Allowed => session != null && !session.IsPaused && !save.IsDriving && player.CanInteract;
 
         private void Start()
         {
+            if (sceneBindings == null || !sceneBindings.Ready || cratePrefab == null)
+            { Debug.LogError($"City trade '{name}': assign a valid CitySceneBindings and Crate Prefab.", this); enabled = false; return; }
             CityStartupDiagnostics.Stage("trade Start");
             lampProperties = new MaterialPropertyBlock();
             save = GetComponent<CitySaveController>(); walk = GetComponent<CityGreyboxWalk>();
@@ -53,7 +58,7 @@ namespace Interactables
             // Low targets must not be hidden by the capsule containing the camera.
             gameObject.layer = 2; // Unity's built-in Ignore Raycast layer; collisions remain enabled.
             raycast.Configure(eye, Physics.DefaultRaycastLayers);
-            vehicle = FindAnyObjectByType<CityUtilityVehicle>();
+            vehicle = sceneBindings.Vehicle;
             BuildWorld();
             CityStartupDiagnostics.Stage("world built");
             BuildUI();
@@ -108,11 +113,13 @@ namespace Interactables
         private void Refresh()
         {
             if (session == null) return;
-            crate.SetParent(session.IsCrateInVehicle ? vehicle.transform : session.IsCrateCarried ? eye.transform : root, false);
+            var dock = save.World.CrateDock == CityCrateDock.Seller ? sceneBindings.Seller.CrateDock : sceneBindings.Workshop.CrateDock;
+            crate.SetParent(session.IsCrateInVehicle ? vehicle.CargoAnchor : session.IsCrateCarried ? eye.transform :
+                save.World.HasCratePose ? root : dock, false);
             crate.localPosition = session.IsCrateCarried ? new Vector3(0, -0.85f, 1.1f) :
-                session.IsCrateInVehicle ? vehicle.CargoPosition :
+                session.IsCrateInVehicle ? Vector3.zero :
                 save.World.HasCratePose ? save.World.CratePosition :
-                save.World.CrateDock == CityCrateDock.Seller ? SellerDock : WorkshopDock;
+                Vector3.zero;
             crate.localRotation = !session.IsCrateCarried && !session.IsCrateInVehicle && save.World.HasCratePose ?
                 Quaternion.Euler(0, save.World.CrateYaw, 0) : Quaternion.identity;
             crate.GetComponent<Collider>().enabled = !session.IsCrateCarried && !session.IsCrateInVehicle;
@@ -132,11 +139,11 @@ namespace Interactables
                 lenses[i].SetPropertyBlock(lampProperties);
                 if (unit.Location == FlashlightLocation.World) continue;
                 var parent = unit.Location == FlashlightLocation.Hands ? eye.transform :
-                    unit.Location == FlashlightLocation.Bench ? root : crate;
+                    unit.Location == FlashlightLocation.Bench ? sceneBindings.Workshop.BenchItem : crate;
                 lamps[i].SetParent(parent, false);
                 lamps[i].localRotation = Quaternion.identity;
                 lamps[i].localPosition = unit.Location == FlashlightLocation.Hands ? new Vector3(0.35f, -0.22f, 0.82f) :
-                    unit.Location == FlashlightLocation.Bench ? new Vector3(-72, 1.37f, 34) : new Vector3(i == 3 ? 0 : (i - 1) * 0.36f, 0.415f, i == 3 ? 0.26f : 0);
+                    unit.Location == FlashlightLocation.Bench ? Vector3.zero : new Vector3(i == 3 ? 0 : (i - 1) * 0.36f, 0.415f, i == 3 ? 0.26f : 0);
             }
             hud.text = "<b>$" + session.Balance + "</b>  ·  " + WorkshopView.Clock(session.ElapsedSeconds);
             var activeA = session.Order(DealOrderId.A).State == DealOrderState.Accepted;
@@ -398,20 +405,14 @@ namespace Interactables
             if (walk.WorklightPrefab == null)
                 throw new InvalidOperationException("CityGreybox requires the accepted Worklight prefab on CityGreyboxWalk.");
             root = new GameObject("City trade runtime").transform;
-            bodyMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            bodyMaterial.color = new Color(0.12f, 0.2f, 0.22f);
-            accentMaterial = new Material(bodyMaterial) { color = new Color(0.9f, 0.69f, 0.25f) };
-            Point("ПРОДАВЕЦ ФОНАРЕЙ", CityTradeKind.Seller, SellerPosition);
-            Point("БАТАРЕИ · $50", CityTradeKind.Battery, new Vector3(65, 1.1f, 26));
-            Point("СКУПКА · $60 / $35", CityTradeKind.Buyback, new Vector3(-65, 1.1f, -47));
-            Point("A · 2 исправных · $260", CityTradeKind.A, new Vector3(-29, 1.3f, 10.5f));
-            Point("Б · 1 исправный · $125", CityTradeKind.B, new Vector3(-7, 1.3f, 10.5f));
-            crate = Box("Ящик партии", root, SellerDock, new Vector3(1.25f, 0.35f, 0.65f), bodyMaterial);
+            crate = Instantiate(cratePrefab, root).transform;
             AddPoint(crate, CityTradeKind.Crate);
-            if (vehicle != null && vehicle.CargoGate != null && vehicle.CargoFloor != null)
+            foreach (var point in sceneBindings.Points)
             {
-                AddPoint(vehicle.CargoGate, CityTradeKind.Cargo);
+                point.Bind(this, point.Kind, point.Index);
+                points.Add(point);
             }
+            sellerCounter = sceneBindings.Seller.transform;
             for (var i = 0; i < lamps.Length; i++)
             {
                 lamps[i] = new GameObject("Фонарь " + (i + 1), typeof(BoxCollider)).transform;
@@ -427,52 +428,20 @@ namespace Interactables
                 lights[i].transform.localPosition = new Vector3(0, 0.14f, -0.18f);
                 lights[i].type = LightType.Spot; lights[i].range = 12; lights[i].spotAngle = 55; lights[i].intensity = 3;
             }
-            BuildWayfinding();
-            BuildSliceCharacters();
+            BindSceneFeedback();
             BuildSolderingStation();
         }
 
-        private Transform Box(string name, Transform parent, Vector3 position, Vector3 size, Material material)
-        {
-            var box = GameObject.CreatePrimitive(PrimitiveType.Cube).transform;
-            box.name = name; box.SetParent(parent, false); box.localPosition = position;
-            // Scale the mesh child instead so item parents/attachments retain metre units.
-            var mesh = new GameObject("Visual", typeof(MeshFilter), typeof(MeshRenderer)).transform;
-            mesh.SetParent(box, false); mesh.localScale = size;
-            mesh.GetComponent<MeshFilter>().sharedMesh = box.GetComponent<MeshFilter>().sharedMesh;
-            mesh.GetComponent<Renderer>().sharedMaterial = material;
-            Destroy(box.GetComponent<MeshRenderer>()); Destroy(box.GetComponent<MeshFilter>());
-            box.GetComponent<BoxCollider>().size = size;
-            return box;
-        }
         private CityTradePoint AddPoint(Transform target, CityTradeKind kind, int index = -1)
         {
-            var point = target.gameObject.AddComponent<CityTradePoint>(); point.Bind(this, kind, index);
+            var point = target.GetComponent<CityTradePoint>();
+            if (point == null) point = target.gameObject.AddComponent<CityTradePoint>();
+            point.Bind(this, kind, index);
             points.Add(point); return point;
         }
-        private void Point(string title, CityTradeKind kind, Vector3 position)
-        {
-            var target = Box(title, root, position, new Vector3(0.7f, 0.35f, 0.3f), bodyMaterial);
-            if (kind == CityTradeKind.Seller) sellerCounter = target;
-            AddPoint(target, kind);
-            if (kind == CityTradeKind.Seller || kind == CityTradeKind.A || kind == CityTradeKind.B || kind == CityTradeKind.Workshop)
-                target.Find("Visual").gameObject.SetActive(false);
-            // The visible storefront card is also an E target; keep the lower counter target reachable.
-            if (kind == CityTradeKind.A || kind == CityTradeKind.B)
-            {
-                var card = Board("ЗАКАЗ " + title, position + new Vector3(0, 0.8f, -0.65f), 0, new Vector2(3.5f, 0.55f));
-                card.GetComponent<Collider>().enabled = true; AddPoint(card, kind);
-            }
-            else if (kind == CityTradeKind.Seller)
-            {
-                var card = Board("E — МАГАЗИН", position + new Vector3(0, 0.05f, 0.75f), 180, new Vector2(1.8f, 0.3f));
-                card.GetComponent<Collider>().enabled = true; AddPoint(card, kind);
-            }
-            else Board(title, position + new Vector3(0, -0.35f, -0.2f), 0, new Vector2(2, 0.28f));
-        }
-
         private void LateUpdate()
         {
+            if (canvasObject == null) return;
             UpdateSafeArea();
             UpdatePauseUI();
             tradeBackdrop.SetActive(MenuOpen);
@@ -505,12 +474,6 @@ namespace Interactables
             if (root != null) Destroy(root.gameObject);
             if (canvasObject != null) Destroy(canvasObject);
             if (ownedEventSystem != null) Destroy(ownedEventSystem);
-            if (bodyMaterial != null) Destroy(bodyMaterial);
-            if (accentMaterial != null) Destroy(accentMaterial);
-            if (signMaterial != null) Destroy(signMaterial);
-            if (workshopMaterial != null) Destroy(workshopMaterial);
-            if (plasterMaterial != null) Destroy(plasterMaterial);
-            if (yardMaterial != null) Destroy(yardMaterial);
             DisposeFeedback();
             DisposeUiArtwork();
         }

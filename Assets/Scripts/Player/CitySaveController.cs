@@ -11,6 +11,8 @@ namespace Player
     [RequireComponent(typeof(PlayerController))]
     public sealed class CitySaveController : MonoBehaviour
     {
+        [SerializeField] private CitySceneBindings sceneBindings;
+        public CitySceneBindings SceneBindings => sceneBindings;
         private PlayerController player;
         private CityGreyboxWalk walk;
         private CityUtilityVehicle vehicle;
@@ -45,7 +47,9 @@ namespace Player
         private void Start()
         {
             CityStartupDiagnostics.Stage("save controller Start");
-            vehicle = FindAnyObjectByType<CityUtilityVehicle>();
+            if (sceneBindings == null || !sceneBindings.Ready)
+            { Debug.LogError($"City save '{name}': assign a valid CitySceneBindings.", this); enabled = false; return; }
+            vehicle = sceneBindings.Vehicle;
             if (store.Exists) Load(false);
             else if (store.BackupExists)
             {
@@ -86,7 +90,7 @@ namespace Player
             if (IsDriving) { Message = "Сначала выйди из автомобиля."; return; }
             var world = new CityWorldData
             {
-                PlayerPosition = new Vector3(-65, 0.08f, 25), PlayerYaw = 180,
+                PlayerPosition = sceneBindings.PlayerSpawn.position, PlayerYaw = sceneBindings.PlayerSpawn.eulerAngles.y,
                 CrateDock = CityCrateDock.Seller, PlacedLamps = Array.Empty<CityPlacedLamp>()
             };
             Bind(WorkshopSession.CreateCity(), world);

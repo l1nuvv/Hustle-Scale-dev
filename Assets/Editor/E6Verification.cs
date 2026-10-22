@@ -210,17 +210,17 @@ public static partial class S3Verification
             Check(!trade.Lamp(0).gameObject.activeSelf && !trade.Lamp(1).gameObject.activeSelf && !trade.Lamp(2).gameObject.activeSelf, "sold visuals hidden");
             if (lot == 0)
             {
-                ToggleFixtureCrate(CityTradeView.WorkshopDock);
+                ToggleFixtureCrate(UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock);
                 Open(CityTradeKind.Seller);
                 var before = JsonUtility.ToJson(save.Session.CaptureCity(save.World));
                 Check(!trade.Execute("purchase") && before == JsonUtility.ToJson(save.Session.CaptureCity(save.World)), "remote empty crate blocks restock atomically");
-                trade.CloseMenu(); ToggleFixtureCrate(CityTradeView.WorkshopDock);
+                trade.CloseMenu(); ToggleFixtureCrate(UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock);
             }
             Open(CityTradeKind.Seller);
             if (lot == 0)
             {
                 trade.CloseMenu();
-                ToggleFixtureCrate(CityTradeView.SellerPosition + new Vector3(0, -1, -2));
+                ToggleFixtureCrate(UnityEngine.Object.FindAnyObjectByType<CityTradeView>().SellerPosition + new Vector3(0, -1, -2));
                 Open(CityTradeKind.Seller);
                 Command("purchase");
                 Check(save.Session.PurchasedLots == 2 && !save.Session.Units.Any(u => ids.Contains(u.InstanceId)), "E6 restock new identities");
@@ -228,7 +228,7 @@ public static partial class S3Verification
                 trade.CloseMenu();
                 RoundTrip("E6 restocked"); walk.SetPaused(false);
                 Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
-                ToggleFixtureCrate(CityTradeView.WorkshopDock);
+                ToggleFixtureCrate(UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock);
                 yield return null;
             }
             else

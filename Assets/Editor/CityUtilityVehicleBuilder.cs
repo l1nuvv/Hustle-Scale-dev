@@ -26,7 +26,7 @@ public static class CityUtilityVehicleBuilder
         signal = Material(folder + "VehicleTailLight.mat", new Color(0.7f, 0.08f, 0.035f));
         var car = new GameObject("Workshop electric utility", typeof(Rigidbody));
         car.transform.SetParent(root);
-        car.transform.SetPositionAndRotation(CityUtilityVehicle.WorkshopParkingPosition, CityUtilityVehicle.WorkshopParkingRotation);
+        car.transform.SetPositionAndRotation(new Vector3(-65, 0.4f, 8), Quaternion.Euler(0, 180, 0));
         var body = car.GetComponent<Rigidbody>();
         body.mass = 650;
         body.centerOfMass = new Vector3(0, 0.05f, -0.1f);

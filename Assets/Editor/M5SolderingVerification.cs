@@ -105,7 +105,7 @@ public static partial class M5SolderingVerification
             {
                 var old = initial.CaptureCity(World()); old.Version = version; old.Soldering = null;
                 Must(WorkshopSession.TryRestoreCity(old, out var loaded, out _));
-                Check(!loaded.StationOwned && loaded.SolderingLamp == null && loaded.CaptureCity(World()).Version == 5, "v" + version + " upgrades empty extension");
+                Check(!loaded.StationOwned && loaded.SolderingLamp == null && loaded.CaptureCity(World()).Version == initial.CaptureCity(World()).Version, "v" + version + " upgrades empty extension");
             }
             for (var stage = 0; stage <= 12; stage++)
             {
@@ -150,9 +150,9 @@ public static partial class M5SolderingVerification
             Check(s2.SolderingReady, "leaving work preserves final test on portable lamp");
             Must(s2.AcceptOrder(DealOrderId.Solder, out _));
             var id = s2.SolderingLamp.InstanceId; var before = Snapshot(s2);
-            Must(s2.StowHeld(out _)); before = Snapshot(s2);
+            Must(s2.ToggleUnit(3, out _)); before = Snapshot(s2);
             Check(!s2.DeliverSoldering(new[] { id }, out _) && Snapshot(s2) == before, "stored item cannot transfer remotely");
-            Must(s2.EquipSlot(3, out _)); before = Snapshot(s2);
+            Must(s2.ToggleUnit(3, out _)); before = Snapshot(s2);
             Check(!s2.DeliverSoldering(new[] { id, id }, out _) && Snapshot(s2) == before, "duplicate presentation atomic rejection");
             Check(!s2.DeliverOrder(DealOrderId.B, new[] { id }, out _), "new lamp cannot pay normal B");
             var wallet = s2.Balance; Must(s2.DeliverSoldering(new[] { id }, out _));

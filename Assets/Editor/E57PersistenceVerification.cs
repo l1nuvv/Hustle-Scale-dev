@@ -56,14 +56,14 @@ public static partial class S3Verification
             context + " vehicle pose; actual " + vehicle.transform.position.ToString("F6") + "/" + vehicle.transform.eulerAngles.ToString("F6") +
             ", saved " + save.World.VehiclePosition.ToString("F6") + "/" + save.World.VehicleEuler.ToString("F6"));
         if (save.Session.IsCrateInVehicle || save.Session.IsCrateCarried)
-            Check(trade.Crate.parent == (save.Session.IsCrateInVehicle ? vehicle.transform : eye.transform), context + " carried/cargo crate parent");
+            Check(trade.Crate.parent == (save.Session.IsCrateInVehicle ? vehicle.CargoAnchor : eye.transform), context + " carried/cargo crate parent");
         else
-            Check(trade.Crate.parent.name == "City trade runtime" && Vector3.Distance(trade.Crate.position,
+            Check(Vector3.Distance(trade.Crate.position,
                 save.World.HasCratePose ? save.World.CratePosition :
-                save.World.CrateDock == CityCrateDock.Seller ? CityTradeView.SellerDock : CityTradeView.WorkshopDock) < 0.001f,
+                save.World.CrateDock == CityCrateDock.Seller ? UnityEngine.Object.FindAnyObjectByType<CityTradeView>().SellerDock : UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock) < 0.001f,
                 context + " crate dock");
         if (save.Session.IsCrateInVehicle)
-            Check(Vector3.Distance(trade.Crate.localPosition, vehicle.CargoPosition) < 0.001f, context + " cargo local pose");
+            Check(Vector3.Distance(trade.Crate.position, vehicle.CargoAnchor.position) < 0.001f, context + " cargo local pose");
         for (var i = 0; i < 3; i++)
         {
             var unit = save.Session.Units[i];
@@ -82,7 +82,7 @@ public static partial class S3Verification
             }
             else if (visible)
                 Check(unit.Location == FlashlightLocation.Hands ? lamp.parent == eye.transform :
-                    unit.Location == FlashlightLocation.Bench ? lamp.parent.name == "City trade runtime" : lamp.parent == trade.Crate,
+                    unit.Location == FlashlightLocation.Bench ? lamp.parent == UnityEngine.Object.FindAnyObjectByType<CitySceneBindings>().Workshop.BenchItem : lamp.parent == trade.Crate,
                     context + " item parent " + i);
         }
     }
@@ -155,7 +155,7 @@ public static partial class S3Verification
         Open(CityTradeKind.A); Command("accept"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
         PersistenceRoundTrip("accepted order, purchase and carried crate");
-        ToggleFixtureCrate(CityTradeView.WorkshopDock);
+        ToggleFixtureCrate(UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock);
         Open(CityTradeKind.Crate); Command("unit", 0); trade.CloseMenu();
         walk.SetPaused(false); Check(save.Session.StowHeld(out _), "pocket lamp");
         Open(CityTradeKind.Crate); Command("unit", 2); trade.CloseMenu();
@@ -253,7 +253,7 @@ public static partial class S3Verification
         restart = PersistenceRestart(); while (restart.MoveNext()) yield return restart.Current;
         Check(PersistenceMatches(cargo), "cargo startup exact saved snapshot");
         PersistenceBindings("cargo startup", true);
-        Check(save.Session.IsCrateInVehicle && trade.Crate.parent == UnityEngine.Object.FindAnyObjectByType<CityUtilityVehicle>().transform,
+        Check(save.Session.IsCrateInVehicle && trade.Crate.parent == UnityEngine.Object.FindAnyObjectByType<CityUtilityVehicle>().CargoAnchor,
             "cargo startup attaches to vehicle");
         var vehicle = UnityEngine.Object.FindAnyObjectByType<CityUtilityVehicle>();
         var body = vehicle.GetComponent<Rigidbody>();
@@ -261,8 +261,8 @@ public static partial class S3Verification
         body.linearVelocity = Vector3.zero; body.angularVelocity = Vector3.zero;
         Physics.SyncTransforms();
         var cargoPoint = Point(CityTradeKind.Cargo);
-        Check(Vector3.Distance(vehicle.CargoGate.position, CityTradeView.SellerDock) > 2.5f &&
-            Vector3.Distance(vehicle.CargoGate.position, CityTradeView.WorkshopDock) > 2.5f, "cargo test is away from both docks");
+        Check(Vector3.Distance(vehicle.CargoGate.position, UnityEngine.Object.FindAnyObjectByType<CityTradeView>().SellerDock) > 2.5f &&
+            Vector3.Distance(vehicle.CargoGate.position, UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock) > 2.5f, "cargo test is away from both docks");
         walk.SetPaused(false);
         var rear = vehicle.CargoGate.position;
         Aim(cargoPoint, new Vector3(rear.x, 0.08f, rear.z - 5));
@@ -278,7 +278,7 @@ public static partial class S3Verification
             !trade.Crate.GetComponent<Collider>().enabled, "take crate directly from stopped vehicle away from docks");
         PersistenceRoundTrip("crate carried after vehicle unload away from docks");
         walk.SetPaused(false); Approach(CityTradeKind.Cargo); cargoPoint.Interact();
-        Check(save.Session.IsCrateInVehicle && !save.Session.IsCrateCarried && trade.Crate.parent == vehicle.transform,
+        Check(save.Session.IsCrateInVehicle && !save.Session.IsCrateCarried && trade.Crate.parent == vehicle.CargoAnchor,
             "reload carried crate into vehicle away from docks");
         File.AppendAllText(Log, "PASS backup-only startup, failed backup, new-game cancel/confirm, vehicle cargo startup\n");
     }

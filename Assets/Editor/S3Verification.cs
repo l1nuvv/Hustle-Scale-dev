@@ -326,9 +326,9 @@ public static partial class S3Verification
         Check(save.Save(), "save carrying"); Check(save.Load(false), "load carrying"); walk.SetPaused(false);
         Check(trade.Session == save.Session && save.Session.IsCrateCarried && trade.Crate.parent == eye.transform, "restore carrying and rebind");
         WalkRoute("seller to workshop carrying", -61, 8, -62.5f, 8, -62.5f, 14, -65, 14, -65, 25, -69, 30);
-        ToggleFixtureCrate(CityTradeView.WorkshopDock);
+        ToggleFixtureCrate(UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock);
         Check(save.World.HasCratePose && Vector3.Distance(trade.Crate.position, save.World.CratePosition) < 0.01f, "free crate position persists without teleport");
-        player.RestorePose(CityTradeView.SellerDock, 0, 0); Physics.SyncTransforms(); Point(CityTradeKind.Crate).Interact();
+        player.RestorePose(UnityEngine.Object.FindAnyObjectByType<CityTradeView>().SellerDock, 0, 0); Physics.SyncTransforms(); Point(CityTradeKind.Crate).Interact();
         Check(!trade.MenuOpen && !save.Session.IsCrateCarried, "remote crate cannot be taken");
         Open(CityTradeKind.Crate); Command("unit", 0); trade.CloseMenu();
         CheckLampPresentation("held");
@@ -394,7 +394,7 @@ public static partial class S3Verification
         // Independent route: only B, then checked faulty/working leftovers to buyback.
         NewFixture(); walk.SetPaused(false); Open(CityTradeKind.Seller); Command("purchase"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
-        ToggleFixtureCrate(CityTradeView.WorkshopDock);
+        ToggleFixtureCrate(UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock);
         for (var i = 0; i < 3; i++)
         {
             Open(CityTradeKind.Crate); Command("unit", i); trade.CloseMenu();

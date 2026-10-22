@@ -10,8 +10,9 @@ namespace Player
     public sealed class CityGreyboxWalk : MonoBehaviour
     {
         [SerializeField] private GameObject worklightPrefab;
-        [SerializeField] private GameObject workerPrefab, workbenchPrefab, testerPrefab;
-        [SerializeField] private GameObject solderingStationPrefab;
+        // Retain old serialized references for historical builder compatibility; placement lives on scene prefabs.
+        [SerializeField, HideInInspector] private GameObject workerPrefab, workbenchPrefab, testerPrefab;
+        [SerializeField, HideInInspector] private GameObject solderingStationPrefab;
         public GameObject SolderingStationPrefab => solderingStationPrefab;
         public Interactables.SolderingTrial SolderingStation { get; set; }
         private PlayerController _player;
@@ -30,12 +31,14 @@ namespace Player
         {
             _player = GetComponent<PlayerController>();
             _save = GetComponent<CitySaveController>();
-            if (_save == null) _save = gameObject.AddComponent<CitySaveController>();
-            _trade = gameObject.AddComponent<Interactables.CityTradeView>();
+            _trade = GetComponent<Interactables.CityTradeView>();
+            if (_save == null || _trade == null)
+            { Debug.LogError($"City player '{name}': add CitySaveController and CityTradeView in the Inspector.", this); enabled = false; }
         }
 
         private void Update()
         {
+            if (_trade == null || !_trade.enabled) return;
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
             if (SolderingStation != null && SolderingStation.IsActive && !_paused) return;

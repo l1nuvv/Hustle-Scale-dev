@@ -39,7 +39,7 @@ public static class CityProximityVerification
             vehicle.RestoreCityPose(new Inventory.CityWorldData
             {
                 HasVehiclePose = true,
-                VehiclePosition = CityUtilityVehicle.WorkshopParkingPosition, VehicleEuler = new Vector3(0, 270, 0)
+                VehiclePosition = vehicle.ParkingPosition, VehicleEuler = new Vector3(0, 270, 0)
             });
             check(vehicle.EnsureClearCityPose() && Vector3.Dot(vehicle.transform.forward, Vector3.back) > .99f,
                 "previous parking heading corrected on load");
@@ -69,7 +69,7 @@ public static class CityProximityVerification
             var seller = trade.Points.First(p => p.Kind == CityTradeKind.Seller);
             check(trade.Reachable(seller), "new seller interaction reachable through actual colliders");
             trade.Open(seller); check(trade.MenuOpen && trade.Execute("purchase"), "buy first lot at nearby counter");
-            check(trade.Crate.position == CityTradeView.SellerDock, "purchased crate follows new seller dock");
+            check(trade.Crate.position == UnityEngine.Object.FindAnyObjectByType<CityTradeView>().SellerDock, "purchased crate follows new seller dock");
             trade.CloseMenu(); check(save.Save() && save.Load(false), "purchase and world round trip");
             check(trade.Session.Balance == 120 && trade.Session.Units.Count == 3, "ordinary lot price and count preserved");
             report.AppendLine("PROXIMITY PASS " + count + "; Unity " + Application.unityVersion);

@@ -16,14 +16,32 @@ namespace Player
         [SerializeField] private Transform[] wheelVisuals;
         [SerializeField] private Transform steeringWheel;
         [SerializeField] private TextMesh speedDisplay;
+        [SerializeField] private Transform cargoFloor, cargoGate, cargoAnchor, door;
+        [SerializeField] private Transform[] exits;
+        [SerializeField] private bool correctLegacyParkingHeading;
         [SerializeField] private float maximumSpeed = 11.1f;
         [SerializeField] private float motorTorque = 330;
         [SerializeField, Range(0, 1)] private float cameraMotion = 0.6f;
         private Rigidbody body;
         private Vector3 spawnPosition;
         private Quaternion spawnRotation;
-        public static readonly Vector3 WorkshopParkingPosition = new Vector3(-65, 0.4f, 8);
-        public static readonly Quaternion WorkshopParkingRotation = Quaternion.Euler(0, 180, 0);
+        public Vector3 ParkingPosition => spawnPosition;
+        public Quaternion ParkingRotation => spawnRotation;
+
+        public void ConfigureScene(PlayerController owner, CityGreyboxWalk overlay, Camera camera)
+        { walker = owner; walkOverlay = overlay; walkingCamera = camera; }
+
+        public bool ValidateConfiguration()
+        {
+            if (cargoFloor != null && cargoGate != null && cargoAnchor != null && door != null &&
+                cargoFloor.IsChildOf(transform) && cargoGate.IsChildOf(transform) && cargoAnchor.IsChildOf(transform) && door.IsChildOf(transform) &&
+                drivingCamera != null && steeringWheel != null && speedDisplay != null &&
+                wheels != null && wheelVisuals != null && wheels.Length == 4 && wheelVisuals.Length == 4 &&
+                System.Array.TrueForAll(wheels, wheel => wheel != null) && System.Array.TrueForAll(wheelVisuals, wheel => wheel != null) &&
+                exits != null && exits.Length > 0 && System.Array.TrueForAll(exits, exit => exit != null && exit.IsChildOf(transform))) return true;
+            Debug.LogError($"City vehicle '{name}': assign local Cargo Floor/Gate/Anchor, Door, Exits, Driving Camera, Steering Wheel, Speed Display and four wheels/visuals.", this);
+            return false;
+        }
 
         public bool HasBlockingCityOverlap()
         {
@@ -50,26 +68,27 @@ namespace Player
         {
             if (IsDriving) return false;
             var aligned = false;
-            if (Vector3.ProjectOnPlane(body.position - WorkshopParkingPosition, Vector3.up).sqrMagnitude < 0.25f &&
-                Mathf.Abs(Mathf.DeltaAngle(body.rotation.eulerAngles.y, 270)) < 2)
+            if (correctLegacyParkingHeading && Vector3.ProjectOnPlane(body.position - spawnPosition, Vector3.up).sqrMagnitude < 0.25f &&
+                Mathf.Abs(Mathf.DeltaAngle(body.rotation.eulerAngles.y, spawnRotation.eulerAngles.y + 90)) < 2)
             {
-                body.rotation = WorkshopParkingRotation;
+                body.rotation = spawnRotation;
                 transform.SetPositionAndRotation(body.position, body.rotation);
                 aligned = true;
             }
             if (!HasBlockingCityOverlap()) return aligned;
             var position = body.position; var rotation = body.rotation;
-            body.position = WorkshopParkingPosition;
-            body.rotation = WorkshopParkingRotation;
+            body.position = spawnPosition;
+            body.rotation = spawnRotation;
             transform.SetPositionAndRotation(body.position, body.rotation);
             if (HasBlockingCityOverlap())
             { body.position = position; body.rotation = rotation; transform.SetPositionAndRotation(position, rotation); return false; }
             body.linearVelocity = Vector3.zero; body.angularVelocity = Vector3.zero;
             return true;
         }
-        public Transform CargoFloor { get; private set; }
-        public Transform CargoGate { get; private set; }
-        public Vector3 CargoPosition => CargoFloor.localPosition + Vector3.up * (CargoFloor.localScale.y / 2 + 0.175f);
+        public Transform CargoFloor => cargoFloor;
+        public Transform CargoGate => cargoGate;
+        public Transform CargoAnchor => cargoAnchor;
+        public Vector3 CargoPosition => transform.InverseTransformPoint(cargoAnchor.position);
         private CharacterController capsule;
         private PlayerInput walkingInput;
         private InputActionMap actions;
@@ -105,8 +124,8 @@ namespace Player
             body = GetComponent<Rigidbody>();
             spawnPosition = transform.position;
             spawnRotation = transform.rotation;
-            CargoFloor = transform.Find("Bed floor");
-            CargoGate = transform.Find("Tailgate");
+            if (!ValidateConfiguration() || walker == null || walkingCamera == null || walkOverlay == null)
+            { Debug.LogError($"City vehicle '{name}': a valid CitySceneBindings must connect the player before Awake.", this); enabled = false; return; }
             capsule = walker.GetComponent<CharacterController>();
             walkingInput = walker.GetComponent<PlayerInput>();
             cameraRest = drivingCamera.transform.localPosition;
@@ -128,8 +147,7 @@ namespace Player
         {
             if (!IsDriving)
             {
-                var door = transform.TransformPoint(new Vector3(-1.1f, 1, 0.4f));
-                var delta = door - walkingCamera.transform.position;
+                var delta = door.position - walkingCamera.transform.position;
                 nearDoor = walker.CanInteract && delta.magnitude < 3 &&
                     Vector3.Dot(walkingCamera.transform.forward, delta.normalized) > 0.25f && !LookingAtCargo();
                 // This independent action map must respect the walking UI's
@@ -233,8 +251,7 @@ namespace Player
             var trade = walker.GetComponent<Interactables.CityTradeView>();
             if (trade != null && trade.Session != null && trade.Session.IsCrateCarried)
             { message = "Сначала погрузи ящик: E у заднего борта багажника."; return false; }
-            var door = transform.TransformPoint(new Vector3(-1.1f, 1, 0.4f));
-            var approach = door - walkingCamera.transform.position;
+            var approach = door.position - walkingCamera.transform.position;
             if (approach.magnitude > 3) return false;
             foreach (var obstruction in Physics.RaycastAll(walkingCamera.transform.position, approach.normalized,
                          approach.magnitude, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
@@ -261,9 +278,9 @@ namespace Player
         {
             if (!IsDriving) return false;
             if (Speed > 0.8f) { message = "Остановись перед выходом из машины."; return false; }
-            foreach (var side in new[] { -1, 1 })
+            foreach (var exit in exits)
             {
-                var position = transform.TransformPoint(new Vector3(side * 1.55f, 1, 0.3f));
+                var position = exit.position;
                 if (!Physics.Raycast(position + Vector3.up * 2, Vector3.down, out var ground, 5,
                         Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) ||
                     ground.collider.attachedRigidbody == body || ground.normal.y < 0.75f ||
@@ -276,7 +293,7 @@ namespace Player
                 drive = Vector2.zero;
                 braking = true;
                 drivingCamera.gameObject.SetActive(false);
-                walker.transform.SetPositionAndRotation(position, Quaternion.Euler(0, transform.eulerAngles.y, 0));
+                walker.transform.SetPositionAndRotation(position, Quaternion.Euler(0, exit.eulerAngles.y, 0));
                 capsule.enabled = true;
                 walker.enabled = true;
                 walkingInput.enabled = true;

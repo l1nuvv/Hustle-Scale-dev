@@ -225,7 +225,7 @@ namespace Player
             Check(save.Session.IsCrateCarried ? trade.Crate.parent == eye.transform :
                 Vector3.Distance(trade.Crate.position, save.World.HasCratePose ? save.World.CratePosition :
                     save.World.CrateDock == CityCrateDock.Seller ?
-                    CityTradeView.SellerDock : CityTradeView.WorkshopDock) < 0.001f, "crate parent/dock");
+                    UnityEngine.Object.FindAnyObjectByType<CityTradeView>().SellerDock : UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock) < 0.001f, "crate parent/dock");
             for (var i = 0; i < 3; i++)
             {
                 var unit = save.Session.Units[i];
@@ -233,7 +233,7 @@ namespace Player
                 Check(lamp.gameObject.activeSelf == (WorkshopSession.IsOwned(unit) || unit.Location == FlashlightLocation.Seller),
                     "lamp visibility " + i);
                 if (unit.Location == FlashlightLocation.Crate) Check(lamp.parent == trade.Crate, "crate lamp parent " + i);
-                if (unit.Location == FlashlightLocation.Bench) Check(lamp.parent.name == "City trade runtime", "bench parent " + i);
+                if (unit.Location == FlashlightLocation.Bench) Check(lamp.parent == FindAnyObjectByType<CitySceneBindings>().Workshop.BenchItem, "bench parent " + i);
                 Check(lamp.GetComponent<Collider>().enabled == (unit.Location == FlashlightLocation.World ||
                     unit.Location == FlashlightLocation.Bench), "lamp collider " + i);
             }

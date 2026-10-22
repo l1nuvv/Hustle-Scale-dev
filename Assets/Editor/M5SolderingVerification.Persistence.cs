@@ -25,7 +25,7 @@ public static partial class M5SolderingVerification
         var player = save.GetComponent<PlayerController>(); var trial = trade.SolderingStation;
         Action<WorkshopSession> bind = session =>
         {
-            var world = World(); world.PlayerPosition = CityTradeView.StationPosition + new Vector3(0, .08f, -1.4f);
+            var world = World(); world.PlayerPosition = UnityEngine.Object.FindAnyObjectByType<CityTradeView>().StationPosition + new Vector3(0, .08f, -1.4f);
             typeof(CitySaveController).GetMethod("Bind", Private).Invoke(save, new object[] { session, world });
             player.RestorePose(world.PlayerPosition, 0, 26); walk.SetPaused(false); trial.Interact();
             Check(trial.IsActive && trial.Repair == session.RepairState && trial.State == session.SolderingState, "adapter binds authoritative state");

@@ -44,7 +44,7 @@ public static partial class S3Verification
         Open(CityTradeKind.Seller); Command("purchase"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
         WalkRoute("seller to workshop for free choice", -61, 8, -62.5f, 8, -62.5f, 14, -65, 14, -65, 25, -69, 30);
-        ToggleFixtureCrate(CityTradeView.WorkshopDock);
+        ToggleFixtureCrate(UnityEngine.Object.FindAnyObjectByType<CityTradeView>().WorkshopDock);
         if (repair) { Open(CityTradeKind.Battery); Command("battery"); trade.CloseMenu(); }
         for (var i = 0; i < 3; i++)
         {
