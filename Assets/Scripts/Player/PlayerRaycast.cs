@@ -7,6 +7,7 @@ using UnityEngine.Serialization;
 namespace Player
 {
     [RequireComponent(typeof(PlayerInput), typeof(PlayerController))]
+    [DefaultExecutionOrder(50)]
     public class PlayerRaycast : MonoBehaviour
     {
         [FormerlySerializedAs("_camera"), SerializeField] private Camera camera;
@@ -16,6 +17,7 @@ namespace Player
         [FormerlySerializedAs("_showDebugRay"), SerializeField] private bool showDebugRay;
         private PlayerInput _input;
         private PlayerController _controller;
+        private bool _interactionRequested;
         public string FocusLabel { get; private set; } = "";
         public void Configure(Camera source, LayerMask mask) { camera = source; layerMask = mask; }
 
@@ -33,6 +35,7 @@ namespace Player
         private void OnDisable()
         {
             _input.OnInteract -= HandleInteraction;
+            _interactionRequested = false;
             FocusLabel = "";
         }
         private bool TryHit(out RaycastHit hit)
@@ -43,8 +46,14 @@ namespace Player
                 Physics.Raycast(camera.transform.position, camera.transform.forward, out hit,
                     raycastDistance, layerMask.value == 0 ? ~0 : layerMask.value, QueryTriggerInteraction.Collide);
         }
-        private void Update()
+        private void LateUpdate()
         {
+            // PlayerInput samples before movement; use the camera after its LateUpdate.
+            if (_interactionRequested)
+            {
+                _interactionRequested = false;
+                InteractWithHit();
+            }
             FocusLabel = "";
             if (!TryHit(out var hit)) return;
             var interaction = hit.collider.GetComponentInParent<IWorldInteraction>();
@@ -53,7 +62,8 @@ namespace Player
             if (target != null) FocusLabel = target.Prompt;
             else if (hit.collider.GetComponentInParent<ItemPickup>() != null) FocusLabel = "E - Pick up";
         }
-        private void HandleInteraction()
+        private void HandleInteraction() => _interactionRequested = true;
+        private void InteractWithHit()
         {
             // The nearest solid hit blocks interaction, even if it is not interactable.
             if (!TryHit(out var hit)) return;
