@@ -325,7 +325,7 @@ public static partial class S3Verification
         Check(trade.Crate.parent == eye.transform, "physical crate carried");
         Check(save.Save(), "save carrying"); Check(save.Load(false), "load carrying"); walk.SetPaused(false);
         Check(trade.Session == save.Session && save.Session.IsCrateCarried && trade.Crate.parent == eye.transform, "restore carrying and rebind");
-        WalkRoute("seller to workshop carrying", 83, -37, 80, -37, 80, -20, 65, 0, 35, -7, -15, -7, -42, 0, -65, 0, -65, 25, -69, 30);
+        WalkRoute("seller to workshop carrying", -58, 12, -60, 12, -60, 14, -65, 14, -65, 25, -69, 30);
         ToggleFixtureCrate(CityTradeView.WorkshopDock);
         Check(save.World.HasCratePose && Vector3.Distance(trade.Crate.position, save.World.CratePosition) < 0.01f, "free crate position persists without teleport");
         player.RestorePose(CityTradeView.SellerDock, 0, 0); Physics.SyncTransforms(); Point(CityTradeKind.Crate).Interact();

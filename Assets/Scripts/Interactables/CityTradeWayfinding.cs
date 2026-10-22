@@ -68,7 +68,7 @@ namespace Interactables
                 oldCounter.GetComponent<Renderer>().enabled = false;
                 // Match the actual replacement counter, instead of retaining a 2m
                 // invisible solid box through the seller's body.
-                oldCounter.transform.position = new Vector3(88, 0.6f, -36.9f);
+                oldCounter.transform.position = SellerPosition + new Vector3(0, -0.7f, 0.1f);
                 oldCounter.transform.localScale = new Vector3(4.5f, 1.2f, 1);
             }
             foreach (var label in FindObjectsByType<TextMesh>(FindObjectsSortMode.None))
@@ -116,11 +116,11 @@ namespace Interactables
 
             Board("МАСТЕРСКАЯ", new Vector3(-65, 3.2f, 19.3f), 0, new Vector2(6.6f, 0.9f));
             Board("МАСТЕРСКАЯ", new Vector3(-77.6f, 3, 30), 90, new Vector2(6.6f, 0.9f));
-            Board("ФОНАРИ И БАТАРЕИ", new Vector3(88, 3.05f, -35.85f), 180, new Vector2(4.5f, 0.5f));
+            Board("ФОНАРИ И БАТАРЕИ", SellerPosition + new Vector3(0, 1.75f, 1.15f), 180, new Vector2(4.5f, 0.5f));
             Board("БАТАРЕИ · $50", new Vector3(65, 3.2f, 19.3f), 0, new Vector2(6, 0.9f));
             Board("СКУПКА ФОНАРЕЙ", new Vector3(-65, 3.2f, -55.7f), 0, new Vector2(6.6f, 0.9f));
-            Board("← МАСТЕРСКАЯ\nПРОДАВЕЦ ФОНАРЕЙ →", new Vector3(-42, 2.4f, 3), 0, new Vector2(5.6f, 1.2f));
-            Board("ФОНАРИ И БАТАРЕИ →", new Vector3(65, 2.4f, -14), 0, new Vector2(5.6f, 0.65f));
+            Board("← МАСТЕРСКАЯ И ПРОДАВЕЦ", new Vector3(-42, 2.4f, 3), 0, new Vector2(5.6f, 1.2f));
+            Board("← ФОНАРИ И БАТАРЕИ", new Vector3(65, 2.4f, -14), 0, new Vector2(5.6f, 0.65f));
 
             // Recognisable workbench and stall silhouettes, outside all movement clearances.
             BuildSliceWorkshop();
@@ -131,10 +131,10 @@ namespace Interactables
             workLight.transform.SetParent(root, false); workLight.transform.position = new Vector3(-72, 2.8f, 33);
             workLight.type = LightType.Point; workLight.range = 7; workLight.intensity = 3;
             workLight.color = new Color(1, 0.88f, 0.65f);
-            Decor("Прилавок фонарей", new Vector3(88, 0.6f, -36.9f), new Vector3(4.5f, 1.2f, 1), accentMaterial, true);
-            Decor("Навес прилавка", new Vector3(88, 2.65f, -36.9f), new Vector3(5, 0.18f, 2), accentMaterial, true);
-            foreach (var x in new[] { 85.6f, 90.4f })
-                Decor("Стойка навеса", new Vector3(x, 1.3f, -36.4f), new Vector3(0.12f, 2.6f, 0.12f), bodyMaterial, true);
+            Decor("Прилавок фонарей", SellerPosition + new Vector3(0, -0.7f, 0.1f), new Vector3(4.5f, 1.2f, 1), accentMaterial, true);
+            Decor("Навес прилавка", SellerPosition + new Vector3(0, 1.35f, 0.1f), new Vector3(5, 0.18f, 2), accentMaterial, true);
+            foreach (var x in new[] { -2.4f, 2.4f })
+                Decor("Стойка навеса", SellerPosition + new Vector3(x, 0, 0.6f), new Vector3(0.12f, 2.6f, 0.12f), bodyMaterial, true);
         }
 
         private void Decor(string title, Vector3 position, Vector3 size, Material material, bool solid = false)
@@ -178,7 +178,8 @@ namespace Interactables
             map.gameObject.AddComponent<Image>().color = new Color(0.07f, 0.13f, 0.14f);
             var paths = Rect("Пешие проходы", map, Vector2.zero, Vector2.one).gameObject.AddComponent<CityTradeMapPaths>();
             paths.color = new Color(0.34f, 0.49f, 0.48f); paths.raycastTarget = false;
-            paths.AddPath(-65, 25, -65, 0, -42, 0, -15, -7, 35, -7, 65, 0, 80, -20, 83, -35, 88, -38.5f);
+            paths.AddPath(-65, 25, -65, 14, -60, 14, -60, 8.35f, -53, 8.35f);
+            paths.AddPath(-65, 14, -65, 0, -42, 0, -15, -7, 35, -7, 65, 0);
             paths.AddPath(65, 0, 65, 26);
             paths.AddPath(-65, 0, -80, 0, -80, -65, -65, -65, -65, -49);
             paths.AddPath(-42, 0, -29, 5, -29, 8.4f, -7, 8.4f, -7, -7);
@@ -186,7 +187,7 @@ namespace Interactables
             MapLabel(map, "БАТАРЕИ\n$50", 65, 47);
             MapLabel(map, "ПОКУПАТЕЛИ\nА: 2 за $260 · Б: 1 за $125", -16, 27);
             MapLabel(map, "СКУПКА\n$60 / $35", -65, -38);
-            MapLabel(map, "ФОНАРИ И БАТАРЕИ\nпартия $180 · батарея $50", 72, -54);
+            MapLabel(map, "ФОНАРИ И БАТАРЕИ\nпартия $180 · батарея $50", -40, -9);
             var p = transform.position;
             if (p.x >= -105 && p.x <= 115 && p.z >= -70 && p.z <= 65)
             {

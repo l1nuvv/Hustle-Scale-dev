@@ -22,6 +22,41 @@ namespace Player
         private Rigidbody body;
         private Vector3 spawnPosition;
         private Quaternion spawnRotation;
+        public static readonly Vector3 WorkshopParkingPosition = new Vector3(-65, 0.4f, 8);
+
+        public bool HasBlockingCityOverlap()
+        {
+            Physics.SyncTransforms();
+            foreach (var shape in GetComponentsInChildren<Collider>())
+            {
+                if (!shape.enabled || shape.isTrigger || shape is WheelCollider) continue;
+                foreach (var other in Physics.OverlapBox(shape.bounds.center, shape.bounds.extents,
+                    Quaternion.identity, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    if (other.transform.IsChildOf(transform) || other is CharacterController || other.attachedRigidbody != null) continue;
+                    var item = other.GetComponentInParent<Interactables.CityTradePoint>();
+                    if (item != null && (item.Kind == Interactables.CityTradeKind.Lamp || item.Kind == Interactables.CityTradeKind.Crate)) continue;
+                    if (Physics.ComputePenetration(shape, shape.transform.position, shape.transform.rotation,
+                        other, other.transform.position, other.transform.rotation, out _, out var depth) && depth > 0.08f) return true;
+                }
+            }
+            return false;
+        }
+
+        // Called after the runtime yard is built and after each restored city session.
+        // A valid parked pose is retained; only penetration into solid geometry triggers recovery.
+        public bool EnsureClearCityPose()
+        {
+            if (IsDriving || !HasBlockingCityOverlap()) return false;
+            var position = body.position; var rotation = body.rotation;
+            body.position = WorkshopParkingPosition;
+            body.rotation = Quaternion.Euler(0, 270, 0);
+            transform.SetPositionAndRotation(body.position, body.rotation);
+            if (HasBlockingCityOverlap())
+            { body.position = position; body.rotation = rotation; transform.SetPositionAndRotation(position, rotation); return false; }
+            body.linearVelocity = Vector3.zero; body.angularVelocity = Vector3.zero;
+            return true;
+        }
         public Transform CargoFloor { get; private set; }
         public Transform CargoGate { get; private set; }
         public Vector3 CargoPosition => CargoFloor.localPosition + Vector3.up * (CargoFloor.localScale.y / 2 + 0.175f);
@@ -275,6 +310,8 @@ namespace Player
             if (IsDriving) return;
             body.position = world.HasVehiclePose ? world.VehiclePosition : spawnPosition;
             body.rotation = world.HasVehiclePose ? Quaternion.Euler(world.VehicleEuler) : spawnRotation;
+            // Interpolation can otherwise leave child transforms at the previous rendered pose during Bind.
+            transform.SetPositionAndRotation(body.position, body.rotation);
             if (!body.isKinematic)
             {
                 body.linearVelocity = Vector3.zero;

@@ -36,7 +36,8 @@ namespace Interactables
         public IReadOnlyList<CityTradePoint> Points => points;
         public Transform Crate => crate;
         public Transform Lamp(int index) => lamps[index];
-        public static readonly Vector3 SellerDock = new Vector3(83, 0.4f, -35);
+        public static readonly Vector3 SellerPosition = new Vector3(-53, 1.3f, 10);
+        public static readonly Vector3 SellerDock = SellerPosition + new Vector3(-5, -0.9f, 2);
         public static readonly Vector3 WorkshopDock = new Vector3(-69, 0.4f, 32);
         private bool Allowed => session != null && !session.IsPaused && !save.IsDriving && player.CanInteract;
 
@@ -77,6 +78,8 @@ namespace Interactables
             message = "";
             if (MenuOpen) { panel.SetActive(false); current = null; }
             if (session == null) return;
+            // Runtime yard obstacles exist only after BuildWorld, later than the initial save restore.
+            vehicle?.EnsureClearCityPose();
             foreach (var pose in save.World.PlacedLamps)
                 for (var i = 0; i < lamps.Length; i++)
                     if (session.CityUnit(i)?.InstanceId == pose.InstanceId)
@@ -398,7 +401,7 @@ namespace Interactables
             bodyMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             bodyMaterial.color = new Color(0.12f, 0.2f, 0.22f);
             accentMaterial = new Material(bodyMaterial) { color = new Color(0.9f, 0.69f, 0.25f) };
-            Point("ПРОДАВЕЦ ФОНАРЕЙ", CityTradeKind.Seller, new Vector3(88, 1.3f, -37));
+            Point("ПРОДАВЕЦ ФОНАРЕЙ", CityTradeKind.Seller, SellerPosition);
             Point("БАТАРЕИ · $50", CityTradeKind.Battery, new Vector3(65, 1.1f, 26));
             Point("СКУПКА · $60 / $35", CityTradeKind.Buyback, new Vector3(-65, 1.1f, -47));
             Point("A · 2 исправных · $260", CityTradeKind.A, new Vector3(-29, 1.3f, 10.5f));

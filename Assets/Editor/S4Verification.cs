@@ -43,7 +43,7 @@ public static partial class S3Verification
         NewFixture(); walk.SetPaused(false);
         Open(CityTradeKind.Seller); Command("purchase"); trade.CloseMenu();
         Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu();
-        WalkRoute("seller to workshop for free choice", 83, -37, 80, -37, 80, -20, 65, 0, 35, -7, -15, -7, -42, 0, -65, 0, -65, 25, -69, 30);
+        WalkRoute("seller to workshop for free choice", -58, 12, -60, 12, -60, 14, -65, 14, -65, 25, -69, 30);
         ToggleFixtureCrate(CityTradeView.WorkshopDock);
         if (repair) { Open(CityTradeKind.Battery); Command("battery"); trade.CloseMenu(); }
         for (var i = 0; i < 3; i++)

@@ -120,7 +120,7 @@ namespace Interactables
 
         private void BuildSliceCharacters()
         {
-            sellerReaction = Character("Продавец", new Vector3(89.1f, 0.08f, -37.75f), 180);
+            sellerReaction = Character("Продавец", SellerPosition + new Vector3(1.1f, -1.22f, -0.75f), 180);
             buyerReaction = Character("Покупатель A", new Vector3(-26, 0.08f, 10.3f), 0);
             buyerBReaction = Character("Покупатель Б", new Vector3(-4, 0.08f, 10.3f), 0);
             feedbackAudio = root.gameObject.AddComponent<AudioSource>();

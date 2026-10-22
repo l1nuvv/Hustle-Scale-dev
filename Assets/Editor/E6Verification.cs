@@ -220,7 +220,7 @@ public static partial class S3Verification
             if (lot == 0)
             {
                 trade.CloseMenu();
-                ToggleFixtureCrate(new Vector3(88, 0.3f, -35));
+                ToggleFixtureCrate(CityTradeView.SellerPosition + new Vector3(0, -1, -2));
                 Open(CityTradeKind.Seller);
                 Command("purchase");
                 Check(save.Session.PurchasedLots == 2 && !save.Session.Units.Any(u => ids.Contains(u.InstanceId)), "E6 restock new identities");
