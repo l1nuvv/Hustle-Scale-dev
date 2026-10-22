@@ -324,7 +324,7 @@ public static class SolderingTrialVerification
     }
 
     private static bool IronDocked(SolderingTrial trial) =>
-        Vector3.Distance(trial.TipPosition, trial.transform.TransformPoint(new Vector3(0.56f, 1.115f, 0))) < 0.001f;
+        Vector3.Distance(trial.TipPosition, trial.ToolHomePosition(SolderingTrialState.Tool.Iron)) < 0.001f;
 
     private static void Begin() { checks = 0; report.Clear(); }
     private static void Check(bool condition, string message)

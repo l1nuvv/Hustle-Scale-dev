@@ -6220,6 +6220,7 @@ MonoBehaviour:
   flashlightVisualPrefab: {fileID: 6679400136178061638, guid: a1f161628fc155c4eb77937c776aec35, type: 3}
   smokeTexture: {fileID: 2800000, guid: 512008ab40a125f4cba5442bb6841eb9, type: 3}
   fullOperation: 1
+  solderingMatPrefab: {fileID: 1569823468283655570, guid: aa6823f036db48947bc7050ce5d57f14, type: 3}
 --- !u!4 &256770960
 Transform:
   m_ObjectHideFlags: 0
@@ -31509,6 +31510,7 @@ MonoBehaviour:
   flashlightVisualPrefab: {fileID: 8478914501258336454, guid: c9a3780ca7fdc554b80d9bd34fa41420, type: 3}
   smokeTexture: {fileID: 2800000, guid: 512008ab40a125f4cba5442bb6841eb9, type: 3}
   fullOperation: 0
+  solderingMatPrefab: {fileID: 1569823468283655570, guid: aa6823f036db48947bc7050ce5d57f14, type: 3}
 --- !u!4 &1542994954
 Transform:
   m_ObjectHideFlags: 0

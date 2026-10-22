@@ -55,7 +55,7 @@ public static partial class FlashlightRepairVerification
             r.TogglePower(); tick(0, false, true);
             Check(!t.BeamEnabled && !r.Complete, "real Light remains disabled for pre-repair switch test");
             Open(r); tick(0, false, true);
-            Check(Vector3.Distance(cover.localPosition, new Vector3(-0.56f, 1.035f, 0.35f)) < 0.001f && s.Accessible, "removed cover rests in visible tray and joint opens");
+            Check(Vector3.Distance(cover.position, t.WorkMat.Find("CoverTray").position) < 0.001f && s.Accessible, "removed cover rests at mat tray anchor and joint opens");
             s.SelectTool(SolderingTrialState.Tool.Solder); tick(0.3f, true, true);
             Check(s.HasSolder && s.Progress == 0, "physical wire contact prepares single connection");
             s.SelectTool(SolderingTrialState.Tool.Iron); aim.SetValue(t, new Vector2(0.2f, 0)); tick(1, true, true);
@@ -101,7 +101,7 @@ public static partial class FlashlightRepairVerification
                     "exit/return preserves single item and cover at stage " + stage);
                 t.ResetTrial();
                 Check(!s.Accessible && !t.BeamEnabled && !r.Complete && r.IsSecured(0) && r.IsSecured(1) &&
-                    flashlight.localPosition == new Vector3(0, 1.075f, -0.38f) && cover.position == flashlight.position && cover.parent == flashlight,
+                    flashlight.position == t.WorkMat.Find("Supply").position && cover.position == flashlight.position && cover.parent == flashlight,
                     "reset restores visible closed broken supply at stage " + stage);
             }
             t.Exit();

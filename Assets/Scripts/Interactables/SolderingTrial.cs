@@ -19,6 +19,7 @@ namespace Interactables
         [SerializeField] private GameObject flashlightVisualPrefab;
         [SerializeField] private Texture2D smokeTexture;
         [SerializeField] private bool fullOperation;
+        [SerializeField] private GameObject solderingMatPrefab;
         private readonly SolderingTrialState state = new SolderingTrialState();
         private readonly List<Object> resources = new List<Object>();
         private readonly List<Behaviour> suspended = new List<Behaviour>();
@@ -45,9 +46,14 @@ namespace Interactables
         private Quaternion motionRotation;
         private float motionTime;
         private bool returningTool;
-        private static readonly Vector3 Joint = new Vector3(0, 1.075f, 0);
-        private static readonly Vector3 IronDock = new Vector3(0.56f, 1.075f, 0);
-        private static readonly Vector3 SolderDock = new Vector3(-0.56f, 1.075f, 0);
+        private Transform workMat, repairAnchor, ironAnchor, solderAnchor, coverAnchor, supplyAnchor, dockedSolderFeed;
+        private Vector3 LocalAnchor(Transform anchor) => transform.InverseTransformPoint(anchor.position);
+        private Vector3 Joint => repairAnchor != null ? LocalAnchor(repairAnchor) : new Vector3(0, 1.075f, 0);
+        private Vector3 IronDock => ironAnchor != null ? LocalAnchor(ironAnchor) : new Vector3(0.56f, 1.115f, 0);
+        private Vector3 SolderDock => solderAnchor != null ? LocalAnchor(solderAnchor) : new Vector3(-0.56f, 1.115f, 0);
+        private Quaternion DockRotation(Transform anchor) => anchor != null ? Quaternion.Inverse(transform.rotation) * anchor.rotation : Quaternion.identity;
+        public Transform WorkMat => workMat;
+        public Vector3 ToolHomePosition(SolderingTrialState.Tool tool) => transform.TransformPoint(tool == SolderingTrialState.Tool.Iron ? IronDock : SolderDock);
         public string Prompt => fullOperation ? "E — M3: полный ремонт фонарика" : "E — M2: проба пайки (отдельный эксперимент)";
         public SolderingTrialState State => state;
         public bool Active => active;
@@ -187,13 +193,24 @@ namespace Interactables
 
         private BoxCollider ToolCollider(Transform tool)
         {
-            var renderers = tool.GetComponentsInChildren<MeshRenderer>();
-            var bounds = renderers[0].bounds;
-            foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
+            var bounds = new Bounds();
+            var first = true;
+            foreach (var filter in tool.GetComponentsInChildren<MeshFilter>())
+            {
+                var mesh = filter.sharedMesh.bounds;
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var point = mesh.center + Vector3.Scale(mesh.extents, new Vector3(
+                        (corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
+                    point = tool.InverseTransformPoint(filter.transform.TransformPoint(point));
+                    if (first) { bounds = new Bounds(point, Vector3.zero); first = false; }
+                    else bounds.Encapsulate(point);
+                }
+            }
             var collider = tool.gameObject.AddComponent<BoxCollider>();
             collider.isTrigger = true;
-            collider.center = tool.InverseTransformPoint(bounds.center);
-            collider.size = new Vector3(bounds.size.x / tool.lossyScale.x, bounds.size.y / tool.lossyScale.y, bounds.size.z / tool.lossyScale.z);
+            collider.center = bounds.center;
+            collider.size = bounds.size;
             return collider;
         }
 
@@ -234,18 +251,18 @@ namespace Interactables
             motionTime += seconds;
             var t = Mathf.Clamp01(motionTime / 0.24f);
             var eased = Mathf.SmoothStep(0, 1, t);
-            var end = returningTool ? (movingTool == iron ? IronDock : SolderDock) + Vector3.up * 0.04f :
+            var end = returningTool ? (movingTool == iron ? IronDock : SolderDock) :
                 Joint + new Vector3(aim.x, 0.18f, aim.y);
             movingTool.localPosition = Vector3.Lerp(motionStart, end, eased) + Vector3.up * (Mathf.Sin(t * Mathf.PI) * 0.065f);
-            movingTool.localRotation = Quaternion.Slerp(motionRotation, Quaternion.identity, eased) *
+            var endRotation = returningTool ? DockRotation(movingTool == iron ? ironAnchor : solderAnchor) : Quaternion.identity;
+            movingTool.localRotation = Quaternion.Slerp(motionRotation, endRotation, eased) *
                 Quaternion.Euler(0, 0, Mathf.Sin(t * Mathf.PI) * (returningTool ? -8 : 8));
-            if (t >= 1) { movingTool.localRotation = Quaternion.identity; movingTool = null; }
+            if (t >= 1) { movingTool.localRotation = endRotation; movingTool = null; }
         }
 
         private void CancelToolMotion()
         {
             movingTool = null;
-            iron.localRotation = solder.localRotation = Quaternion.identity;
         }
 
         private void AdvanceTool(float seconds, bool pressing, bool operating)
@@ -254,8 +271,17 @@ namespace Interactables
             depth = Mathf.MoveTowards(depth, pressing && held != SolderingTrialState.Tool.None ? 1 : 0, seconds * 5);
             if (!operating) depth = 0;
             var workingEnd = Joint + new Vector3(aim.x, Mathf.Lerp(0.18f, 0, Mathf.SmoothStep(0, 1, depth)), aim.y);
-            if (movingTool != iron) iron.localPosition = held == SolderingTrialState.Tool.Iron ? workingEnd : IronDock + Vector3.up * 0.04f;
-            if (movingTool != solder) solder.localPosition = held == SolderingTrialState.Tool.Solder ? workingEnd : SolderDock + Vector3.up * 0.04f;
+            if (movingTool != iron)
+            {
+                iron.localPosition = held == SolderingTrialState.Tool.Iron ? workingEnd : IronDock;
+                iron.localRotation = held == SolderingTrialState.Tool.Iron ? Quaternion.identity : DockRotation(ironAnchor);
+            }
+            if (movingTool != solder)
+            {
+                solder.localPosition = held == SolderingTrialState.Tool.Solder ? workingEnd : SolderDock;
+                solder.localRotation = held == SolderingTrialState.Tool.Solder ? Quaternion.identity : DockRotation(solderAnchor);
+            }
+            if (dockedSolderFeed != null) dockedSolderFeed.gameObject.SetActive(held == SolderingTrialState.Tool.Solder || movingTool == solder);
             pointer.localPosition = Joint + new Vector3(aim.x, 0.006f, aim.y);
             var actualEnd = held == SolderingTrialState.Tool.Solder ? wireEnd : tip;
             // Geometry gates progress: lateral aim alone or the button alone cannot solder.
@@ -360,6 +386,16 @@ namespace Interactables
             Part("Trial table", transform, PrimitiveType.Cube, new Vector3(0, 0.94f, 0), new Vector3(1.9f, 0.1f, fullOperation ? 1.4f : 1), wood, true);
             foreach (var x in new[] { -0.8f, 0.8f })
                 Part("Leg", transform, PrimitiveType.Cube, new Vector3(x, 0.45f, 0), new Vector3(0.09f, 0.9f, 0.65f), dark);
+            if (solderingMatPrefab != null)
+            {
+                workMat = Visual(solderingMatPrefab, transform, new Vector3(0, 0.99f, 0));
+                if (!fullOperation) workMat.localScale = new Vector3(1, 1, 0.74f);
+                repairAnchor = workMat.Find("RepairOrigin");
+                ironAnchor = workMat.Find("IronDock");
+                solderAnchor = workMat.Find("SolderDock");
+                coverAnchor = workMat.Find("CoverTray");
+                supplyAnchor = workMat.Find("Supply");
+            }
             if (flashlightVisualPrefab != null) flashlight = Visual(flashlightVisualPrefab, transform, Joint);
             else
             {
@@ -402,6 +438,9 @@ namespace Interactables
             if (solderVisualPrefab != null)
             {
                 Visual(solderVisualPrefab, solder, Vector3.zero);
+                if (workMat != null)
+                    foreach (var part in solder.GetComponentsInChildren<Transform>())
+                        if (part.name == "Solder feed wire") { dockedSolderFeed = part; part.gameObject.SetActive(false); }
                 wireEnd = new GameObject("Solder working end").transform;
                 wireEnd.SetParent(solder, false);
             }
@@ -434,11 +473,15 @@ namespace Interactables
                 var angle = i * Mathf.PI * 2 / ring.positionCount;
                 ring.SetPosition(i, new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * 0.024f);
             }
-            iron.localPosition = IronDock + Vector3.up * 0.04f;
-            solder.localPosition = SolderDock + Vector3.up * 0.04f;
+            iron.localPosition = IronDock;
+            iron.localRotation = DockRotation(ironAnchor);
+            solder.localPosition = SolderDock;
             titleLabel = Label(fullOperation ? "M3 · ПОЛНАЯ ОПЕРАЦИЯ\nE — приступить" : "M2 · ПРОБА ПАЙКИ\nE — приступить", new Vector3(0, 1.24f, fullOperation ? 0.49f : 0.39f), 0.012f);
-            Label("ПРИПОЙ", SolderDock + new Vector3(0, -0.06f, -0.22f), 0.007f);
-            Label("ПАЯЛЬНИК", IronDock + new Vector3(0, -0.06f, -0.22f), 0.007f);
+            if (workMat == null)
+            {
+                Label("ПРИПОЙ", SolderDock + new Vector3(0, -0.10f, -0.22f), 0.007f);
+                Label("ПАЯЛЬНИК", IronDock + new Vector3(0, -0.10f, -0.22f), 0.007f);
+            }
             var smokeObject = new GameObject("Light contact smoke");
             smokeObject.transform.SetParent(transform, false);
             smokeObject.transform.localPosition = Joint + Vector3.up * 0.02f;

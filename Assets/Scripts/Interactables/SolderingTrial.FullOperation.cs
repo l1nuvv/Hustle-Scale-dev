@@ -20,10 +20,10 @@ namespace Interactables
         private int fasteningIndex = -1;
         private bool fasteningReleased = true;
         private bool workPaused;
-        private static Vector3 SupplyPosition => Joint + new Vector3(0, 0, -0.38f);
-        private static Vector3 HeldFlashlight => Joint + new Vector3(0.40f, 0.14f, -0.30f);
-        private static Vector3 HeldCover => Joint + new Vector3(0.40f, 0.16f, -0.28f);
-        private static Vector3 CoverTray => Joint + new Vector3(-0.56f, -0.04f, 0.35f);
+        private Vector3 SupplyPosition => supplyAnchor != null ? LocalAnchor(supplyAnchor) : Joint + new Vector3(0, 0, -0.38f);
+        private Vector3 HeldFlashlight => Joint + new Vector3(0.40f, 0.14f, -0.30f);
+        private Vector3 HeldCover => Joint + new Vector3(0.40f, 0.16f, -0.28f);
+        private Vector3 CoverTray => coverAnchor != null ? LocalAnchor(coverAnchor) : Joint + new Vector3(-0.56f, -0.04f, 0.35f);
         public bool IsFullOperation => fullOperation;
         public FlashlightRepairState Repair => repair;
         public bool RepairAnimating => repairMotion != RepairMotion.None;
@@ -63,14 +63,14 @@ namespace Interactables
             for (var i = 0; i < 2; i++)
                 RepairHit((RepairTarget)((int)RepairTarget.Fastener0 + i), fasteners[i], Vector3.zero, new Vector3(0.085f, 0.06f, 0.085f));
             RepairHit(RepairTarget.Power, powerSwitch, Vector3.zero, new Vector3(0.085f, 0.05f, 0.075f));
-            var mat = Part("M3 placement mat", transform, PrimitiveType.Cube, new Vector3(0, 0.998f, 0),
-                new Vector3(0.79f, 0.008f, 0.34f), Material(new Color(0.12f, 0.22f, 0.25f)));
-            RepairHit(RepairTarget.WorkMat, mat, Vector3.zero, new Vector3(1, 1, 1));
-            var tray = Part("M3 cover tray", transform, PrimitiveType.Cube, new Vector3(-0.56f, 0.998f, 0.35f),
-                new Vector3(0.65f, 0.012f, 0.34f), Material(new Color(0.15f, 0.24f, 0.28f)));
-            RepairHit(RepairTarget.Tray, tray, Vector3.zero, Vector3.one);
-            Label("КРЫШКА", new Vector3(-0.56f, 1.015f, 0.54f), 0.006f);
-            Label("МЕСТО РЕМОНТА", new Vector3(0, 1.015f, 0.23f), 0.005f);
+            var mat = new GameObject("M3 placement target").transform;
+            mat.SetParent(transform, false);
+            mat.localPosition = new Vector3(Joint.x, 0.998f, Joint.z);
+            RepairHit(RepairTarget.WorkMat, mat, Vector3.zero, new Vector3(0.79f, 0.012f, 0.34f));
+            var tray = new GameObject("M3 lid tray target").transform;
+            tray.SetParent(transform, false);
+            tray.localPosition = new Vector3(CoverTray.x, 0.998f, CoverTray.z);
+            RepairHit(RepairTarget.Tray, tray, Vector3.zero, new Vector3(0.68f, 0.012f, 0.34f));
             Part("M3 beam target", transform, PrimitiveType.Cube, new Vector3(0.93f, 1.22f, 0),
                 new Vector3(0.035f, 0.43f, 0.42f), Material(new Color(0.68f, 0.70f, 0.65f)));
             var beam = new GameObject("M3 working flashlight beam");
@@ -271,7 +271,7 @@ namespace Interactables
                 return "E — взять фонарик · сначала припой, затем паяльник";
             if (repair.Flashlight == FlashlightRepairState.ItemPlace.Held) return "Наведите на коврик — E поставить фонарик";
             if (repair.Cover == FlashlightRepairState.CoverPlace.Held)
-                return repairHover == RepairTarget.WorkMat ? "E — вернуть крышку на корпус" : "E над лотком слева — положить крышку";
+                return repairHover == RepairTarget.WorkMat ? "E — вернуть крышку на корпус" : "E над лотком сзади — положить крышку";
             if (repair.Cover == FlashlightRepairState.CoverPlace.Attached)
             {
                 if (repair.Complete && repair.Assembled) return "Фонарик проверен: свет работает · R — повторить";
@@ -282,7 +282,7 @@ namespace Interactables
                 return state.Complete ? "Закрепите второе крепление — ЛКМ" : "Ослабьте второе крепление — ЛКМ";
             }
             if (state.Complete) return state.HeldTool != SolderingTrialState.Tool.None
-                ? "Пайка готова. Положите инструмент — E" : "E — взять крышку из лотка слева";
+                ? "Пайка готова. Положите инструмент — E" : "E — взять крышку из лотка сзади";
             if (repairHover == RepairTarget.Cover) return "E — взять крышку (соединение ещё повреждено)";
             return null; // Existing M2 material / heat / physical-contact instructions.
         }
