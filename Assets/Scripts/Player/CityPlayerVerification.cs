@@ -7,12 +7,14 @@ using Interactables;
 using Inventory;
 using Player.Movement;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
 
 namespace Player
 {
     // Explicit development-Player fixture; each phase runs in a separate process.
-    public sealed class CityPlayerVerification : MonoBehaviour
+    public sealed partial class CityPlayerVerification : MonoBehaviour
     {
         public static string SavePath { get; private set; }
         private static string output, phase;
@@ -23,6 +25,7 @@ namespace Player
         private PlayerController player;
         private Camera eye;
         private string runtimeFailure;
+        private Keyboard verificationKeyboard;
         private readonly List<string> events = new List<string>();
         private readonly Report report = new Report();
 
@@ -44,6 +47,8 @@ namespace Player
             {
                 if (argument.StartsWith("-city-verify=", StringComparison.Ordinal)) output = Path.GetFullPath(argument.Substring(13));
                 if (argument.StartsWith("-city-verify-phase=", StringComparison.Ordinal)) phase = argument.Substring(19);
+                if (argument.StartsWith("-first-deal-verify=", StringComparison.Ordinal))
+                { output = Path.GetFullPath(argument.Substring(19)); phase = "first-deal"; }
             }
             if (output == null) return;
             SavePath = Path.Combine(output, "city-save.json");
@@ -86,7 +91,11 @@ namespace Player
                 runtimeFailure = message + "\n" + stack;
         }
 
-        private void OnDestroy() => Application.logMessageReceived -= RuntimeError;
+        private void OnDestroy()
+        {
+            Application.logMessageReceived -= RuntimeError;
+            if (verificationKeyboard != null) InputSystem.RemoveDevice(verificationKeyboard);
+        }
 
         private void Check(bool condition, string context)
         {
@@ -121,6 +130,7 @@ namespace Player
             Check(Physics.Raycast(eye.transform.position, eye.transform.forward, out var hit, 2.5f,
                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) && hit.collider.GetComponent<CityTradePoint>() == point,
                 "nearest interaction ray " + kind);
+            if (kind == CityTradeKind.Workshop) return;
             point.Interact();
             Check(trade.MenuOpen && walk.IsPaused, "menu opened " + kind);
             events.Add("Open " + kind);
@@ -128,8 +138,19 @@ namespace Player
 
         private void Command(string command, int index = -1)
         {
-            Check(trade.Execute(command, index), "command " + command + ": " + index);
+            Check(command == "bench" || command == "test" || command == "repair" ?
+                trade.WorkshopAction(Point(CityTradeKind.Workshop), command) : trade.Execute(command, index),
+                "command " + command + ": " + index);
             events.Add("Command " + command + ": " + index);
+        }
+
+        private void DropCrate()
+        {
+            trade.CloseMenu(); walk.SetPaused(false);
+            player.RestorePose(new Vector3(-69, 0.08f, 30.6f), 0, 45);
+            Physics.SyncTransforms();
+            Check(trade.DropHeld(), "crate placed on a free surface");
+            Check(save.World.HasCratePose && !save.Session.IsCrateCarried, "free crate pose recorded");
         }
 
         private void Reject(string command, string context)
@@ -202,7 +223,8 @@ namespace Player
             Check(FindObjectsByType<CityTradeView>().Length == 1 && trade.Points.Count(p => p.Kind == CityTradeKind.Lamp) == 3,
                 "one trade view and exactly three lamp targets");
             Check(save.Session.IsCrateCarried ? trade.Crate.parent == eye.transform :
-                Vector3.Distance(trade.Crate.position, save.World.CrateDock == CityCrateDock.Seller ?
+                Vector3.Distance(trade.Crate.position, save.World.HasCratePose ? save.World.CratePosition :
+                    save.World.CrateDock == CityCrateDock.Seller ?
                     CityTradeView.SellerDock : CityTradeView.WorkshopDock) < 0.001f, "crate parent/dock");
             for (var i = 0; i < 3; i++)
             {
@@ -212,7 +234,8 @@ namespace Player
                     "lamp visibility " + i);
                 if (unit.Location == FlashlightLocation.Crate) Check(lamp.parent == trade.Crate, "crate lamp parent " + i);
                 if (unit.Location == FlashlightLocation.Bench) Check(lamp.parent.name == "City trade runtime", "bench parent " + i);
-                Check(lamp.GetComponent<Collider>().enabled == (unit.Location == FlashlightLocation.World), "lamp collider " + i);
+                Check(lamp.GetComponent<Collider>().enabled == (unit.Location == FlashlightLocation.World ||
+                    unit.Location == FlashlightLocation.Bench), "lamp collider " + i);
             }
         }
 
@@ -231,9 +254,16 @@ namespace Player
 
         private IEnumerator Scenario()
         {
-            Check(phase == "prepare" || phase == "continue" || phase == "restore", "known phase");
+            if (phase == "first-deal")
+            {
+                var firstDeal = FirstDealScenario();
+                while (firstDeal.MoveNext()) yield return firstDeal.Current;
+                yield break;
+            }
+            Check(phase == "prepare" || phase == "continue" || phase == "restore" || phase == "lifecycle", "known phase");
             Check(CitySliceProfile.SavePath == null, "performance harness disabled");
-            Check(phase == "prepare" ? !hadSave && !File.Exists(SavePath + ".backup") : hadSave, "correct fresh/resume precondition");
+            Check(phase == "prepare" || phase == "lifecycle" ? !hadSave && !File.Exists(SavePath + ".backup") : hadSave,
+                "correct fresh/resume precondition");
             trade = FindAnyObjectByType<CityTradeView>();
             Check(trade != null, "CityGreybox trade present");
             save = trade.GetComponent<CitySaveController>(); walk = trade.GetComponent<CityGreyboxWalk>();
@@ -242,6 +272,12 @@ namespace Player
             Check(save.Session != null && walk.IsPaused && save.Session.IsPaused, "startup is paused");
             report.initial = JsonUtility.FromJson<CitySaveData>(JsonUtility.ToJson(save.Session.CaptureCity(save.World)));
             Bindings();
+            if (phase == "lifecycle")
+            {
+                var lifecycle = Lifecycle();
+                while (lifecycle.MoveNext()) yield return lifecycle.Current;
+                yield break;
+            }
             if (phase != "prepare")
             {
                 var checkpoint = new CitySaveStore(Path.Combine(output, phase == "continue" ? "prepare-save.json" : "continue-save.json"));
@@ -259,11 +295,14 @@ namespace Player
             if (phase == "prepare")
             {
                 Check(save.Session.Balance == 300 && !save.Session.LotPurchased, "fresh city balance and lot");
+                // Same deterministic fixture as S2/S3; production city lots remain random.
+                typeof(WorkshopSession).GetField("cityRandom", System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic).SetValue(save.Session, new System.Random(41));
                 Open(CityTradeKind.Seller); Command("purchase"); Reject("purchase", "duplicate purchase"); Command("battery");
                 Check(save.Session.Balance == 70 && save.Session.Expenses == 230 && save.Session.SpareBatteries == 1, "purchase accounting");
                 Open(CityTradeKind.Crate); Command("crate"); trade.CloseMenu(); Bindings();
                 Route("seller to workshop carrying", 83, -37, 80, -37, 80, -20, 65, 0, 35, -7, -15, -7, -42, 0, -65, 0, -65, 25, -69, 30);
-                Open(CityTradeKind.WorkshopDock); Command("crate");
+                DropCrate();
                 Open(CityTradeKind.Crate); Command("unit", 1);
                 Open(CityTradeKind.Workshop); Command("bench"); Command("test");
                 Check(!save.Session.Units[1].LastTestPassed, "battery fault diagnosed");
@@ -297,7 +336,12 @@ namespace Player
                 Paid();
                 Open(CityTradeKind.A); Reject("deliver", "A payout after restart");
                 Open(CityTradeKind.B); Reject("deliver", "B payout after restart");
-                Open(CityTradeKind.Seller); Reject("purchase", "lot purchase after restart");
+                var oldIds = save.Session.Units.Select(u => u.InstanceId).ToArray();
+                Open(CityTradeKind.Seller); Command("purchase");
+                Check(save.Session.Balance == 275 && save.Session.PreviousOrder(DealOrderId.A).State == DealOrderState.Completed &&
+                    save.Session.PreviousOrder(DealOrderId.B).State == DealOrderState.Completed &&
+                    !save.Session.Units.Any(u => oldIds.Contains(u.InstanceId)), "second lot after restart has new identities and order history");
+                Reject("purchase", "duplicate second lot purchase");
             }
             trade.CloseMenu(); walk.SetPaused(true);
             Check(save.Save(), "explicit checkpoint save");
@@ -307,9 +351,79 @@ namespace Player
                 Check(save.Load(false), "repeat load " + i);
                 Matches(snapshot); Bindings();
             }
-            if (phase != "prepare") Paid();
+            if (phase == "continue") Paid();
             Check(runtimeFailure == null, runtimeFailure ?? "no runtime errors");
             events.Add("Checkpoint saved; three repeated loads preserve entire snapshot and bindings");
+        }
+
+        private IEnumerator Lifecycle()
+        {
+            verificationKeyboard = InputSystem.AddDevice<Keyboard>("CityLifecycleKeyboard");
+            InputSystem.QueueStateEvent(verificationKeyboard, new KeyboardState(Key.Escape));
+            yield return null; yield return null;
+            Check(!walk.IsPaused && player.CanInteract, "Input System Escape resumes paused city");
+            InputSystem.QueueStateEvent(verificationKeyboard, new KeyboardState());
+            yield return null; yield return null;
+            InputSystem.QueueStateEvent(verificationKeyboard, new KeyboardState(Key.Escape));
+            yield return null; yield return null;
+            Check(walk.IsPaused && !player.CanInteract, "Input System Escape pauses active city");
+            InputSystem.QueueStateEvent(verificationKeyboard, new KeyboardState());
+            yield return null;
+            events.Add("Escape tested with queued Input System keyboard states across frames; OS key injection is separate");
+            Open(CityTradeKind.Seller); trade.CloseMenu();
+            yield return null;
+            InputSystem.QueueStateEvent(verificationKeyboard, new KeyboardState(Key.E));
+            yield return null; yield return null;
+            Check(trade.MenuOpen && walk.IsPaused, "Input System E opens the raycast seller interaction");
+            InputSystem.QueueStateEvent(verificationKeyboard, new KeyboardState());
+            yield return null;
+            events.Add("first usable seller interaction through queued E and PlayerRaycast");
+            for (var run = 0; run < 3; run++)
+            {
+                var oldSession = save.Session;
+                Open(CityTradeKind.Seller);
+                save.NewGame();
+                Check(!trade.MenuOpen && walk.IsPaused && save.Session.IsPaused, "new game closes stale menu " + run);
+                Check(save.Session != oldSession && save.Session.Balance == 300 && !save.Session.LotPurchased &&
+                    save.Session.ElapsedSeconds == 0, "new game resets state " + run);
+                Bindings();
+                oldSession.SetPaused(false);
+                Check(oldSession.PurchaseLot(out _), "old detached model can be changed without current callbacks");
+                Check(trade.Session == save.Session && save.Session.Balance == 300 && !save.Session.LotPurchased,
+                    "previous session cannot mutate current game");
+                walk.PauseAction("resume");
+                Check(!walk.IsPaused && player.CanInteract && !save.Session.IsPaused, "resume restores logical input gates");
+                yield return new WaitForSecondsRealtime(0.1f);
+                Check(save.Session.ElapsedSeconds > 0, "active clock advances");
+                walk.SetPaused(true);
+                var elapsed = save.Session.ElapsedSeconds;
+                yield return new WaitForSecondsRealtime(0.1f);
+                Check(save.Session.ElapsedSeconds == elapsed && !player.CanInteract && Cursor.visible,
+                    "pause stops clock, movement and releases cursor");
+                Check(save.Save() && save.Load(false), "same-process save/load " + run);
+                Bindings();
+            }
+            var before = JsonUtility.ToJson(save.Session.CaptureCity(save.World));
+            File.WriteAllText(SavePath, "{broken isolated diagnostic save");
+            Check(!save.Load(false), "corrupt save refused");
+            Check(before == JsonUtility.ToJson(save.Session.CaptureCity(save.World)) && walk.IsPaused,
+                "failed load preserves complete live snapshot");
+            Check(save.Load(true), "backup recovers corrupt main save");
+            Check(save.Save(), "recovered state can be saved again");
+            events.Add("3 New Game/menu/resume/pause/save/load cycles; detached session; corrupt load and backup recovery");
+            var load = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync("CityGreybox");
+            Check(load != null, "scene reload requested");
+            while (!load.isDone) yield return null;
+            yield return null; yield return null;
+            trade = FindAnyObjectByType<CityTradeView>();
+            save = trade.GetComponent<CitySaveController>(); walk = trade.GetComponent<CityGreyboxWalk>();
+            player = trade.GetComponent<PlayerController>(); eye = player.GetComponentInChildren<Camera>();
+            Bindings();
+            Check(FindObjectsByType<CitySaveController>().Length == 1 && FindObjectsByType<CityGreyboxWalk>().Length == 1 &&
+                FindObjectsByType<CityUtilityVehicle>().Length == 1 && FindObjectsByType<Canvas>().Count(c =>
+                    c.name == "City trading UI") == 1, "scene reload has one save, walk, vehicle and trade Canvas");
+            Check(walk.IsPaused && save.Session.IsPaused, "reloaded scene starts paused");
+            events.Add("actual CityGreybox scene reload; no duplicate systems or UI");
         }
 
         private void Paid()

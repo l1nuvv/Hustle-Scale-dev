@@ -26,11 +26,13 @@ namespace Player
 
         private void Awake()
         {
+            CityStartupDiagnostics.Stage("save controller Awake");
             player = GetComponent<PlayerController>();
             walk = GetComponent<CityGreyboxWalk>();
             store = new CitySaveStore(Path.Combine(Application.persistentDataPath, "city-save.json"));
             if (CitySliceProfile.SavePath != null) store = new CitySaveStore(CitySliceProfile.SavePath);
             if (CityPlayerVerification.SavePath != null) store = new CitySaveStore(CityPlayerVerification.SavePath);
+            if (CityStartupDiagnostics.SavePath != null) store = new CitySaveStore(CityStartupDiagnostics.SavePath);
 #if UNITY_EDITOR
             // The repeatable Play Mode fixture must never overwrite the player's real save.
             var verificationPath = UnityEditor.SessionState.GetString("HustleScale.S2SaveOverride", "");
@@ -40,6 +42,7 @@ namespace Player
 
         private void Start()
         {
+            CityStartupDiagnostics.Stage("save controller Start");
             vehicle = FindAnyObjectByType<CityUtilityVehicle>();
             if (store.Exists) Load(false);
             else if (store.BackupExists)
@@ -48,6 +51,7 @@ namespace Player
                 walk.SetPaused(true);
             }
             else NewGame();
+            CityStartupDiagnostics.Stage("save/new session initialized");
         }
 
         private void Update()

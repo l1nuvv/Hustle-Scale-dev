@@ -42,6 +42,7 @@ namespace Interactables
 
         private void Start()
         {
+            CityStartupDiagnostics.Stage("trade Start");
             lampProperties = new MaterialPropertyBlock();
             save = GetComponent<CitySaveController>(); walk = GetComponent<CityGreyboxWalk>();
             player = GetComponent<PlayerController>(); input = GetComponent<Player.PlayerInput>();
@@ -52,7 +53,10 @@ namespace Interactables
             gameObject.layer = 2; // Unity's built-in Ignore Raycast layer; collisions remain enabled.
             raycast.Configure(eye, Physics.DefaultRaycastLayers);
             vehicle = FindAnyObjectByType<CityUtilityVehicle>();
-            BuildWorld(); BuildUI();
+            BuildWorld();
+            CityStartupDiagnostics.Stage("world built");
+            BuildUI();
+            CityStartupDiagnostics.Stage("UI built");
             save.SessionReplaced += Bind; save.BeforeSave += CaptureWorld;
             input.OnToggleInventory += Inventory;
             input.OnSelectSlot += Equip;
@@ -62,6 +66,7 @@ namespace Interactables
             input.OnTestItem += TestFocused;
             input.OnRepairItem += RepairFocused;
             Bind();
+            CityStartupDiagnostics.Stage("trade bound to session");
         }
 
         private void Bind()
