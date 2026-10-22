@@ -1,10 +1,27 @@
 # Development workflow — Hustle and Scale
 
-**Primary IDE:** JetBrains Rider. For Unity integration check the bundled Unity Support plugin, `com.unity.ide.rider` (only after recovering actual package state), and the Unity External Script Editor setting. Use Rider inspections and debugger, but validate Unity compilation and PlayMode separately; do not prescribe VS Code as the default.
+**Primary IDE:** JetBrains Rider. Use the Unity Support plugin and the already installed `com.unity.ide.rider`; check External Script Editor = Rider and Attach to Unity Editor & Play when debugging. Personal IDE settings are not evidence of project behavior. Regenerate Unity project files through the existing integration if needed; do not treat generated `.csproj` as the package source of truth.
 
-Status: locally integrated repository policy, 2026-10-18; adapted from archive v0.3.1 to the actual working tree. Actual code, Git state, and confirmed test results remain the technical source of truth.
+Status: repository workflow, audited 2026-10-22. Actual code, Git state, and observed results remain the technical source of truth. Start from the current checkout; recovery instructions in archive v0.3.1 describe an earlier repository.
 
-**Technical baseline:** Unity 6000.6.0f1, package manifests, migrated settings and asset metadata are versioned. Any further migration needs a separate task. Local installed `.agents/` skills and supplied `/references/*.zip` archives are ignored. `ProjectSettings/EditorBuildSettings.asset` enables CityGreybox; FirstDealTrade is present but disabled (checked 2026-10-21).
+<a id="technical-baseline"></a>
+## Technical baseline
+
+Read from files on 2026-10-22; no Editor launch or compilation during this documentation audit.
+
+| Fact | Current file evidence |
+| --- | --- |
+| Unity | [ProjectVersion](../ProjectSettings/ProjectVersion.txt): 6000.6.0f1, revision f7f8ed4d1e24 |
+| Packages | [manifest](../Packages/manifest.json) and [lock](../Packages/packages-lock.json): URP 17.6.0, Input System 1.20.1, uGUI 2.6.0, Test Framework 1.8.0, Rider 3.0.40. Both files are tracked; no recovery/install task is pending |
+| Rendering | [GraphicsSettings](../ProjectSettings/GraphicsSettings.asset) resolves to [PC_RPAsset](../Assets/Settings/PC_RPAsset.asset); quality overrides also exist. Preserve the existing pipeline |
+| Input / UI | Player Settings activeInputHandler = 1; gameplay uses `Player.PlayerInput`'s runtime action map. Main trade UI is uGUI; UI Toolkit availability is not evidence of a second implemented game UI |
+| Language / API | Unity-supported C# 9; local generated Assembly-CSharp.csproj agrees on LangVersion 9.0. Player Settings serialize apiCompatibilityLevel = 6 (`NET_Standard` in [Unity 6.6 reference source](https://github.com/Unity-Technologies/UnityCsReference/blob/6000.6/Editor/Mono/PlayerSettings.bindings.cs)), with no per-platform API entries. Unity 6.6's Standard profile is .NET Standard 2.1; extra Framework APIs require a target check. The generated IDE target v4.7.1 is not proof of the Player API profile |
+| Scenes / build | [EditorBuildSettings](../ProjectSettings/EditorBuildSettings.asset): CityGreybox enabled; FirstDealTrade disabled. SampleScene, FirstDealGraybox, FirstDealWorkshop, DevelopmentSandbox and ArtDirectionTest exist as separate fixtures |
+| Tests | Custom Editor menu harness in `Assets/Editor`, plus opt-in Player harness/profile. No project NUnit Test/TestCase or UnityTest methods and no project asmdef were found under Assets during this audit. Installed Test Framework does not imply a Test Runner suite |
+
+The exact manifest may contain additional packages; presence does not prove runtime use. Previous Windows64 Player checks do not establish all supported release platforms. Local `.agents/` skills and `references/*.zip` are ignored; daily work uses versioned docs. Migration, package updates and changing Player Settings require a separate authorized task.
+
+At audit start, `ProjectSettings/ProjectSettings.asset` already had an unrelated edit: an extra `i` at the end of `m_StackTraceTypes`. It was preserved. Whether the Editor accepts that value is unverified; inspect it in a separate settings task if import/serialization fails. The audit's commit must not include it.
 
 ## 1. Working priority
 
@@ -53,7 +70,36 @@ Before committing: review `git diff --check`, `git diff --stat`, diff content, a
 
 The versioned formatting hook is `.githooks/pre-commit`. Enable it locally with `git config core.hooksPath .githooks` (requires a .NET SDK and Git Bash). On commit it formats staged C# files using `dotnet format whitespace` and `.editorconfig`, trims trailing spaces in staged `.meta` files, and stops on errors or partially staged source files. Run `bash .githooks/pre-commit --all` to format all tracked C# and `.meta` files without staging them. Folder mode avoids restoring Unity-generated IDE projects; the hook does not apply analyzer fixes or change serialized identifiers.
 
+<a id="verification-levels"></a>
 ## 4. Verification contract
+
+Select the narrowest check that covers the changed behavior. Record command/menu, commit plus dirty paths, Unity version/mode, result and full local log path. Assertion counts in a harness are not counts of NUnit tests, unique routes or human participants.
+
+| Change | Required applicable evidence |
+| --- | --- |
+| Documentation only | Source/decision comparison, relative links and anchors, focused diff review, `git diff --check`, docs-only staged paths. No Unity build or gameplay rerun solely for Markdown |
+| Deterministic C# domain | Unity compilation and focused existing harness for state transitions/atomic rejections; use EditMode/Test Runner only if a real test suite exists or is added for the change |
+| Unity integration | Compilation, actual scene/prefab/GUID references, relevant Play Mode action/input/lifecycle checks |
+| Gameplay / save behavior | Old and changed routes, refusals and soft-locks, pause/deadline, identity/payment, save/load when affected; human usability/acceptance separately where the gate requires it |
+| Build / release / performance | Explicitly selected Player build/profile on recorded target/environment, relevant launch/full-route/save checks. ZIP/release packaging only when directly requested |
+
+### Existing verification entry points
+
+Inspect the harness prerequisites before running: some enter/leave Play Mode, open fixtures or rebuild presentation. Preserve unsaved scene work; use the harness's isolated save paths. Availability below was checked in source, not executed by the documentation audit.
+
+| Scope | Menu / source |
+| --- | --- |
+| FIRST DEAL identity/settlement/routes | `Tools/T06/Verify Invariants and Routes` — [T06Verification](../Assets/Editor/T06Verification.cs); T03 workshop, T05 outcomes for their narrower concerns |
+| City money/order/physical transfer | `Tools/S3/Verify City Trading in Play Mode` — [S3Verification](../Assets/Editor/S3Verification.cs) |
+| Two lots / RNG / domain refusals | `Tools/E6/Verify Restock and RNG` — [E6Verification](../Assets/Editor/E6Verification.cs); separate `Tools/E6/Verify Second Trading Cycle in Play Mode` for integration |
+| City save data/store | `Tools/S2/Verify City Save and Load` — [S2Verification](../Assets/Editor/S2Verification.cs) |
+| World persistence / Q / E,T,R | `Tools/E5/Verify Slice Persistence` — [E57PersistenceVerification](../Assets/Editor/E57PersistenceVerification.cs) |
+| Vehicle cargo | `Tools/City/Verify Vehicle Cargo` — [CityCargoVerification](../Assets/Editor/CityCargoVerification.cs) |
+| FIRST DEAL focus/UI sizes | `Tools/U3/Verify Menus Focus and Window Sizes` — [U3Verification](../Assets/Editor/U3Verification.cs); does not establish city UI/gamepad coverage |
+
+For duplicate-sale changes, test same-ID repeats, duplicate IDs in one group, mixed valid/invalid group, sold or distant goods, closed order and exact deadline; money/items/order must remain unchanged on rejection. For diagnosis UI, test unknown/working/fault/after-repair/retested states, visible refusal and focus, with the appropriate scene adapter. For a new product, specify and test new data and old-save compatibility before expanding the fixed three-slot model.
+
+Historical results are in [ROADMAP](ROADMAP.md) and the dated ledgers; `Logs/`/`Temp/` may be absent or overwritten locally. A previous PASS cannot establish a new run. The known old T04 intro-text assertion failure is retained in [FIRST DEAL history](archive/DEVELOPMENT_HISTORY.md#first-deal--записи-проверок-1820102026), not silently reclassified as a passing suite.
 
 - Evidence tiers: **inspected only**, **static checks**, **Unity compilation**, **EditMode tests**, **PlayMode/manual tests**, and **player playtest** are distinct. Never replace one with claims about another.
 - For code edits: inspect relevant call sites, run `git diff --check`, review errors; add focused automated tests for deterministic state transitions where feasible.
@@ -63,13 +109,7 @@ The versioned formatting hook is `.githooks/pre-commit`. Enable it locally with 
 
 ## 5. Codex token efficiency
 
-The canonical project rules are in [AGENTS.md](../AGENTS.md), under Efficient investigation. Keep that policy in one place rather than copying it into skills, hooks or recurring prompts.
-
-- Prevent unnecessary context at the source: use scoped searches and relevant file ranges; preserve full build/test logs outside the prompt and report inspected results with their paths. Never treat truncation as proof that no errors or matches exist.
-- At a genuine context handoff, carry the goal, approvals, production gate, confirmed findings, affected paths, unrelated changes, checks/results and next action. Revalidate affected facts after changes. Do not create automatic maps or per-turn summary files.
-- The OpenCode lean-context message-transform hook is not a Codex plugin API. These rules adapt its context-minimization goal; they do not delete prior messages or reasoning. Do not edit session transcripts to simulate it, inject the full Ponytail ruleset, or install redundant hooks.
-- Model, reasoning effort and compaction settings remain explicit choices; this policy does not lower them automatically. Savings require a comparable measurement, and no percentage is guaranteed.
-- Use agents only when authorized and useful for independent work. Never concurrently modify the same Unity scene/prefab or `.meta` across worktrees.
+The canonical rules and task routes are in [AGENTS.md](../AGENTS.md), under Efficient investigation and Task routes. Keep them in one place. The OpenCode lean-context hook is not a Codex plugin API; this repository does not install a message-transform workaround. Use agents only when authorized and useful; never concurrently modify the same Unity scene/prefab or `.meta` across worktrees.
 
 ## 6. Ignore and metadata rules
 
@@ -89,7 +129,7 @@ The current `.gitattributes` uses Git LFS for many media/binary file types and `
 
 ## 7. Documentation and skills policy
 
-Keep only files that reduce recurring ambiguity. Initial set: `README.md`, `AGENTS.md`, `docs/DEVELOPMENT.md`, `docs/ENGINEERING_STANDARD.md`, `.editorconfig`, `.rgignore`, plus existing `.gitignore` and `.gitattributes`. A detailed GDD and FIRST DEAL specification can be imported later **only with explicit approval and accurate current versions**; external documents are not silently presumed to live in the repository.
+Keep only files that reduce recurring ambiguity. [GDD](GDD.md) now owns the consolidated concept/PX and [FIRST_DEAL](FIRST_DEAL.md) owns the approved fixture contract imported during the owner-requested documentation audit. [ARCHITECTURE](ARCHITECTURE.md) describes actual state ownership. Local archive copies are provenance, not competing daily specifications. Later external requirements still need an identifiable owner decision and a current version before import.
 
 The documentation map is in [README](../README.md). Keep changing task status in ROADMAP, production order in DEVELOPMENT_PLAN, current city behavior in CITY_GAMEPLAY, and dated evidence in the relevant ledger. FIRST_DEAL describes the separate fixture; PLAYTEST provides the current human-observation protocol. Do not copy full results into every entry point. Mark historical prompts and observations with their scope/date, preserve asset notices, and check local links/anchors when moving sections. A source-derived behavior summary is not approval of new game rules.
 
