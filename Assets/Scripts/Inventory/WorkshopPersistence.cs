@@ -23,7 +23,7 @@ namespace Inventory
             if (!IsCity) throw new InvalidOperationException("Only city sessions use this save format.");
             var data = new CitySaveData
             {
-                Version = 4, Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
+                Version = 5, Soldering = CaptureSoldering(), Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
                 Expenses = Expenses, SpareBatteries = SpareBatteries, RepairSeconds = RepairSeconds,
                 LotPurchased = LotPurchased, HasTransportedCrate = HasTransportedCrate,
                 IsCrateCarried = IsCrateCarried, ElapsedSeconds = ElapsedSeconds, World = world,
@@ -102,6 +102,7 @@ namespace Inventory
                 restored.orders[i].State = data.Orders[i].State;
                 restored.orders[i].DeadlineSeconds = data.Orders[i].DeadlineSeconds;
             }
+            if (data.Version >= 5) restored.RestoreSoldering(data.Soldering);
             session = restored;
             message = "Состояние восстановлено. Игра на паузе.";
             return true;
@@ -116,9 +117,9 @@ namespace Inventory
         private static bool ValidateCity(CitySaveData data, out string message)
         {
             message = "Некорректное или несовместимое сохранение города.";
-            if (data == null || data.Version < 1 || data.Version > 4 || data.InitialBalance != 300 || data.Balance < 0 ||
+            if (data == null || data.Version < 1 || data.Version > 5 || data.InitialBalance != 300 || data.Balance < 0 ||
                 data.Revenue < 0 || data.Expenses < 0 || data.Revenue > int.MaxValue ||
-                data.Expenses > (long)int.MaxValue * 50 + 360 || data.SpareBatteries < 0 ||
+                data.Expenses > (long)int.MaxValue * 55 + 700 || data.SpareBatteries < 0 ||
                 (long)data.InitialBalance + data.Revenue - data.Expenses != data.Balance ||
                 !Finite(data.ElapsedSeconds) || data.ElapsedSeconds < data.RepairSeconds ||
                 data.ElapsedSeconds > int.MaxValue || data.RepairSeconds < 0 || data.RepairSeconds > 1440 || data.RepairSeconds % 240 != 0 ||
@@ -150,9 +151,9 @@ namespace Inventory
                     var lamp = lamps[i];
                     var initial = data.Version < 3 ? (i == 1 ? FlashlightCondition.BatteryFault : FlashlightCondition.Working) : lamp?.InitialCondition;
                     if (lamp == null || !Guid.TryParseExact(lamp.InstanceId, "N", out _) || !ids.Add(lamp.InstanceId) ||
-                        !Enum.IsDefined(typeof(FlashlightCondition), lamp.Condition) ||
-                        !initial.HasValue || !Enum.IsDefined(typeof(FlashlightCondition), initial.Value) ||
-                        !Enum.IsDefined(typeof(FlashlightLocation), lamp.Location) ||
+                        (lamp.Condition != FlashlightCondition.Working && lamp.Condition != FlashlightCondition.BatteryFault) ||
+                        !initial.HasValue || (initial.Value != FlashlightCondition.Working && initial.Value != FlashlightCondition.BatteryFault) ||
+                        (!Enum.IsDefined(typeof(FlashlightLocation), lamp.Location) || lamp.Location == FlashlightLocation.SolderBuyer) ||
                         (initial == FlashlightCondition.Working && lamp.Condition != FlashlightCondition.Working) ||
                         (lamp.LastTestPassed && !lamp.IsTested) ||
                         (lamp.IsTested && lamp.LastTestPassed != (lamp.Condition == FlashlightCondition.Working)) ||
@@ -202,11 +203,12 @@ namespace Inventory
                     if (order.State == DealOrderState.Completed) revenue += i == 0 ? 260 : 125;
                 }
             }
+            if (!ValidateSoldering(data, ids, ref hands, ref benches, ref revenue, out var solderingExpenses)) return false;
             if (hands > 1 || benches > 1 || (data.IsCrateCarried && hands != 0) ||
                 (data.IsCrateInVehicle && (data.Version < 2 || data.IsCrateCarried || !data.LotPurchased || !data.HasTransportedCrate)) ||
                 (!data.LotPurchased && (data.IsCrateCarried || data.HasTransportedCrate)) ||
                 (data.IsCrateCarried && !data.HasTransportedCrate) ||
-                data.Expenses != lots * 180L + ((long)data.SpareBatteries + repairs) * 50 ||
+                data.Expenses != lots * 180L + ((long)data.SpareBatteries + repairs) * 50 + solderingExpenses ||
                 data.RepairSeconds != repairs * 240 || data.Revenue != revenue) return false;
 
             var world = data.World;
@@ -230,10 +232,13 @@ namespace Inventory
                 if (pose == null || !placed.Add(pose.InstanceId) || !ValidPosition(pose.Position) ||
                     !Finite(pose.Yaw) || Math.Abs(pose.Yaw) > 360) return false;
                 var lamp = Array.Find(data.Lamps, item => item.InstanceId == pose.InstanceId);
+                if (lamp == null && data.Version >= 5 && data.Soldering.LampPurchased && data.Soldering.Lamp.InstanceId == pose.InstanceId) lamp = data.Soldering.Lamp;
                 if (lamp == null || lamp.Location != FlashlightLocation.World) return false;
             }
             foreach (var lamp in data.Lamps)
                 if ((lamp.Location == FlashlightLocation.World) != placed.Contains(lamp.InstanceId)) return false;
+            var extra = data.Version >= 5 && data.Soldering.LampPurchased ? data.Soldering.Lamp : null;
+            if (extra != null && ((extra.Location == FlashlightLocation.World) != placed.Contains(extra.InstanceId))) return false;
             message = "";
             return true;
         }

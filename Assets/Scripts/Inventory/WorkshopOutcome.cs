@@ -40,16 +40,23 @@ namespace Inventory
             foreach (var identity in presentedIds)
             {
                 FlashlightUnit found = null;
-                foreach (var unit in units) if (unit.InstanceId == identity) { found = unit; break; }
+                foreach (var unit in CarryUnits()) if (unit.InstanceId == identity) { found = unit; break; }
                 if (identity == null || !unique.Add(identity) || found == null ||
                     !(found.Location == FlashlightLocation.Hands || (IsCrateCarried && found.Location == FlashlightLocation.Crate)))
                     return Reject("Принеси каждый свой фонарь сюда. Проданные, хранящиеся и повторяющиеся экземпляры не принимаются.", out message);
+                if (found == SolderingLamp && (!SolderingAssembled || found.Condition == FlashlightCondition.Working && !SolderingReady))
+                    return Reject("Сначала собери и проверь фонарик на станции.", out message);
                 if (!found.IsTested) return Reject("Для выкупа сначала проверь каждый предъявленный фонарь на столе; после ремонта нужен новый тест.", out message);
                 payment += found.LastTestPassed && found.Condition == FlashlightCondition.Working ? 60 : 35;
                 selected.Add(found);
             }
             if (Balance > int.MaxValue - payment) return Reject("Wallet limit reached.", out message);
-            foreach (var unit in selected) unit.Location = FlashlightLocation.BoughtBack;
+            foreach (var unit in selected)
+            {
+                unit.Location = FlashlightLocation.BoughtBack;
+                if (unit == SolderingLamp && (solderingOrder.State == DealOrderState.Available || solderingOrder.State == DealOrderState.Accepted))
+                    solderingOrder.State = DealOrderState.Unavailable;
+            }
             Balance += payment;
             Revenue += payment;
             UpdateStockAvailability();

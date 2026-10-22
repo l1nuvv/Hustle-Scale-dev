@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Inventory
 {
-    public enum DealOrderId { A, B, RepeatB }
+    public enum DealOrderId { A, B, RepeatB, Solder }
     public enum DealOrderState { Locked, Available, Accepted, Completed, Expired, Failed, Declined, Cancelled, Unavailable }
 
     public sealed class DealOrder
@@ -49,6 +49,7 @@ namespace Inventory
 
         public DealOrder Order(DealOrderId id)
         {
+            if (id == DealOrderId.Solder && IsCity) return solderingOrder;
             if ((int)id < 0 || (int)id >= orders.Length) throw new ArgumentOutOfRangeException(nameof(id));
             return orders[(int)id];
         }
@@ -154,6 +155,8 @@ namespace Inventory
                 if (!IsCity && order.State == DealOrderState.Available) order.State = DealOrderState.Expired;
                 else if (order.State == DealOrderState.Accepted) order.State = DealOrderState.Failed;
             }
+            if (IsCity && solderingOrder.State == DealOrderState.Accepted && ElapsedSeconds >= solderingOrder.DeadlineSeconds)
+                solderingOrder.State = DealOrderState.Failed;
         }
 
         public bool AcceptOrder(DealOrderId id, out string message)
@@ -180,6 +183,7 @@ namespace Inventory
         // The scene supplies the exact transported identities; the model revalidates every one.
         public bool DeliverOrder(DealOrderId id, IReadOnlyList<string> presentedIds, out string message)
         {
+            if (IsCity && id == DealOrderId.Solder) return DeliverSoldering(presentedIds, out message);
             var order = Order(id);
             if (!CanHandleItems(out message)) return false;
             if (order.State == DealOrderState.Unavailable) return Reject(OrderUnavailableReason(id), out message);

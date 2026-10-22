@@ -181,10 +181,11 @@ namespace Interactables
                     Line("$" + session.Balance + " · Батареи: " + session.SpareBatteries);
                     Button(showControls ? "Скрыть управление" : "Управление", () => { showControls = !showControls; RebuildMenu(); });
                     if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — выбросить · F — свет\nУ верстака: T — тест · R — замена батареи\nTab — карта · Esc — пауза · F5 / F9 в паузе — сохранить / загрузить");
-                    for (var i = 0; i < 3; i++)
+                    for (var i = 0; i < lamps.Length; i++)
                     {
-                        var index = i; var unit = session.Units[i];
-                        Button("Фонарь " + (i + 1) + " · " + FirstDealText.Condition(unit) + " · " + Location(unit.Location),
+                        var index = i; var unit = session.CityUnit(i);
+                        if (unit == null) continue;
+                        Button("Фонарь " + (i + 1) + " · " + CityCondition(unit) + " · " + Location(unit.Location),
                             () => Execute("equip", index), unit.Location == FlashlightLocation.Hands || unit.Location == FlashlightLocation.Pocket);
                     }
                 }
@@ -197,6 +198,7 @@ namespace Interactables
                                 !crateHere && session.CanPurchaseLot ? "Принеси пустой ящик" : session.LotPurchaseStatus);
                             ProductCard("Батарея", "1 шт. · для ремонта", "$50", batteryIcon,
                                 () => Execute("battery"), session.Balance >= 50);
+                            SolderingShop();
                             break;
                         case CityTradeKind.Battery:
                             Line("Баланс $" + session.Balance + " · Батареи: " + session.SpareBatteries);
@@ -205,10 +207,11 @@ namespace Interactables
                             Button("Взять ящик", () => { if (Execute("crate")) CloseMenu(); });
                             Button("Забрать содержимое в инвентарь", () => Execute("contents"));
                             if (current.Kind == CityTradeKind.Crate)
-                                for (var i = 0; i < 3; i++)
+                                for (var i = 0; i < lamps.Length; i++)
                                 {
                                     var index = i;
-                                    Button("Фонарь " + (i + 1) + " · " + FirstDealText.Condition(session.Units[i]) + " · " + Location(session.Units[i].Location),
+                                    if (session.CityUnit(i) == null) continue;
+                                    Button("Фонарь " + (i + 1) + " · " + CityCondition(session.CityUnit(i)) + " · " + Location(session.CityUnit(i).Location),
                                         () => Execute("unit", index));
                                 }
                             break;
@@ -232,6 +235,7 @@ namespace Interactables
                                 SelectGoods();
                                 Button("Передать · " + Selection().Count + "/" + order.Quantity, () => Execute("deliver"));
                             }
+                            if (current.Kind == CityTradeKind.B) SolderingOffer();
                             break;
                         case CityTradeKind.Buyback:
                             Line("После теста: исправный $60 · неисправный $35");
@@ -255,10 +259,11 @@ namespace Interactables
 
         private void SelectGoods()
         {
-            for (var i = 0; i < 3; i++)
+            for (var i = 0; i < lamps.Length; i++)
             {
-                var index = i; var unit = session.Units[i];
-                Button((selected[i] ? "[x] " : "[ ] ") + "Фонарь " + (i + 1) + " · " + FirstDealText.Condition(unit) +
+                var index = i; var unit = session.CityUnit(i);
+                if (unit == null || i == 3 && current.Kind != CityTradeKind.Buyback) continue;
+                Button((selected[i] ? "[x] " : "[ ] ") + "Фонарь " + (i + 1) + " · " + CityCondition(unit) +
                     (Presented(i) ? " · предъявлен" : " · принеси сюда"),
                     () => { selected[index] = !selected[index]; RebuildMenu(); }, Presented(i));
             }

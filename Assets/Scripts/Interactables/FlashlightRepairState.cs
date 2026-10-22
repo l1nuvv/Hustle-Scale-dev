@@ -1,8 +1,10 @@
 namespace Interactables
 {
-    // M3 scene-local experiment. No inventory, economy or save contract.
+    // Manual operation state shared by the M3 trial and the city session; no money or item creation.
     public sealed class FlashlightRepairState
     {
+        public event System.Action Changed;
+        public System.Func<bool> CanAct { get; set; }
         public enum ItemPlace { Supply, Held, Bench }
         public enum CoverPlace { Attached, Held, Tray }
         private readonly SolderingTrialState soldering;
@@ -27,12 +29,13 @@ namespace Interactables
             Reset();
         }
 
-        private bool EmptyTool => soldering.HeldTool == SolderingTrialState.Tool.None;
+        private bool EmptyTool => soldering.HeldTool == SolderingTrialState.Tool.None && (CanAct == null || CanAct());
 
         public bool TakeFlashlight()
         {
             if (Flashlight != ItemPlace.Supply || !EmptyTool) return false;
             Flashlight = ItemPlace.Held;
+            Changed?.Invoke();
             return true;
         }
 
@@ -40,6 +43,7 @@ namespace Interactables
         {
             if (Flashlight != ItemPlace.Held || !EmptyTool) return false;
             Flashlight = ItemPlace.Bench;
+            Changed?.Invoke();
             return true;
         }
 
@@ -49,6 +53,7 @@ namespace Interactables
                 Cover != CoverPlace.Attached || !EmptyTool) return false;
             secured[index] = !secured[index];
             LightOn = Tested = false;
+            Changed?.Invoke();
             return true;
         }
 
@@ -59,6 +64,7 @@ namespace Interactables
             Cover = CoverPlace.Held;
             LightOn = Tested = false;
             UpdateAccess();
+            Changed?.Invoke();
             return true;
         }
 
@@ -67,6 +73,7 @@ namespace Interactables
             if (Cover != CoverPlace.Held || !EmptyTool) return false;
             Cover = CoverPlace.Tray;
             UpdateAccess();
+            Changed?.Invoke();
             return true;
         }
 
@@ -76,6 +83,7 @@ namespace Interactables
             ReturningCover = true;
             Cover = CoverPlace.Held;
             UpdateAccess();
+            Changed?.Invoke();
             return true;
         }
 
@@ -84,6 +92,7 @@ namespace Interactables
             if (Cover != CoverPlace.Held || Flashlight != ItemPlace.Bench || !EmptyTool) return false;
             Cover = CoverPlace.Attached;
             UpdateAccess();
+            Changed?.Invoke();
             return true;
         }
 
@@ -93,7 +102,29 @@ namespace Interactables
             Tested = true;
             LightOn = soldering.Complete && !LightOn;
             if (LightOn && CompletionCount == 0) CompletionCount = 1;
+            Changed?.Invoke();
             return true;
+        }
+
+        public void Restore(bool onBench, bool coverAttached, bool firstSecured, bool secondSecured, bool tested)
+        {
+            Flashlight = onBench ? ItemPlace.Bench : ItemPlace.Supply;
+            Cover = coverAttached ? CoverPlace.Attached : CoverPlace.Tray;
+            secured[0] = firstSecured; secured[1] = secondSecured;
+            Tested = tested;
+            LightOn = ReturningCover = false;
+            CompletionCount = tested && soldering.Complete ? 1 : 0;
+            UpdateAccess();
+        }
+
+        public void Normalize()
+        {
+            if (Flashlight == ItemPlace.Held) Flashlight = ItemPlace.Bench;
+            if (Cover == CoverPlace.Held) Cover = CoverPlace.Tray;
+            soldering.SelectTool(SolderingTrialState.Tool.None);
+            LightOn = false;
+            UpdateAccess();
+            Changed?.Invoke();
         }
 
         private void UpdateAccess() => soldering.SetAccessible(CanUseTools);

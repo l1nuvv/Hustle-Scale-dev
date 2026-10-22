@@ -97,7 +97,7 @@ namespace Interactables
             if (RepairAnimating || IsToolAnimating || state.HeldTool != SolderingTrialState.Tool.None) return false;
             switch (target)
             {
-                case RepairTarget.Flashlight: return repair.Flashlight == FlashlightRepairState.ItemPlace.Supply;
+                case RepairTarget.Flashlight: return repair.Flashlight == FlashlightRepairState.ItemPlace.Supply || IsCityOperation && repair.Assembled;
                 case RepairTarget.WorkMat: return repair.Flashlight == FlashlightRepairState.ItemPlace.Held || repair.Cover == FlashlightRepairState.CoverPlace.Held;
                 case RepairTarget.Cover: return repair.CanLiftCover || repair.Cover == FlashlightRepairState.CoverPlace.Tray;
                 case RepairTarget.Tray: return repair.Cover == FlashlightRepairState.CoverPlace.Held;
@@ -127,6 +127,7 @@ namespace Interactables
         private bool HandleRepairTake()
         {
             if (state.HeldTool != SolderingTrialState.Tool.None) return false;
+            if (RetrieveCityItem()) return true;
             switch (repairHover)
             {
                 case RepairTarget.Flashlight: StartRepairMotion(RepairMotion.TakeFlashlight, flashlight, HeldFlashlight); break;
@@ -275,6 +276,8 @@ namespace Interactables
                     ? "ЛКМ над силуэтом корпуса — вернуть крышку" : "ЛКМ над силуэтом в заднем лотке — положить крышку";
             if (repair.Cover == FlashlightRepairState.CoverPlace.Attached)
             {
+                if (IsCityOperation && repair.Assembled && (repair.Complete || repairHover == RepairTarget.Flashlight))
+                    return "ЛКМ по корпусу — забрать фонарик · Esc — отойти";
                 if (repair.Complete && repair.Assembled) return "Фонарик проверен: свет работает · R — повторить";
                 if (repair.Tested && !state.Complete) return "Света нет: откройте корпус и запаяйте соединение";
                 if (repair.Assembled) return state.Complete ? "ЛКМ по выключателю — проверить свет" : "Ослабьте два крепления — удерживайте ЛКМ";

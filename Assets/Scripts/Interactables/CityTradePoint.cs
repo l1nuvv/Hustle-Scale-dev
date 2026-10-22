@@ -13,7 +13,7 @@ namespace Interactables
         private string prompt;
         public string Prompt => Kind == CityTradeKind.Cargo ? View.CargoPrompt :
             Kind == CityTradeKind.Workshop || Kind == CityTradeKind.Lamp && View.Session != null &&
-            View.Session.Units[Index].Location == Inventory.FlashlightLocation.Bench ? View.WorkshopPrompt : prompt;
+            View.Session.CityUnit(Index)?.Location == Inventory.FlashlightLocation.Bench ? View.WorkshopPrompt : prompt;
         public void Bind(CityTradeView view, CityTradeKind kind, int index = -1)
         {
             View = view; Kind = kind; Index = index;

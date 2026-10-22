@@ -19,6 +19,7 @@ namespace Interactables
             FlashlightLocation.Seller => "у продавца",
             FlashlightLocation.BuyerA => "продан покупателю А",
             FlashlightLocation.BuyerB => "продан покупателю Б",
+            FlashlightLocation.SolderBuyer => "передан по заказу пайки",
             FlashlightLocation.BoughtBack => "продан в скупку",
             FlashlightLocation.Pocket => "в кармане",
             _ => "в мире"

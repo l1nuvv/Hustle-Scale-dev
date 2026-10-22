@@ -19,6 +19,8 @@ namespace Player
         public WorkshopSession Session { get; private set; }
         public event Action SessionReplaced;
         public event Action BeforeSave;
+        public event Action BeforeExplicitSave;
+        public Func<bool> AutosaveReady;
         public CityWorldData World { get; private set; }
         public string Message { get; private set; } = "";
         public bool HasBackup => store != null && store.BackupExists;
@@ -63,7 +65,7 @@ namespace Player
 
         private void LateUpdate()
         {
-            if (dirty && !IsDriving) Save();
+            if (dirty && !IsDriving && Session.CanAutosaveSoldering && (AutosaveReady == null || AutosaveReady())) Save(true);
         }
 
         public void RequestSave() => dirty = true;
@@ -95,11 +97,14 @@ namespace Player
             Save();
         }
 
-        public bool Save()
+        public bool Save() => Save(false);
+
+        private bool Save(bool automatic)
         {
             dirty = false;
             if (loading || Session == null) return false;
             if (IsDriving) { Message = "Сначала выйди из автомобиля для сохранения."; return false; }
+            if (!automatic) BeforeExplicitSave?.Invoke();
             BeforeSave?.Invoke();
             if (vehicle != null)
             {

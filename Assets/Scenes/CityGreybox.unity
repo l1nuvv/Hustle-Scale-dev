@@ -115416,6 +115416,7 @@ MonoBehaviour:
   workerPrefab: {fileID: 4238312605979073449, guid: e10549591373cee44ab51a9bab01d0dd, type: 3}
   workbenchPrefab: {fileID: 2506425735665206753, guid: 27982bb8707052d40850932403f4f161, type: 3}
   testerPrefab: {fileID: 4691745138576557964, guid: f5040329c13aa684aa8754520c45b64a, type: 3}
+  solderingStationPrefab: {fileID: 1875411151415930607, guid: 9799a9dda7b39484499b7994ce8dcd6c, type: 3}
 --- !u!114 &2037480918
 MonoBehaviour:
   m_ObjectHideFlags: 0

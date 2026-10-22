@@ -19,6 +19,20 @@ namespace Inventory
         public CityLampData[] Lamps;
         public CityOrderData[] Orders;
         public CityWorldData World;
+        public CitySolderingData Soldering;
+    }
+
+    [Serializable]
+    public sealed class CitySolderingData
+    {
+        public bool StationOwned, LampPurchased, Diagnosed, AtStation;
+        public int Doses, PurchasedDoses;
+        public CityLampData Lamp;
+        public bool CoverAttached = true, Secured0 = true, Secured1 = true;
+        public bool HasSolder, FinalTest;
+        public float Progress;
+        public CityOrderData Order;
+        public string DeliveredId;
     }
 
     [Serializable]

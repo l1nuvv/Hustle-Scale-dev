@@ -11,6 +11,9 @@ namespace Player
     {
         [SerializeField] private GameObject worklightPrefab;
         [SerializeField] private GameObject workerPrefab, workbenchPrefab, testerPrefab;
+        [SerializeField] private GameObject solderingStationPrefab;
+        public GameObject SolderingStationPrefab => solderingStationPrefab;
+        public Interactables.SolderingTrial SolderingStation { get; set; }
         private PlayerController _player;
         private bool _paused;
         private bool _confirmNewGame;
@@ -35,11 +38,12 @@ namespace Player
         {
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
+            if (SolderingStation != null && SolderingStation.IsActive && !_paused) return;
             if (keyboard.escapeKey.wasPressedThisFrame)
             {
                 if (_trade.MenuOpen) { _trade.CloseMenu(); return; }
                 if (_confirmNewGame) _confirmNewGame = false;
-                else SetPaused(!_paused);
+                else { SetPaused(!_paused); SolderingStation?.ConsumeInputFrame(); }
                 return;
             }
             // The trade/map window owns input while it covers the pause menu.

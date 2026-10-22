@@ -37,6 +37,7 @@ namespace Inventory
         private FlashlightUnit Find(FlashlightLocation location)
         {
             foreach (var unit in units) if (unit.Location == location) return unit;
+            if (IsCity && SolderingLamp != null && SolderingLamp.Location == location) return SolderingLamp;
             return null;
         }
 
@@ -69,9 +70,9 @@ namespace Inventory
         {
             if (!CanHandleItems(out message)) return false;
             if (IsCrateInVehicle) return Reject("Сначала возьми ящик из багажника.", out message);
-            if (index < 0 || index >= units.Length) return Reject("Unknown lamp.", out message);
+            if (CityUnit(index) == null) return Reject("Unknown lamp.", out message);
             if (IsCrateCarried) return Reject("Dock the crate first.", out message);
-            var unit = units[index];
+            var unit = CityUnit(index);
             if (unit.Location == FlashlightLocation.Hands)
             {
                 unit.IsPowered = false;
@@ -87,6 +88,7 @@ namespace Inventory
         public bool ToggleBench(out string message)
         {
             if (!CanHandleItems(out message)) return false;
+            if (AtSolderingStation) return Reject("Фонарик закреплён на станции; забери его там после ручной сборки.", out message);
             if (IsCrateCarried) return Reject("Dock the crate first.", out message);
             if (OnBench != null)
             {
@@ -104,6 +106,12 @@ namespace Inventory
             if (!CanHandleItems(out message)) return false;
             var unit = OnBench;
             if (unit == null) return Reject("Place a lamp on the bench first.", out message);
+            if (unit == SolderingLamp)
+            {
+                if (AtSolderingStation || unit.Condition == FlashlightCondition.Working)
+                    return Reject("Собери фонарик и проверь выключателем на станции.", out message);
+                ConnectionDiagnosed = true;
+            }
             unit.IsTested = true;
             unit.LastTestPassed = unit.Condition == FlashlightCondition.Working;
             unit.IsPowered = unit.LastTestPassed;

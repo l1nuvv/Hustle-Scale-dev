@@ -19,9 +19,9 @@ namespace Interactables
         private WorkshopSession session;
         private CityUtilityVehicle vehicle;
         private Transform root, crate, sellerCounter;
-        private readonly Transform[] lamps = new Transform[3];
-        private readonly Light[] lights = new Light[3];
-        private readonly Renderer[] lenses = new Renderer[3];
+        private readonly Transform[] lamps = new Transform[4];
+        private readonly Light[] lights = new Light[4];
+        private readonly Renderer[] lenses = new Renderer[4];
         private MaterialPropertyBlock lampProperties;
         private readonly List<CityTradePoint> points = new List<CityTradePoint>();
         private Material bodyMaterial, accentMaterial;
@@ -30,7 +30,7 @@ namespace Interactables
         private string displayedMessage;
         private bool executingCommand;
         private float messageUntil;
-        private readonly bool[] selected = new bool[3];
+        private readonly bool[] selected = new bool[4];
         public bool MenuOpen => panel != null && panel.activeSelf;
         public WorkshopSession Session => session;
         public IReadOnlyList<CityTradePoint> Points => points;
@@ -73,12 +73,13 @@ namespace Interactables
         {
             if (session != null) session.Changed -= Refresh;
             session = save.Session;
+            Array.Clear(selected, 0, selected.Length);
             message = "";
             if (MenuOpen) { panel.SetActive(false); current = null; }
             if (session == null) return;
             foreach (var pose in save.World.PlacedLamps)
-                for (var i = 0; i < 3; i++)
-                    if (session.Units[i].InstanceId == pose.InstanceId)
+                for (var i = 0; i < lamps.Length; i++)
+                    if (session.CityUnit(i)?.InstanceId == pose.InstanceId)
                     {
                         lamps[i].SetParent(root, true);
                         lamps[i].SetPositionAndRotation(pose.Position, Quaternion.Euler(0, pose.Yaw, 0));
@@ -91,11 +92,11 @@ namespace Interactables
         {
             if (session == null) return;
             var poses = new List<CityPlacedLamp>();
-            for (var i = 0; i < 3; i++)
-                if (session.Units[i].Location == FlashlightLocation.World)
+            for (var i = 0; i < lamps.Length; i++)
+                if (session.CityUnit(i)?.Location == FlashlightLocation.World)
                     poses.Add(new CityPlacedLamp
                     {
-                        InstanceId = session.Units[i].InstanceId,
+                        InstanceId = session.CityUnit(i).InstanceId,
                         Position = lamps[i].position, Yaw = lamps[i].eulerAngles.y
                     });
             save.World.PlacedLamps = poses.ToArray();
@@ -112,11 +113,14 @@ namespace Interactables
             crate.localRotation = !session.IsCrateCarried && !session.IsCrateInVehicle && save.World.HasCratePose ?
                 Quaternion.Euler(0, save.World.CrateYaw, 0) : Quaternion.identity;
             crate.GetComponent<Collider>().enabled = !session.IsCrateCarried && !session.IsCrateInVehicle;
-            for (var i = 0; i < 3; i++)
+            RefreshSolderingStation();
+            for (var i = 0; i < lamps.Length; i++)
             {
-                var unit = session.Units[i];
+                var unit = session.CityUnit(i);
+                if (unit == null) { lamps[i].gameObject.SetActive(false); continue; }
                 var visible = unit.Location != FlashlightLocation.Pocket &&
-                    (WorkshopSession.IsOwned(unit) || unit.Location == FlashlightLocation.Seller);
+                    (WorkshopSession.IsOwned(unit) || unit.Location == FlashlightLocation.Seller) &&
+                    !(i == 3 && (session.AtSolderingStation || solderingStation != null && solderingStation.IsActive));
                 lamps[i].gameObject.SetActive(visible);
                 lamps[i].GetComponent<Collider>().enabled = unit.Location == FlashlightLocation.World || unit.Location == FlashlightLocation.Bench;
                 lights[i].enabled = visible && unit.IsPowered &&
@@ -129,14 +133,17 @@ namespace Interactables
                 lamps[i].SetParent(parent, false);
                 lamps[i].localRotation = Quaternion.identity;
                 lamps[i].localPosition = unit.Location == FlashlightLocation.Hands ? new Vector3(0.35f, -0.22f, 0.82f) :
-                    unit.Location == FlashlightLocation.Bench ? new Vector3(-72, 1.37f, 34) : new Vector3((i - 1) * 0.36f, 0.415f, 0);
+                    unit.Location == FlashlightLocation.Bench ? new Vector3(-72, 1.37f, 34) : new Vector3(i == 3 ? 0 : (i - 1) * 0.36f, 0.415f, i == 3 ? 0.26f : 0);
             }
             hud.text = "<b>$" + session.Balance + "</b>  ·  " + WorkshopView.Clock(session.ElapsedSeconds);
             var activeA = session.Order(DealOrderId.A).State == DealOrderState.Accepted;
             var activeB = session.Order(DealOrderId.B).State == DealOrderState.Accepted;
             orderHud.text = (activeA ? OrderSummary(DealOrderId.A) : "") + (activeA && activeB ? "\n" : "") +
                 (activeB ? OrderSummary(DealOrderId.B) : "");
-            orderHud.transform.parent.gameObject.SetActive(activeA || activeB);
+            var solderOrder = session.Order(DealOrderId.Solder);
+            if (solderOrder.State == DealOrderState.Accepted)
+                orderHud.text += (orderHud.text.Length > 0 ? "\n" : "") + "Пайка · " + WorkshopView.Clock(Math.Max(0, solderOrder.DeadlineSeconds - session.ElapsedSeconds));
+            orderHud.transform.parent.gameObject.SetActive(activeA || activeB || solderOrder.State == DealOrderState.Accepted);
             ResizeHud();
             if (MenuOpen && !executingCommand) RebuildMenu();
         }
@@ -165,12 +172,12 @@ namespace Interactables
             switch (point.Kind)
             {
                 case CityTradeKind.Lamp:
-                    return session.Units[point.Index].Location == FlashlightLocation.Bench ?
+                    return session.CityUnit(point.Index).Location == FlashlightLocation.Bench ?
                         session.CanPickUpBench ? lamps[point.Index] : null :
                         session.CanPickUpPlaced(point.Index) ? lamps[point.Index] : null;
                 case CityTradeKind.Workshop:
                     if (!session.CanPickUpBench) return null;
-                    for (var i = 0; i < lamps.Length; i++) if (session.Units[i] == session.OnBench) return lamps[i];
+                    for (var i = 0; i < lamps.Length; i++) if (session.CityUnit(i) == session.OnBench) return lamps[i];
                     return null;
                 case CityTradeKind.Crate: return session.CanPickUpCrate ? crate : null;
                 case CityTradeKind.Cargo:
@@ -184,13 +191,13 @@ namespace Interactables
             if (!Allowed || !Reachable(point)) return;
             if (point.Kind == CityTradeKind.Cargo) { TransferCargo(); return; }
             if (point.Kind == CityTradeKind.Workshop || point.Kind == CityTradeKind.Lamp &&
-                session.Units[point.Index].Location == FlashlightLocation.Bench)
+                session.CityUnit(point.Index).Location == FlashlightLocation.Bench)
             { WorkshopAction(point, "bench"); return; }
             if (point.Kind == CityTradeKind.Lamp)
             { ActionFeedback("unit", session.PickUpPlaced(point.Index, out message)); Refresh(); return; }
             current = point;
             UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
-            for (var i = 0; i < 3; i++) selected[i] = Presented(i) && session.Units[i].IsTested;
+            for (var i = 0; i < lamps.Length; i++) selected[i] = Presented(i) && session.CityUnit(i).IsTested && (i < 3 || point.Kind == CityTradeKind.Buyback);
             walk.SetPaused(true);
             panel.SetActive(true);
             RebuildMenu();
@@ -226,6 +233,13 @@ namespace Interactables
                 session.SetPaused(false);
                 switch (command)
                 {
+                    case "station" when kind == CityTradeKind.Seller: success = session.PurchaseStation(StationPlaceAvailable(), out message); break;
+                    case "solderlamp" when kind == CityTradeKind.Seller: success = session.PurchaseSolderingLamp(out message); break;
+                    case "dose" when kind == CityTradeKind.Seller: success = session.BuySolderDose(out message); break;
+                    case "solderaccept" when kind == CityTradeKind.B: success = session.AcceptOrder(DealOrderId.Solder, out message); break;
+                    case "solderclose" when kind == CityTradeKind.B: success = session.CloseOrder(DealOrderId.Solder, out message); break;
+                    case "solderdeliver" when kind == CityTradeKind.B:
+                        success = session.DeliverSoldering(Presented(3) ? new[] { session.SolderingLamp.InstanceId } : Array.Empty<string>(), out message); break;
                     case "purchase" when kind == CityTradeKind.Seller:
                         if (session.LotPurchased && !CrateAtSeller)
                         { message = "Принеси пустой ящик к продавцу."; break; }
@@ -262,8 +276,8 @@ namespace Interactables
             return success;
         }
 
-        private bool Presented(int i) => session.Units[i].Location == FlashlightLocation.Hands ||
-            session.IsCrateCarried && session.Units[i].Location == FlashlightLocation.Crate;
+        private bool Presented(int i) => session.CityUnit(i) != null && (session.CityUnit(i).Location == FlashlightLocation.Hands ||
+            session.IsCrateCarried && session.CityUnit(i).Location == FlashlightLocation.Crate);
 
         private bool CrateAtSeller => session.IsCrateCarried || !session.IsCrateInVehicle &&
             sellerCounter != null && Vector3.ProjectOnPlane(crate.position - sellerCounter.position, Vector3.up).magnitude <= 2.5f;
@@ -274,7 +288,7 @@ namespace Interactables
         public bool WorkshopAction(CityTradePoint point, string command)
         {
             if (!Allowed || !Reachable(point) || !(point.Kind == CityTradeKind.Workshop ||
-                point.Kind == CityTradeKind.Lamp && session.Units[point.Index].Location == FlashlightLocation.Bench)) return false;
+                point.Kind == CityTradeKind.Lamp && session.CityUnit(point.Index).Location == FlashlightLocation.Bench)) return false;
             bool success;
             switch (command)
             {
@@ -313,7 +327,7 @@ namespace Interactables
         private List<string> Selection()
         {
             var ids = new List<string>();
-            for (var i = 0; i < 3; i++) if (selected[i]) ids.Add(session.Units[i].InstanceId);
+            for (var i = 0; i < lamps.Length; i++) if (selected[i]) ids.Add(session.CityUnit(i).InstanceId);
             return ids;
         }
 
@@ -325,9 +339,9 @@ namespace Interactables
         {
             if (!Allowed) return;
             var index = -1;
-            for (var i = 0; i < 3; i++) if (session.Units[i] == session.InHands) index = i;
+            for (var i = 0; i < lamps.Length; i++) if (session.CityUnit(i) != null && session.CityUnit(i) == session.InHands) index = i;
             if (index < 0 && Physics.Raycast(eye.transform.position, eye.transform.forward, out var hit, 2.5f, Physics.DefaultRaycastLayers))
-                for (var i = 0; i < 3; i++) if (hit.collider.transform == lamps[i]) index = i;
+                for (var i = 0; i < lamps.Length; i++) if (hit.collider.transform == lamps[i]) index = i;
             ActionFeedback("power", session.TogglePower(index, out message)); Refresh();
         }
         private void Place()
@@ -365,8 +379,8 @@ namespace Interactables
                 { save.World.HasCratePose = oldPose; save.World.CratePosition = oldPosition; save.World.CrateYaw = oldYaw; }
                 ActionFeedback("place", success); Refresh(); return success;
             }
-            for (var i = 0; i < 3; i++)
-                if (session.Units[i] == session.InHands)
+            for (var i = 0; i < lamps.Length; i++)
+                if (session.CityUnit(i) == session.InHands)
                 {
                     lamps[i].SetParent(root, true);
                     lamps[i].SetPositionAndRotation(position, rotation);
@@ -395,7 +409,7 @@ namespace Interactables
             {
                 AddPoint(vehicle.CargoGate, CityTradeKind.Cargo);
             }
-            for (var i = 0; i < 3; i++)
+            for (var i = 0; i < lamps.Length; i++)
             {
                 lamps[i] = new GameObject("Фонарь " + (i + 1), typeof(BoxCollider)).transform;
                 lamps[i].SetParent(root, false);
@@ -412,6 +426,7 @@ namespace Interactables
             }
             BuildWayfinding();
             BuildSliceCharacters();
+            BuildSolderingStation();
         }
 
         private Transform Box(string name, Transform parent, Vector3 position, Vector3 size, Material material)

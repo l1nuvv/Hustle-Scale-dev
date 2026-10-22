@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 
 namespace Interactables
 {
-    // Only placed in DevelopmentSandbox. All temporary geometry/audio is owned here.
+    // Shared M3 presentation; city state is supplied by WorkshopSession through the city adapter.
     [DefaultExecutionOrder(200)]
     public sealed partial class SolderingTrial : MonoBehaviour, IWorldInteraction
     {
@@ -20,7 +20,7 @@ namespace Interactables
         [SerializeField] private Texture2D smokeTexture;
         [SerializeField] private bool fullOperation;
         [SerializeField] private GameObject solderingMatPrefab;
-        private readonly SolderingTrialState state = new SolderingTrialState();
+        private SolderingTrialState state = new SolderingTrialState();
         private readonly List<Object> resources = new List<Object>();
         private readonly List<Behaviour> suspended = new List<Behaviour>();
         private InputActionMap actions;
@@ -59,7 +59,7 @@ namespace Interactables
         private Quaternion DockRotation(Transform anchor) => anchor != null ? Quaternion.Inverse(transform.rotation) * anchor.rotation : Quaternion.identity;
         public Transform WorkMat => workMat;
         public Vector3 ToolHomePosition(SolderingTrialState.Tool tool) => transform.TransformPoint(tool == SolderingTrialState.Tool.Iron ? IronDock : SolderDock);
-        public string Prompt => fullOperation ? "E — M3: полный ремонт фонарика" : "E — M2: проба пайки (отдельный эксперимент)";
+        public string Prompt => IsCityOperation ? (CityWorkMessage.Length > 0 ? CityWorkMessage : "E — станция пайки") : fullOperation ? "E — M3: полный ремонт фонарика" : "E — M2: проба пайки (отдельный эксперимент)";
         public SolderingTrialState State => state;
         public bool Active => active;
         public bool HasContact { get; private set; }
@@ -93,12 +93,22 @@ namespace Interactables
             if (fullOperation) BuildFullOperation();
             BuildPlacementPreviews();
             RefreshFeedback();
+            if (IsCityOperation)
+            {
+                citySave.SessionReplaced += BindCity;
+                citySave.BeforeExplicitSave += NormalizeCityWork;
+                citySave.AutosaveReady = () => CanAutosave;
+                BindCity();
+            }
         }
 
         public void Interact()
         {
             if (active || !enabled || player == null || !player.CanInteract) return;
+            if (IsCityOperation && !citySave.Session.CanStartSoldering(out var refusal)) { CityWorkMessage = refusal; return; }
+            if (IsCityOperation) CityWorkMessage = "";
             active = true;
+            if (IsCityOperation) { Suspend(cityTrade); RefreshCityItem(); cityTrade.RefreshSolderingWorld(); }
             titleLabel.gameObject.SetActive(false);
             enteredFrame = Time.frameCount;
             savedPosition = player.transform.position;
@@ -132,6 +142,8 @@ namespace Interactables
         public void Exit()
         {
             if (!active) return;
+            var saveCurrentCityWork = IsCityOperation && state == citySave.Session.SolderingState;
+            if (saveCurrentCityWork) NormalizeCityWork();
             active = false;
             titleLabel.gameObject.SetActive(true);
             actions.Disable();
@@ -153,14 +165,24 @@ namespace Interactables
             foreach (var behaviour in suspended)
                 if (behaviour != null) behaviour.enabled = true;
             suspended.Clear();
+            if (IsCityOperation)
+            {
+                cityWalk.SetPaused(cityWalk.IsPaused); RefreshCityItem(); cityTrade.RefreshSolderingWorld();
+                if (saveCurrentCityWork) citySave.RequestSave();
+            }
         }
 
         private void Update()
         {
             if (!active || Time.frameCount == enteredFrame) return;
+            if (IsCityOperation && cityWalk.IsPaused) { pointerConsumedUntilRelease = true; AdvanceTool(0, false, false); return; }
             if (leave.WasPressedThisFrame()) { exitRequested = true; return; }
-            if (focused && Application.isFocused && reset.WasPressedThisFrame()) ResetTrial();
-            if (fullOperation && focused && Application.isFocused && pauseWork.WasPressedThisFrame()) workPaused = !workPaused;
+            if (!IsCityOperation && focused && Application.isFocused && reset.WasPressedThisFrame()) ResetTrial();
+            if (fullOperation && focused && Application.isFocused && pauseWork.WasPressedThisFrame())
+            {
+                if (IsCityOperation) { cityWalk.SetPaused(true); return; }
+                workPaused = !workPaused;
+            }
             if (focused && Application.isFocused && Time.timeScale > 0 && !(fullOperation && workPaused))
             {
                 UpdateMagnification(zoom.IsPressed(), Time.unscaledDeltaTime);
@@ -212,7 +234,8 @@ namespace Interactables
             // Restore after the existing Escape handlers, avoiding a second menu transition.
             if (exitRequested) { exitRequested = false; Exit(); return; }
             if (!active) return;
-            SetWorkCamera();
+            if (!IsCityOperation || !cityWalk.IsPaused) SetWorkCamera();
+            RefreshCityPause();
             DrawPlacementPreview();
         }
 
@@ -355,6 +378,7 @@ namespace Interactables
 
         public void ResetTrial()
         {
+            if (IsCityOperation) return;
             state.Reset();
             pointerConsumedUntilRelease = true;
             dockHovered = false;
@@ -370,6 +394,8 @@ namespace Interactables
         private void RefreshFeedback()
         {
             instruction = NextInstruction();
+            if (IsCityOperation && state.HeldTool == SolderingTrialState.Tool.Solder && !state.HasSolder && citySave.Session.SolderDoses == 0)
+                instruction = "Нет припоя · купи дозу за $5 у продавца";
             outline?.Focus(active && focused && Time.timeScale > 0 && hoveredTool != SolderingTrialState.Tool.None ?
                 hoveredTool == SolderingTrialState.Tool.Iron ? iron : solder : null, view);
             pointer.gameObject.SetActive(active && !state.Complete && state.HeldTool != SolderingTrialState.Tool.None && !IsToolAnimating);
@@ -433,6 +459,12 @@ namespace Interactables
         private void OnDisable() => Exit();
         private void OnDestroy()
         {
+            if (IsCityOperation)
+            {
+                citySave.SessionReplaced -= BindCity;
+                citySave.BeforeExplicitSave -= NormalizeCityWork;
+                citySave.AutosaveReady = null;
+            }
             actions?.Dispose();
             foreach (var resource in resources) if (resource != null) Destroy(resource);
         }
@@ -660,7 +692,7 @@ namespace Interactables
 
         private void OnGUI()
         {
-            if (!active) return;
+            if (!active || IsCityOperation && cityWalk.IsPaused) return;
             if (hudStyle == null) hudStyle = new GUIStyle(GUI.skin.label) { fontSize = 19, alignment = TextAnchor.MiddleCenter };
             var scale = Mathf.Clamp(Screen.height / 900f, 0.65f, 1.5f);
             var old = GUI.matrix;
@@ -688,7 +720,7 @@ namespace Interactables
                 GUI.color = previousColor;
             }
             GUI.Label(new Rect(15, Screen.height / scale - 48, width - 30, 32),
-                (fullOperation ? "ЛКМ — действие · ПКМ — приблизить · P — пауза · R — сброс · Esc — отойти" :
+                (IsCityOperation ? "ЛКМ — действие · ПКМ — приблизить · P — пауза · Esc — отойти" : fullOperation ? "ЛКМ — действие · ПКМ — приблизить · P — пауза · R — сброс · Esc — отойти" :
                 "ЛКМ — действие · ПКМ — приблизить · R — заново · Esc — отойти"), hudStyle);
             GUI.matrix = old;
         }

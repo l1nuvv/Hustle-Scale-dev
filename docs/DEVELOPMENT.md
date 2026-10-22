@@ -94,6 +94,8 @@ Inspect the harness prerequisites before running: some enter/leave Play Mode, op
 | City UI / modal input / vehicle transitions / diagnostic sizes | Test Runner → EditMode → `UIInteractionTests` — five tests enter actual Play Mode with isolated saves. [UI audit](UI_INTERACTION_AUDIT.md) records RED/GREEN, screen inventory, screenshots, baseline Player limits and the separate T03 harness issue |
 | City money/order/physical transfer | `Tools/S3/Verify City Trading in Play Mode` — [S3Verification](../Assets/Editor/S3Verification.cs) |
 | Two lots / RNG / domain refusals | `Tools/E6/Verify Restock and RNG` — [E6Verification](../Assets/Editor/E6Verification.cs); separate `Tools/E6/Verify Second Trading Cycle in Play Mode` for integration |
+| City soldering / saves v5 | `Tools/M5/Verify Domain and Saves` — [M5SolderingVerification](../Assets/Editor/M5SolderingVerification.cs) |
+| City soldering input / interruptions | `Tools/M5/Verify City Input In Play Mode`, `Tools/M5/Verify City Interruptions In Play Mode` with `HustleScale.S2SaveOverride` containing `M5`; [conditions and results](M4_SOLDERING_INTEGRATION.md#m5--реализация-и-проверки-22102026). Set the isolated override before entering Play Mode |
 | City save data/store | `Tools/S2/Verify City Save and Load` — [S2Verification](../Assets/Editor/S2Verification.cs) |
 | World persistence / Q / E,T,R | `Tools/E5/Verify Slice Persistence` — [E57PersistenceVerification](../Assets/Editor/E57PersistenceVerification.cs) |
 | Vehicle cargo | `Tools/City/Verify Vehicle Cargo` — [CityCargoVerification](../Assets/Editor/CityCargoVerification.cs) |

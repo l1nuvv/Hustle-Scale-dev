@@ -40,7 +40,7 @@ public static partial class S3Verification
         Check(UnityEngine.Object.FindObjectsByType<CityTradeView>(FindObjectsSortMode.None).Length == 1 &&
             SceneManager.GetActiveScene().GetRootGameObjects().Count(g => g.name == "City trade runtime") == 1,
             context + " one runtime composition");
-        Check(trade.Points.Count(p => p.Kind == CityTradeKind.Lamp) == 3 &&
+        Check(trade.Points.Count(p => p.Kind == CityTradeKind.Lamp && p.Index < 3) == 3 &&
             save.Session.Units.Select(u => u.InstanceId).Distinct().Count() == 3, context + " exactly three identities/targets");
         var vehicle = UnityEngine.Object.FindAnyObjectByType<CityUtilityVehicle>();
         Check(Vector3.Distance(player.transform.position, save.World.PlayerPosition) < 0.001f &&
