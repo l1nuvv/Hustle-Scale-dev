@@ -98,6 +98,7 @@ Inspect the harness prerequisites before running: some enter/leave Play Mode, op
 | City soldering input / interruptions | `Tools/M5/Verify City Input In Play Mode`, `Tools/M5/Verify City Interruptions In Play Mode` with `HustleScale.S2SaveOverride` containing `M5`; [conditions and results](M4_SOLDERING_INTEGRATION.md#m5--реализация-и-проверки-22102026). Set the isolated override before entering Play Mode |
 | City save data/store | `Tools/S2/Verify City Save and Load` — [S2Verification](../Assets/Editor/S2Verification.cs) |
 | World persistence / Q / E,T,R | `Tools/E5/Verify Slice Persistence` — [E57PersistenceVerification](../Assets/Editor/E57PersistenceVerification.cs) |
+| City prefab placement / rotated local anchors / legacy scene binding | `Tools/City/Validate Scene Bindings`; in Play Mode with `HustleScale.S2SaveOverride` under `Temp/CityPlacement...`: `Tools/City/Verify Prefab Placement In Play Mode` and `Tools/City/Verify Legacy Saves With Prefabs In Play Mode` — [CityPlacementVerification](../Assets/Editor/CityPlacementVerification.cs). Uses real adapters and restores temporary transforms; never run against the player save |
 | Vehicle cargo | `Tools/City/Verify Vehicle Cargo` — [CityCargoVerification](../Assets/Editor/CityCargoVerification.cs) |
 | FIRST DEAL focus/UI sizes | `Tools/U3/Verify Menus Focus and Window Sizes` — [U3Verification](../Assets/Editor/U3Verification.cs); does not establish city UI/gamepad coverage |
 
