@@ -30,6 +30,7 @@ namespace Interactables
         private int enteredFrame;
         private bool active, focused = true, exitRequested;
         private GUIStyle hudStyle;
+        private string instruction;
         private static readonly Vector3 Joint = new Vector3(0, 1.075f, 0);
         private static readonly Vector3 IronDock = new Vector3(0.56f, 1.075f, 0);
         private static readonly Vector3 SolderDock = new Vector3(-0.56f, 1.075f, 0);
@@ -40,6 +41,7 @@ namespace Interactables
         public bool SmokePlaying => smoke.isEmitting;
         public bool SoundPlaying => hiss.isPlaying;
         public Vector3 TipPosition => state.HeldTool == SolderingTrialState.Tool.Solder ? wireEnd.position : tip.position;
+        public string Instruction => instruction;
 
         private void Awake()
         {
@@ -164,7 +166,8 @@ namespace Interactables
 
         private void RefreshFeedback()
         {
-            pointer.gameObject.SetActive(active && state.HeldTool == SolderingTrialState.Tool.None);
+            instruction = NextInstruction();
+            pointer.gameObject.SetActive(active && !state.Complete);
             hotMetal.color = Color.Lerp(new Color(0.35f, 0.38f, 0.40f), new Color(1, 0.12f, 0.025f), state.Heat);
             hotMetal.SetColor("_EmissionColor", new Color(1, 0.04f, 0) * state.Heat * 0.6f);
             placedSolder.gameObject.SetActive(state.HasSolder && !state.Complete);
@@ -181,6 +184,25 @@ namespace Interactables
                 smoke.Stop(true, ParticleSystemStopBehavior.StopEmitting);
                 if (hiss.isPlaying) hiss.Stop();
             }
+        }
+
+        private string NextInstruction()
+        {
+            var held = state.HeldTool;
+            if (state.Complete) return held == SolderingTrialState.Tool.Iron
+                ? "Пайка готова — отпустите ЛКМ и отведите жало" : "Соединение готово · R — новая проба";
+            if (state.Working) return "Держите жало на соединении…";
+            if (!state.HasSolder)
+            {
+                if (held == SolderingTrialState.Tool.Iron) return "Сначала нужен припой. Положите паяльник — E";
+                if (held == SolderingTrialState.Tool.Solder) return aim.magnitude <= 0.038f
+                    ? "Удерживайте ЛКМ — уложить припой" : "Подведите конец припоя к зазору";
+                return state.Powered ? "Возьмите припой слева — E" : "Возьмите паяльник справа — E";
+            }
+            if (held == SolderingTrialState.Tool.Solder) return "Припой уложен. Положите катушку — E";
+            if (held == SolderingTrialState.Tool.None) return "Возьмите паяльник справа — E";
+            if (!state.Ready) return "Дождитесь нагрева жала";
+            return aim.magnitude <= 0.038f ? "Удерживайте ЛКМ — коснуться припоя" : "Подведите кончик жала к припою";
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -245,7 +267,21 @@ namespace Interactables
             foreach (var y in new[] { -0.038f, 0.038f })
                 Part("Spool rim", solder, PrimitiveType.Cylinder, spoolPosition + Vector3.up * y,
                     new Vector3(0.145f, 0.008f, 0.145f), dark);
-            pointer = Part("Tool aim ring", transform, PrimitiveType.Cylinder, Joint, new Vector3(0.045f, 0.002f, 0.045f), white);
+            pointer = new GameObject("Tool projection ring").transform;
+            pointer.SetParent(transform, false);
+            var ring = pointer.gameObject.AddComponent<LineRenderer>();
+            ring.useWorldSpace = false;
+            ring.loop = true;
+            ring.widthMultiplier = 0.0025f;
+            ring.positionCount = 32;
+            var ringMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { color = Color.white };
+            resources.Add(ringMaterial);
+            ring.sharedMaterial = ringMaterial;
+            for (var i = 0; i < ring.positionCount; i++)
+            {
+                var angle = i * Mathf.PI * 2 / ring.positionCount;
+                ring.SetPosition(i, new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * 0.024f);
+            }
             iron.localPosition = IronDock + Vector3.up * 0.04f;
             solder.localPosition = SolderDock + Vector3.up * 0.04f;
             titleLabel = Label("M2 · ПРОБА ПАЙКИ\nE — приступить", new Vector3(0, 1.24f, 0.39f), 0.012f);
@@ -347,13 +383,9 @@ namespace Interactables
             var old = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(Vector3.one * scale);
             var width = Screen.width / scale;
-            var reason = state.Complete ? "Соединение готово — отведите жало" :
-                state.Working ? "Держите жало на соединении…" :
-                !state.Powered && state.HeldTool == SolderingTrialState.Tool.None ? "Возьмите паяльник справа — E" :
-                !state.HasSolder ? "Уложите припой в зазор между медными контактами" :
-                !state.Ready ? "Дождитесь нагрева жала" : "Поднесите жало к припою";
-            GUI.Box(new Rect(width / 2 - 260, 18, 520, 34), "");
-            GUI.Label(new Rect(width / 2 - 255, 18, 510, 34), reason, hudStyle);
+            var hintWidth = Mathf.Min(570, width - 30);
+            GUI.Box(new Rect((width - hintWidth) / 2, 18, hintWidth, 34), "");
+            GUI.Label(new Rect((width - hintWidth) / 2 + 5, 18, hintWidth - 10, 34), instruction, hudStyle);
             if (state.Powered)
             {
                 GUI.Label(new Rect(width / 2 - 120, 58, 240, 28), state.Ready ? "Жало готово ✓" : "Жало нагревается…", hudStyle);

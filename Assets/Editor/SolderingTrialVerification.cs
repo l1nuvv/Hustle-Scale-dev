@@ -128,9 +128,20 @@ public static class SolderingTrialVerification
             step(4, false, true);
             step(0.3f, true, true);
             Check(trial.State.Progress == 0 && !trial.SmokePlaying && !trial.SoundPlaying, "unprepared contact has no work feedback");
+            Check(trial.Instruction == "Сначала нужен припой. Положите паяльник — E",
+                "hot iron without solder explains the missing material and tool change");
+            trial.State.SelectTool(SolderingTrialState.Tool.None);
+            step(0, false, true);
+            Check(trial.Instruction == "Возьмите припой слева — E", "empty hands are directed to solder spool");
             trial.State.SelectTool(SolderingTrialState.Tool.Solder);
+            step(0, false, true);
+            Check(trial.Instruction == "Удерживайте ЛКМ — уложить припой", "wire over joint explains the lowering button");
             step(0.3f, true, true);
             Check(trial.State.HasSolder, "wireEnd must physically reach joint");
+            Check(trial.Instruction == "Припой уложен. Положите катушку — E", "placed solder confirms success and next tool change");
+            trial.State.SelectTool(SolderingTrialState.Tool.None);
+            step(0, false, true);
+            Check(trial.Instruction == "Возьмите паяльник справа — E", "iron is requested only after material is placed");
             trial.State.SelectTool(SolderingTrialState.Tool.Iron);
             aim.SetValue(trial, new Vector2(0.2f, 0));
             step(1, true, true);
@@ -153,6 +164,7 @@ public static class SolderingTrialVerification
             step(2.5f, true, true);
             Check(trial.State.Complete && trial.State.CompletionCount == 1 && !trial.SmokePlaying && !trial.SoundPlaying,
                 "completion stops feedback once");
+            Check(trial.Instruction == "Пайка готова — отпустите ЛКМ и отведите жало", "completion explains withdrawal");
             step(5, true, true);
             trial.Exit();
             Check(IronDocked(trial), "leaving returns visible iron to its dock immediately");
@@ -209,7 +221,13 @@ public static class SolderingTrialVerification
         steps.Add((() => key(Key.E), 0.25));
         steps.Add((() => { Check(trial.Active, "world E ray enters bench"); key(null); }, 0.25));
         steps.Add((() => { guide(430); key(Key.E); }, 0.25));
-        steps.Add((() => { Check(trial.State.HeldTool == SolderingTrialState.Tool.Iron, "mouse + E picks iron"); key(null); }, 0.25));
+        steps.Add((() =>
+        {
+            Check(trial.State.HeldTool == SolderingTrialState.Tool.Iron &&
+                trial.Instruction == "Сначала нужен припой. Положите паяльник — E",
+                "mouse + E picks iron and immediately explains solder/tool change");
+            key(null);
+        }, 0.25));
         steps.Add((() => key(Key.E), 0.25));
         steps.Add((() => { key(null); guide(-860); }, 0.25));
         steps.Add((() => key(Key.E), 0.25));
