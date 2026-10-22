@@ -43,7 +43,7 @@ public static partial class FlashlightRepairVerification
             Action<float, bool, bool> tick = (dt, pressing, operating) => Call(t, "AdvanceTool", dt, pressing, operating);
             Check(t.UsesAuthoredVisuals && cover.GetComponentsInChildren<MeshFilter>().Length >= 7, "authored textured cover, switch and captive fasteners loaded");
             var lidBounds = cover.GetComponentsInChildren<MeshRenderer>().Single(m => m.name == "M3 shaped removable blue lid").bounds;
-            Check(lidBounds.size.x > 0.5f && lidBounds.size.z > 0.25f && lidBounds.center.y > 1.1f,
+            Check(lidBounds.size.x > 0.15f && lidBounds.size.z > 0.075f && lidBounds.center.y > 1.02f,
                 "imported lid is full scale and physically covers the connection");
             Check(t.Instruction.Contains("сначала припой") && !t.BeamEnabled, "initial instruction explains solder first; broken lamp is dark");
             r.TakeFlashlight(); r.PlaceFlashlight(); Call(t, "SyncRepairParts");
@@ -110,6 +110,66 @@ public static partial class FlashlightRepairVerification
         catch (Exception e) { t.Exit(); Fail(e); throw; }
     }
 
+    [MenuItem("Tools/Development Sandbox/Verify M3 Placement Previews In Play Mode")]
+    public static void VerifyPlacementPreviews()
+    {
+        if (!EditorApplication.isPlaying) throw new InvalidOperationException("Enter Sandbox Play Mode first.");
+        Begin();
+        var t = M3();
+        var background = Application.runInBackground;
+        Application.runInBackground = true;
+        try
+        {
+            Prepare(t); t.Interact(); t.ResetTrial();
+            var meshCount = t.GetComponentsInChildren<MeshFilter>().Length;
+            Action refresh = () => Call(t, "AdvanceTool", 0f, false, true);
+            Action clearHover = () => typeof(SolderingTrial).GetField("repairHover", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(t, SolderingTrial.RepairTarget.None);
+            Check(!t.PlacementPreviewVisible, "empty hand has no placement ghost");
+            t.Repair.TakeFlashlight(); refresh();
+            Check(t.PlacementPreviewVisible && t.PlacementPreviewTarget == SolderingTrial.RepairTarget.WorkMat &&
+                Vector3.Distance(t.PlacementPreviewPosition, t.WorkMat.Find("RepairOrigin").position) < .001f,
+                "held device previews exact central destination before hovering");
+            var material = (Material)Field(t, "ghostFill");
+            Check(material.GetColor("_BaseColor").a > 0 && material.GetColor("_BaseColor").a < .3f && material.GetFloat("_ZWrite") == 0,
+                "preview is translucent and cannot write opaque depth");
+            t.Repair.PlaceFlashlight(); Open(t.Repair); t.Repair.TakeCover(); t.Repair.ReplaceCover();
+            t.Repair.LiftCover(); clearHover(); refresh();
+            Check(t.PlacementPreviewVisible && t.PlacementPreviewTarget == SolderingTrial.RepairTarget.Tray &&
+                Vector3.Distance(t.PlacementPreviewPosition, t.WorkMat.Find("CoverTray").position) < .001f && !t.PlacementReady,
+                "newly removed lid always reveals its tray silhouette");
+            Check(t.AlternatePlacementVisible, "both valid lid destinations remain visible while cursor is over source");
+            typeof(SolderingTrial).GetField("repairHover", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(t, SolderingTrial.RepairTarget.Tray);
+            refresh();
+            Check(t.PlacementReady && material.GetColor("_BaseColor").g > material.GetColor("_BaseColor").b,
+                "hovering valid destination turns translucent preview green");
+            t.Repair.PutCoverInTray(); clearHover(); refresh();
+            Check(!t.PlacementPreviewVisible, "placed lid removes ghost");
+            t.State.SelectTool(SolderingTrialState.Tool.Iron); refresh();
+            Check(t.PlacementPreviewVisible && t.PlacementPreviewPosition == t.ToolHomePosition(SolderingTrialState.Tool.Iron),
+                "held iron previews its own return dock");
+            t.State.SelectTool(SolderingTrialState.Tool.Solder); refresh();
+            Check(t.PlacementPreviewVisible && t.PlacementPreviewPosition == t.ToolHomePosition(SolderingTrialState.Tool.Solder),
+                "held solder previews its own return dock");
+            t.State.SelectTool(SolderingTrialState.Tool.None); t.Repair.TakeCover(); clearHover(); refresh();
+            Check(t.Repair.ReturningCover && t.PlacementPreviewTarget == SolderingTrial.RepairTarget.WorkMat,
+                "lid picked up from tray previews reassembly instead of tray");
+            t.Exit(); Check(!t.PlacementPreviewVisible, "leaving clears ghost");
+            t.Interact(); refresh();
+            Check(t.PlacementPreviewVisible && t.PlacementPreviewTarget == SolderingTrial.RepairTarget.WorkMat, "return keeps held lid intent and destination");
+            typeof(SolderingTrial).GetField("workPaused", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(t, true);
+            refresh(); Check(!t.PlacementPreviewVisible, "pause hides placement feedback");
+            typeof(SolderingTrial).GetField("workPaused", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(t, false);
+            Call(t, "OnApplicationFocus", false); Check(!t.PlacementPreviewVisible, "focus loss hides placement feedback");
+            Call(t, "OnApplicationFocus", true); refresh();
+            Check(t.PlacementPreviewVisible && t.GetComponentsInChildren<MeshFilter>().Length == meshCount,
+                "ghosts create no extra item geometry, colliders or lights in hierarchy");
+            t.ResetTrial(); Check(!t.PlacementPreviewVisible && !t.Repair.ReturningCover, "reset clears ghost and lid intent");
+            Finish("PLACEMENT PREVIEWS");
+        }
+        catch (Exception e) { Fail(e); throw; }
+        finally { t.Exit(); Application.runInBackground = background; }
+    }
+
     [MenuItem("Tools/Development Sandbox/Verify M3 Controls In Play Mode")]
     public static void VerifyControls()
     {
@@ -141,7 +201,7 @@ public static partial class FlashlightRepairVerification
                     "pickup-only outline agrees with current action " + target);
                 key(Key.E);
             }, 0.10);
-            add(() => { Check(t.RepairAnimating, "E starts short part transfer " + target); key(null); }, 0.50);
+            add(() => { Check(t.RepairAnimating && !t.PlacementPreviewVisible, "E starts short part transfer and hides preview " + target); key(null); }, 0.50);
         };
         Action<SolderingTrial.RepairTarget> turn = target =>
         {

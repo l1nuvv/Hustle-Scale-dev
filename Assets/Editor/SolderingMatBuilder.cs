@@ -100,7 +100,7 @@ public static class SolderingMatBuilder
             check(material.GetTexture("_BaseMap") != null && material.GetTexture("_BumpMap") != null &&
                 material.GetTexture("_MetallicGlossMap") != null && material.IsKeywordEnabled("_NORMALMAP"), "URP uses colour, normal and packed smoothness maps");
             var bounds = mesh.GetComponent<MeshRenderer>().bounds;
-            check(bounds.size.x > 1.7f && bounds.size.x < 1.8f && bounds.size.z <= (trial.IsFullOperation ? 1.23f : 0.92f), "mat fits existing table without expanding it");
+            check(bounds.size.x > .48f && bounds.size.x < .50f && bounds.size.z <= (trial.IsFullOperation ? .35f : .26f), "mat has practical 49 cm width and fits existing table");
             var iron = trial.transform.Find("Soldering iron - tip origin");
             var solder = trial.transform.Find("Solder spool - wire end origin");
             check(Vector3.Distance(iron.position, mat.Find("IronDock").position) < .001f &&
@@ -124,7 +124,10 @@ public static class SolderingMatBuilder
             {
                 var flashlight = trial.transform.Find("M3_Flashlight(Clone)");
                 check(flashlight != null && Vector3.Distance(flashlight.position, mat.Find("Supply").position) < .001f, "reset flashlight uses mat supply anchor");
-                check(mat.Find("CoverTray").position.z > mat.Find("RepairOrigin").position.z + .3f, "lid tray is behind repair, clear of solder and iron");
+                check(mat.Find("CoverTray").position.z > mat.Find("RepairOrigin").position.z + .1f, "lid tray is behind repair, clear of solder and iron");
+                var itemBounds = flashlight.GetComponentInChildren<MeshRenderer>().bounds;
+                foreach (var renderer in flashlight.GetComponentsInChildren<MeshRenderer>()) itemBounds.Encapsulate(renderer.bounds);
+                check(itemBounds.size.x > .18f && itemBounds.size.x < .25f, "flashlight is about 22 cm wide rather than 74 cm");
             }
         }
         report.AppendLine("SILICONE MAT PLAY MODE: PASS " + count + "; Unity " + Application.unityVersion);

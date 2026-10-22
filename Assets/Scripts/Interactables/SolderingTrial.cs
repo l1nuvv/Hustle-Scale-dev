@@ -47,6 +47,8 @@ namespace Interactables
         private float motionTime;
         private bool returningTool;
         private Transform workMat, repairAnchor, ironAnchor, solderAnchor, coverAnchor, supplyAnchor, dockedSolderFeed;
+        private float WorkspaceScale => workMat != null ? 0.3f : 1f;
+        private float ContactRadius => 0.038f * WorkspaceScale;
         private Vector3 LocalAnchor(Transform anchor) => transform.InverseTransformPoint(anchor.position);
         private Vector3 Joint => repairAnchor != null ? LocalAnchor(repairAnchor) : new Vector3(0, 1.075f, 0);
         private Vector3 IronDock => ironAnchor != null ? LocalAnchor(ironAnchor) : new Vector3(0.56f, 1.115f, 0);
@@ -84,6 +86,7 @@ namespace Interactables
             ironHit = ToolCollider(iron);
             solderHit = ToolCollider(solder);
             if (fullOperation) BuildFullOperation();
+            BuildPlacementPreviews();
             RefreshFeedback();
         }
 
@@ -161,8 +164,8 @@ namespace Interactables
                     var point = transform.InverseTransformPoint(ray.GetPoint(distance));
                     aim = new Vector2(point.x, point.z);
                 }
-                aim.x = Mathf.Clamp(aim.x, -0.79f, 0.79f);
-                aim.y = Mathf.Clamp(aim.y, -0.30f, 0.30f);
+                aim.x = Mathf.Clamp(aim.x, -0.79f * WorkspaceScale, 0.79f * WorkspaceScale);
+                aim.y = Mathf.Clamp(aim.y, -0.30f * WorkspaceScale, 0.30f * WorkspaceScale);
                 hoveredTool = ToolUnderCursor(ray);
                 if (fullOperation) UpdateRepairInput(ray, Time.deltaTime);
                 if (take.WasPressedThisFrame() && !IsToolAnimating) TakeOrReturnTool();
@@ -183,12 +186,13 @@ namespace Interactables
             if (exitRequested) { exitRequested = false; Exit(); return; }
             if (!active) return;
             SetWorkCamera();
+            DrawPlacementPreview();
         }
 
         private void SetWorkCamera()
         {
-            view.transform.SetPositionAndRotation(transform.TransformPoint(new Vector3(0, 1.78f, -0.9f)),
-                transform.rotation * Quaternion.Euler(40, 0, 0));
+            view.transform.SetPositionAndRotation(transform.TransformPoint(workMat != null ? new Vector3(0, 1.48f, -0.45f) : new Vector3(0, 1.78f, -0.9f)),
+                transform.rotation * Quaternion.Euler(workMat != null ? 46 : 40, 0, 0));
         }
 
         private BoxCollider ToolCollider(Transform tool)
@@ -240,7 +244,7 @@ namespace Interactables
             hoveredTool = SolderingTrialState.Tool.None;
             if (!returningTool)
             {
-                aim = new Vector2(chosen == SolderingTrialState.Tool.Iron ? 0.18f : -0.18f, -0.16f);
+                aim = new Vector2(chosen == SolderingTrialState.Tool.Iron ? 0.18f : -0.18f, -0.16f) * WorkspaceScale;
                 cursorViewport = view.WorldToViewportPoint(transform.TransformPoint(Joint + new Vector3(aim.x, 0, aim.y)));
             }
         }
@@ -252,7 +256,7 @@ namespace Interactables
             var t = Mathf.Clamp01(motionTime / 0.24f);
             var eased = Mathf.SmoothStep(0, 1, t);
             var end = returningTool ? (movingTool == iron ? IronDock : SolderDock) :
-                Joint + new Vector3(aim.x, 0.18f, aim.y);
+                Joint + new Vector3(aim.x, 0.18f * WorkspaceScale, aim.y);
             movingTool.localPosition = Vector3.Lerp(motionStart, end, eased) + Vector3.up * (Mathf.Sin(t * Mathf.PI) * 0.065f);
             var endRotation = returningTool ? DockRotation(movingTool == iron ? ironAnchor : solderAnchor) : Quaternion.identity;
             movingTool.localRotation = Quaternion.Slerp(motionRotation, endRotation, eased) *
@@ -270,7 +274,7 @@ namespace Interactables
             var held = state.HeldTool;
             depth = Mathf.MoveTowards(depth, pressing && held != SolderingTrialState.Tool.None ? 1 : 0, seconds * 5);
             if (!operating) depth = 0;
-            var workingEnd = Joint + new Vector3(aim.x, Mathf.Lerp(0.18f, 0, Mathf.SmoothStep(0, 1, depth)), aim.y);
+            var workingEnd = Joint + new Vector3(aim.x, Mathf.Lerp(0.18f * WorkspaceScale, 0, Mathf.SmoothStep(0, 1, depth)), aim.y);
             if (movingTool != iron)
             {
                 iron.localPosition = held == SolderingTrialState.Tool.Iron ? workingEnd : IronDock;
@@ -282,11 +286,11 @@ namespace Interactables
                 solder.localRotation = held == SolderingTrialState.Tool.Solder ? Quaternion.identity : DockRotation(solderAnchor);
             }
             if (dockedSolderFeed != null) dockedSolderFeed.gameObject.SetActive(held == SolderingTrialState.Tool.Solder || movingTool == solder);
-            pointer.localPosition = Joint + new Vector3(aim.x, 0.006f, aim.y);
+            pointer.localPosition = Joint + new Vector3(aim.x, 0.006f * WorkspaceScale, aim.y);
             var actualEnd = held == SolderingTrialState.Tool.Solder ? wireEnd : tip;
             // Geometry gates progress: lateral aim alone or the button alone cannot solder.
             HasContact = operating && pressing && state.Accessible && !IsToolAnimating && held != SolderingTrialState.Tool.None &&
-                Vector3.Distance(actualEnd.position, transform.TransformPoint(Joint)) <= 0.038f;
+                Vector3.Distance(actualEnd.position, transform.TransformPoint(Joint)) <= ContactRadius;
             state.Tick(seconds, HasContact, operating);
             RefreshFeedback();
         }
@@ -312,9 +316,9 @@ namespace Interactables
             hotMetal.color = Color.Lerp(new Color(0.35f, 0.38f, 0.40f), new Color(1, 0.12f, 0.025f), state.Heat);
             hotMetal.SetColor("_EmissionColor", new Color(1, 0.04f, 0) * state.Heat * 0.6f);
             placedSolder.gameObject.SetActive(state.HasSolder && !state.Complete);
-            placedSolder.localScale = new Vector3(0.012f, 0.065f * (1 - state.Progress), 0.012f);
+            placedSolder.localScale = new Vector3(0.012f, 0.065f * (1 - state.Progress), 0.012f) * WorkspaceScale;
             bead.gameObject.SetActive(state.Progress > 0);
-            bead.localScale = new Vector3(Mathf.Lerp(0.015f, 0.15f, state.Progress), 0.028f, 0.065f);
+            bead.localScale = new Vector3(Mathf.Lerp(0.015f, 0.15f, state.Progress), 0.028f, 0.065f) * WorkspaceScale;
             if (state.Working && active && focused)
             {
                 if (!smoke.isEmitting) smoke.Play();
@@ -326,6 +330,7 @@ namespace Interactables
                 if (hiss.isPlaying) hiss.Stop();
             }
             if (fullOperation) RefreshRepairFeedback();
+            RefreshPlacementPreview();
         }
 
         private string NextInstruction()
@@ -345,14 +350,14 @@ namespace Interactables
             if (!state.HasSolder)
             {
                 if (held == SolderingTrialState.Tool.Iron) return "Сначала нужен припой. Положите паяльник — E";
-                if (held == SolderingTrialState.Tool.Solder) return aim.magnitude <= 0.038f
+                if (held == SolderingTrialState.Tool.Solder) return aim.magnitude <= ContactRadius
                     ? "Удерживайте ЛКМ — уложить припой" : "Подведите конец припоя к зазору";
                 return "Возьмите припой слева — E";
             }
             if (held == SolderingTrialState.Tool.Solder) return "Припой уложен. Положите катушку — E";
             if (held == SolderingTrialState.Tool.None) return "Возьмите паяльник справа — E";
             if (!state.Ready) return "Дождитесь нагрева жала";
-            return aim.magnitude <= 0.038f ? "Удерживайте ЛКМ — коснуться припоя" : "Подведите кончик жала к припою";
+            return aim.magnitude <= ContactRadius ? "Удерживайте ЛКМ — коснуться припоя" : "Подведите кончик жала к припою";
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -408,12 +413,14 @@ namespace Interactables
                 Part("Flashlight reflector", transform, PrimitiveType.Cylinder, new Vector3(0.31f, 1.065f, 0), new Vector3(0.25f, 0.04f, 0.25f), metal).localRotation = Quaternion.Euler(0, 0, 90);
                 Part("Lens", transform, PrimitiveType.Cylinder, new Vector3(0.355f, 1.065f, 0), new Vector3(0.19f, 0.012f, 0.19f), white).localRotation = Quaternion.Euler(0, 0, 90);
             }
+            if (flashlight != null) flashlight.localScale = Vector3.one * WorkspaceScale;
             bead = Part("Growing solder bridge", transform, PrimitiveType.Sphere, Joint, Vector3.one * 0.02f, metal);
             placedSolder = Part("Unmelted solder wire", transform, PrimitiveType.Cylinder,
-                Joint + Vector3.up * 0.007f, new Vector3(0.012f, 0.065f, 0.012f), metal);
+                Joint + Vector3.up * (0.007f * WorkspaceScale), new Vector3(0.012f, 0.065f, 0.012f), metal);
             placedSolder.localRotation = Quaternion.Euler(0, 0, 90);
             iron = new GameObject("Soldering iron - tip origin").transform;
             iron.SetParent(transform, false);
+            if (workMat != null) iron.localScale = Vector3.one * 0.7f;
             if (ironVisualPrefab != null)
             {
                 var visual = Visual(ironVisualPrefab, iron, Vector3.zero);
@@ -435,6 +442,7 @@ namespace Interactables
             }
             solder = new GameObject("Solder spool - wire end origin").transform;
             solder.SetParent(transform, false);
+            if (workMat != null) solder.localScale = Vector3.one * 0.45f;
             if (solderVisualPrefab != null)
             {
                 Visual(solderVisualPrefab, solder, Vector3.zero);
@@ -460,6 +468,7 @@ namespace Interactables
             }
             pointer = new GameObject("Tool projection ring").transform;
             pointer.SetParent(transform, false);
+            pointer.localScale = Vector3.one * WorkspaceScale;
             var ring = pointer.gameObject.AddComponent<LineRenderer>();
             ring.useWorldSpace = false;
             ring.loop = true;
@@ -484,15 +493,15 @@ namespace Interactables
             }
             var smokeObject = new GameObject("Light contact smoke");
             smokeObject.transform.SetParent(transform, false);
-            smokeObject.transform.localPosition = Joint + Vector3.up * 0.02f;
+            smokeObject.transform.localPosition = Joint + Vector3.up * (0.02f * WorkspaceScale);
             smokeObject.transform.localRotation = Quaternion.Euler(-90, 0, 0);
             smoke = smokeObject.AddComponent<ParticleSystem>();
             smoke.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = smoke.main;
             main.playOnAwake = false;
             main.startLifetime = 0.65f;
-            main.startSpeed = 0.12f;
-            main.startSize = 0.028f;
+            main.startSpeed = 0.12f * WorkspaceScale;
+            main.startSize = 0.028f * WorkspaceScale;
             main.startRotation = new ParticleSystem.MinMaxCurve(0, Mathf.PI * 2);
             main.startColor = new Color(0.78f, 0.82f, 0.85f, 0.23f);
             main.maxParticles = 24;
@@ -504,7 +513,7 @@ namespace Interactables
             emission.rateOverTime = 18;
             var shape = smoke.shape;
             shape.angle = 16;
-            shape.radius = 0.012f;
+            shape.radius = 0.012f * WorkspaceScale;
             var smokeMaterial = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit"));
             smokeMaterial.SetFloat("_Surface", 1);
             smokeMaterial.SetFloat("_Blend", 0);

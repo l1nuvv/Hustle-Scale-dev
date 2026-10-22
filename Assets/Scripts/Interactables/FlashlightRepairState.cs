@@ -9,6 +9,7 @@ namespace Interactables
         private readonly bool[] secured = { true, true };
         public ItemPlace Flashlight { get; private set; }
         public CoverPlace Cover { get; private set; }
+        public bool ReturningCover { get; private set; }
         public bool LightOn { get; private set; }
         public bool Tested { get; private set; }
         public int CompletionCount { get; private set; }
@@ -54,6 +55,7 @@ namespace Interactables
         public bool LiftCover()
         {
             if (!CanLiftCover || !EmptyTool) return false;
+            ReturningCover = false;
             Cover = CoverPlace.Held;
             LightOn = Tested = false;
             UpdateAccess();
@@ -71,6 +73,7 @@ namespace Interactables
         public bool TakeCover()
         {
             if (Cover != CoverPlace.Tray || !EmptyTool) return false;
+            ReturningCover = true;
             Cover = CoverPlace.Held;
             UpdateAccess();
             return true;
@@ -101,6 +104,7 @@ namespace Interactables
             Flashlight = ItemPlace.Supply;
             Cover = CoverPlace.Attached;
             secured[0] = secured[1] = true;
+            ReturningCover = false;
             LightOn = Tested = false;
             CompletionCount = 0;
             UpdateAccess();

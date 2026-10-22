@@ -16,6 +16,7 @@ bpy.ops.object.delete(use_global=False)
 bpy.context.preferences.filepaths.save_version = 0
 bpy.context.scene.unit_settings.system = "METRIC"
 W, D = 1.76, 1.22
+SIZE = .28  # 49.28 x 34.16 cm; preserve the moulded silicone thickness.
 root = bpy.data.objects.new("SolderingMat", None)
 bpy.context.collection.objects.link(root)
 
@@ -63,7 +64,7 @@ ring("Soft outer retaining rim", 0, 0, W-.012, D-.012, .038, .009, .009)
 ring("Central repair field", 0, -.015, .91, .51, .028, .004, .006)
 ring("Wide lid and parts tray", 0, .425, .70, .34, .028, .008, .011)
 ring("Upper left solder station", -.645, .30, .405, .54, .032, .006, .008)
-ring("Right iron rest", .66, .055, .385, .54, .03, .007, .009)
+ring("Right iron rest", .66, -.045, .385, .76, .03, .007, .009)
 for i in range(3):
     ring("Small parts pocket", -.32+i*.32, -.475, .295, .15, .018, .005, .008)
 # A restrained grid of real shallow screw wells, with open faces rather than painted dots.
@@ -156,17 +157,21 @@ bpy.ops.object.join()
 model = bpy.context.object
 model.name = "Moulded silicone mat"
 bpy.ops.object.transform_apply(location=True,rotation=True,scale=True)
+for vertex in model.data.vertices:
+    vertex.co.x *= SIZE
+    vertex.co.y *= SIZE
+model.data.update()
 # Box projection keeps side UVs valid, with a continuous world-scale top surface.
 uv = model.data.uv_layers.new(name="Silicone UV")
 for face in model.data.polygons:
     for index in face.loop_indices:
         p = model.data.vertices[model.data.loops[index].vertex_index].co
         if abs(face.normal.z) > .5:
-            coord = ((-p.x+W/2)/W,(-p.y+D/2)/D)
+            coord = ((-p.x+W*SIZE/2)/(W*SIZE),(-p.y+D*SIZE/2)/(D*SIZE))
         elif abs(face.normal.x) > abs(face.normal.y):
-            coord = ((-p.y+D/2)/D,p.z/.03)
+            coord = ((-p.y+D*SIZE/2)/(D*SIZE),p.z/.03)
         else:
-            coord = ((-p.x+W/2)/W,p.z/.03)
+            coord = ((-p.x+W*SIZE/2)/(W*SIZE),p.z/.03)
         uv.data[index].uv = coord
 model.data.materials.clear()
 model.data.materials.append(material)
@@ -178,18 +183,18 @@ bm.to_mesh(model.data); bm.free()
 
 def point(x,y,z): return dict(x=x,y=y,z=z)
 a = Vector((.65,.38,-.66)).normalized()
-b = Vector((.65,0,-.66)).normalized()
+b = Vector((0,0,-1))
 cross = a.cross(b)
 q = [cross.x,cross.y,cross.z,1+a.dot(b)]
 # mathutils.Vector's homogeneous normalization does not normalize W as a quaternion.
 length = math.sqrt(sum(component*component for component in q))
 q = [component/length for component in q]
 anchors = [
-    dict(name="RepairOrigin",position=point(0,.106,0)),
-    dict(name="Supply",position=point(0,.106,-.38)),
-    dict(name="SolderDock",position=point(-.56,-.09,.27)),
-    dict(name="IronDock",position=point(.54,.030,.10),rotation=dict(x=q[0],y=q[1],z=q[2],w=q[3])),
-    dict(name="CoverTray",position=point(0,.025,.425))]
+    dict(name="RepairOrigin",position=point(0,.0341,0)),
+    dict(name="Supply",position=point(0,.0341,-.38*SIZE)),
+    dict(name="SolderDock",position=point(-.56*SIZE,-.0406,.27*SIZE)),
+    dict(name="IronDock",position=point(.54*SIZE,.022,.34*SIZE),rotation=dict(x=q[0],y=q[1],z=q[2],w=q[3])),
+    dict(name="CoverTray",position=point(0,.0098,.425*SIZE))]
 for anchor in anchors:
     marker=bpy.data.objects.new(anchor["name"],None)
     bpy.context.collection.objects.link(marker)
@@ -204,15 +209,15 @@ bpy.ops.export_scene.fbx(filepath=str(OUT/"Models/SolderingMat.fbx"),use_selecti
     object_types={"MESH","EMPTY"},add_leaf_bones=False,axis_forward="-Z",axis_up="Y",
     apply_unit_scale=True,bake_space_transform=True,mesh_smooth_type="FACE",use_mesh_modifiers=True)
 # Render the isolated asset; anchors are editor-only source aids and do not render.
-bpy.ops.object.camera_add(location=v(1.0,1.7,-1.35))
+bpy.ops.object.camera_add(location=v(1.0*SIZE,1.7*SIZE,-1.35*SIZE))
 camera=bpy.context.object
 target=Vector(v(0,0,0))
 camera.rotation_euler=(target-camera.location).to_track_quat("-Z","Y").to_euler()
-camera.data.type="ORTHO"; camera.data.ortho_scale=2.15
+camera.data.type="ORTHO"; camera.data.ortho_scale=2.15*SIZE
 scene=bpy.context.scene; scene.camera=camera
 for location,power in (((-.7,2,-.6),220),((1,1.8,.7),130)):
-    bpy.ops.object.light_add(type="AREA",location=v(*location))
-    light=bpy.context.object; light.data.energy=power; light.data.shape="DISK"; light.data.size=2
+    bpy.ops.object.light_add(type="AREA",location=v(*(coordinate*SIZE for coordinate in location)))
+    light=bpy.context.object; light.data.energy=power*SIZE*SIZE; light.data.shape="DISK"; light.data.size=2*SIZE
     light.rotation_euler=(target-light.location).to_track_quat("-Z","Y").to_euler()
 scene.world.color=(.18,.18,.18)
 scene.render.engine="CYCLES"; scene.cycles.samples=24

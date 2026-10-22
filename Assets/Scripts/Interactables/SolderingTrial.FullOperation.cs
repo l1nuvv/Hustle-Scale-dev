@@ -21,8 +21,8 @@ namespace Interactables
         private bool fasteningReleased = true;
         private bool workPaused;
         private Vector3 SupplyPosition => supplyAnchor != null ? LocalAnchor(supplyAnchor) : Joint + new Vector3(0, 0, -0.38f);
-        private Vector3 HeldFlashlight => Joint + new Vector3(0.40f, 0.14f, -0.30f);
-        private Vector3 HeldCover => Joint + new Vector3(0.40f, 0.16f, -0.28f);
+        private Vector3 HeldFlashlight => Joint + new Vector3(0.40f, 0.14f, -0.30f) * (workMat != null ? 0.45f : 1f);
+        private Vector3 HeldCover => Joint + new Vector3(0.40f, 0.16f, -0.28f) * (workMat != null ? 0.45f : 1f);
         private Vector3 CoverTray => coverAnchor != null ? LocalAnchor(coverAnchor) : Joint + new Vector3(-0.56f, -0.04f, 0.35f);
         public bool IsFullOperation => fullOperation;
         public FlashlightRepairState Repair => repair;
@@ -66,13 +66,13 @@ namespace Interactables
             var mat = new GameObject("M3 placement target").transform;
             mat.SetParent(transform, false);
             mat.localPosition = new Vector3(Joint.x, 0.998f, Joint.z);
-            RepairHit(RepairTarget.WorkMat, mat, Vector3.zero, new Vector3(0.79f, 0.012f, 0.34f));
+            RepairHit(RepairTarget.WorkMat, mat, Vector3.zero, new Vector3(0.79f * WorkspaceScale, 0.012f, 0.34f * WorkspaceScale));
             var tray = new GameObject("M3 lid tray target").transform;
             tray.SetParent(transform, false);
             tray.localPosition = new Vector3(CoverTray.x, 0.998f, CoverTray.z);
-            RepairHit(RepairTarget.Tray, tray, Vector3.zero, new Vector3(0.68f, 0.012f, 0.34f));
-            Part("M3 beam target", transform, PrimitiveType.Cube, new Vector3(0.93f, 1.22f, 0),
-                new Vector3(0.035f, 0.43f, 0.42f), Material(new Color(0.68f, 0.70f, 0.65f)));
+            RepairHit(RepairTarget.Tray, tray, Vector3.zero, new Vector3(0.68f, 0.012f, 0.34f) * (workMat != null ? 0.28f : 1f));
+            Part("M3 beam target", transform, PrimitiveType.Cube, new Vector3(0.93f * WorkspaceScale, 0.99f + 0.23f * WorkspaceScale, 0),
+                new Vector3(0.035f, 0.43f, 0.42f) * WorkspaceScale, Material(new Color(0.68f, 0.70f, 0.65f)));
             var beam = new GameObject("M3 working flashlight beam");
             beam.transform.SetParent(flashlight, false);
             beam.transform.localPosition = new Vector3(0.34f, -0.01f, 0);
@@ -271,7 +271,8 @@ namespace Interactables
                 return "E — взять фонарик · сначала припой, затем паяльник";
             if (repair.Flashlight == FlashlightRepairState.ItemPlace.Held) return "Наведите на коврик — E поставить фонарик";
             if (repair.Cover == FlashlightRepairState.CoverPlace.Held)
-                return repairHover == RepairTarget.WorkMat ? "E — вернуть крышку на корпус" : "E над лотком сзади — положить крышку";
+                return repairHover == RepairTarget.WorkMat || (repairHover != RepairTarget.Tray && repair.ReturningCover)
+                    ? "E над силуэтом корпуса — вернуть крышку" : "E над силуэтом в заднем лотке — положить крышку";
             if (repair.Cover == FlashlightRepairState.CoverPlace.Attached)
             {
                 if (repair.Complete && repair.Assembled) return "Фонарик проверен: свет работает · R — повторить";
