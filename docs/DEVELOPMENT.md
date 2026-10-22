@@ -21,7 +21,7 @@ Read from files on 2026-10-22; no Editor launch or compilation during this docum
 
 The exact manifest may contain additional packages; presence does not prove runtime use. Previous Windows64 Player checks do not establish all supported release platforms. Local `.agents/` skills and `references/*.zip` are ignored; daily work uses versioned docs. Migration, package updates and changing Player Settings require a separate authorized task.
 
-At audit start, `ProjectSettings/ProjectSettings.asset` already had an unrelated edit: an extra `i` at the end of `m_StackTraceTypes`. It was preserved. Whether the Editor accepts that value is unverified; inspect it in a separate settings task if import/serialization fails. The audit's commit must not include it.
+The subsequent [clean-checkout/build audit](BUILD_REPRODUCIBILITY_AUDIT.md) verified the pinned settings through cold import, compilation, tests and Windows Player builds; the earlier documentation audit's dirty `m_StackTraceTypes` observation no longer describes the current checkout. [Build instructions](BUILD_AND_REPRODUCIBILITY.md) record commands, package/network requirements, local-vs-remote differences and remaining acceptance limits. Do not repeat release packaging for routine tasks.
 
 ## 1. Working priority
 
