@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Linq;
 using Interactables;
 using Player;
 using Player.Movement;
@@ -106,7 +107,7 @@ public static class SolderingTrialVerification
         Begin();
         try
         {
-            var trial = UnityEngine.Object.FindAnyObjectByType<SolderingTrial>();
+            var trial = UnityEngine.Object.FindObjectsByType<SolderingTrial>().Single(t => !t.IsFullOperation);
             Check(trial != null && trial.gameObject.scene.path == DevelopmentSandboxBuilder.ScenePath, "trial belongs only to sandbox");
             Check(trial.UsesAuthoredVisuals, "sandbox uses all three authored Blender visuals");
             var data = new SerializedObject(trial);
@@ -197,7 +198,7 @@ public static class SolderingTrialVerification
         if (!EditorApplication.isPlaying || EditorApplication.isPaused)
             throw new InvalidOperationException("Run unpaused DevelopmentSandbox Play Mode first.");
         Begin();
-        var trial = UnityEngine.Object.FindAnyObjectByType<SolderingTrial>();
+        var trial = UnityEngine.Object.FindObjectsByType<SolderingTrial>().Single(t => !t.IsFullOperation);
         if (trial == null) throw new InvalidOperationException("Open DevelopmentSandbox first.");
         trial.Exit();
         trial.ResetTrial();

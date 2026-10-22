@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Interactables;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -40,7 +41,7 @@ public static class SolderingTrialArtBuilder
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         if (scene.path != DevelopmentSandboxBuilder.ScenePath)
             scene = EditorSceneManager.OpenScene(DevelopmentSandboxBuilder.ScenePath);
-        var trial = UnityEngine.Object.FindAnyObjectByType<SolderingTrial>();
+        var trial = UnityEngine.Object.FindObjectsByType<SolderingTrial>().SingleOrDefault(t => !t.IsFullOperation);
         if (trial == null) throw new InvalidOperationException("M2 station missing from sandbox.");
         var data = new SerializedObject(trial);
         data.FindProperty("ironVisualPrefab").objectReferenceValue = iron;

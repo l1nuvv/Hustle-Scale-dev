@@ -14,6 +14,7 @@ namespace Interactables
         public bool HasSolder { get; private set; }
         public bool Powered { get; private set; }
         public bool Working { get; private set; }
+        public bool Accessible { get; private set; } = true;
         public bool Ready => Heat >= 1f;
         public bool Complete => Progress >= 1f;
         public int CompletionCount { get; private set; }
@@ -25,6 +26,12 @@ namespace Interactables
             Working = false;
         }
 
+        public void SetAccessible(bool accessible)
+        {
+            Accessible = accessible;
+            if (!accessible) Working = false;
+        }
+
         public void Tick(float seconds, bool contact, bool operating)
         {
             Working = false;
@@ -32,7 +39,7 @@ namespace Interactables
             // Read readiness before heating: crossing the threshold cannot credit a cold interval.
             var wasReady = Ready;
             if (Powered) Heat = Mathf.Min(1f, Heat + seconds / HeatSeconds);
-            if (!contact || Complete) return;
+            if (!Accessible || !contact || Complete) return;
             if (HeldTool == Tool.Solder) HasSolder = true;
             Working = HeldTool == Tool.Iron && wasReady && HasSolder;
             if (!Working) return;
