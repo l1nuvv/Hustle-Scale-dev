@@ -99,6 +99,8 @@ Inspect the harness prerequisites before running: some enter/leave Play Mode, op
 
 For duplicate-sale changes, test same-ID repeats, duplicate IDs in one group, mixed valid/invalid group, sold or distant goods, closed order and exact deadline; money/items/order must remain unchanged on rejection. For diagnosis UI, test unknown/working/fault/after-repair/retested states, visible refusal and focus, with the appropriate scene adapter. For a new product, specify and test new data and old-save compatibility before expanding the fixed three-slot model.
 
+State reliability audit (22.10.2026): [results, limits and regression commands](GAME_STATE_RELIABILITY_AUDIT.md). Additional focused menus: `Tools/T04/Verify Trade Domain`, `Tools/Quality/Verify City State Sequences` and `Tools/Quality/Verify Pickup Integrity in Play Mode`; the last uses an isolated empty scene and restores the original saved scene.
+
 Historical results are in [ROADMAP](ROADMAP.md) and the dated ledgers; `Logs/`/`Temp/` may be absent or overwritten locally. A previous PASS cannot establish a new run. The known old T04 intro-text assertion failure is retained in [FIRST DEAL history](archive/DEVELOPMENT_HISTORY.md#first-deal--записи-проверок-1820102026), not silently reclassified as a passing suite.
 
 - Evidence tiers: **inspected only**, **static checks**, **Unity compilation**, **EditMode tests**, **PlayMode/manual tests**, and **player playtest** are distinct. Never replace one with claims about another.
