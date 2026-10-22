@@ -108,6 +108,7 @@ public static class SolderingTrialVerification
         {
             var trial = UnityEngine.Object.FindAnyObjectByType<SolderingTrial>();
             Check(trial != null && trial.gameObject.scene.path == DevelopmentSandboxBuilder.ScenePath, "trial belongs only to sandbox");
+            Check(trial.UsesAuthoredVisuals, "sandbox uses all three authored Blender visuals");
             var data = new SerializedObject(trial);
             var player = (PlayerController)data.FindProperty("player").objectReferenceValue;
             var deal = (FirstDealView)data.FindProperty("deal").objectReferenceValue;

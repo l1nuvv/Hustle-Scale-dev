@@ -31451,6 +31451,10 @@ MonoBehaviour:
   view: {fileID: 973919864}
   deal: {fileID: 1502871232}
   sandbox: {fileID: 527672182}
+  ironVisualPrefab: {fileID: 5126907602858738056, guid: a528c30e5c44a494792706554f7ad20c, type: 3}
+  solderVisualPrefab: {fileID: 5069343887207248480, guid: 13f3d35fb0e190e41910c3884d69470c, type: 3}
+  flashlightVisualPrefab: {fileID: 8478914501258336454, guid: c9a3780ca7fdc554b80d9bd34fa41420, type: 3}
+  smokeTexture: {fileID: 2800000, guid: 512008ab40a125f4cba5442bb6841eb9, type: 3}
 --- !u!4 &1542994954
 Transform:
   m_ObjectHideFlags: 0

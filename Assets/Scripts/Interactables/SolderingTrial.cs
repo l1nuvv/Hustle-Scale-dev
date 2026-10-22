@@ -14,6 +14,10 @@ namespace Interactables
         [SerializeField] private Camera view;
         [SerializeField] private FirstDealView deal;
         [SerializeField] private DevelopmentSandbox sandbox;
+        [SerializeField] private GameObject ironVisualPrefab;
+        [SerializeField] private GameObject solderVisualPrefab;
+        [SerializeField] private GameObject flashlightVisualPrefab;
+        [SerializeField] private Texture2D smokeTexture;
         private readonly SolderingTrialState state = new SolderingTrialState();
         private readonly List<Object> resources = new List<Object>();
         private readonly List<Behaviour> suspended = new List<Behaviour>();
@@ -42,6 +46,7 @@ namespace Interactables
         public bool SoundPlaying => hiss.isPlaying;
         public Vector3 TipPosition => state.HeldTool == SolderingTrialState.Tool.Solder ? wireEnd.position : tip.position;
         public string Instruction => instruction;
+        public bool UsesAuthoredVisuals => ironVisualPrefab != null && solderVisualPrefab != null && flashlightVisualPrefab != null;
 
         private void Awake()
         {
@@ -225,6 +230,8 @@ namespace Interactables
             var wood = Material(new Color(0.34f, 0.25f, 0.17f));
             var copper = Material(new Color(0.85f, 0.42f, 0.12f));
             var metal = Material(new Color(0.7f, 0.76f, 0.80f));
+            metal.SetFloat("_Metallic", 0.8f);
+            metal.SetFloat("_Smoothness", 0.45f);
             var green = Material(new Color(0.08f, 0.35f, 0.22f));
             var white = Material(new Color(0.88f, 0.93f, 0.94f));
             hotMetal = Material(Color.gray);
@@ -232,41 +239,65 @@ namespace Interactables
             Part("M2 table", transform, PrimitiveType.Cube, new Vector3(0, 0.94f, 0), new Vector3(1.9f, 0.1f, 1), wood, true);
             foreach (var x in new[] { -0.8f, 0.8f })
                 Part("Leg", transform, PrimitiveType.Cube, new Vector3(x, 0.45f, 0), new Vector3(0.09f, 0.9f, 0.65f), dark);
-            Part("Open flashlight lower shell", transform, PrimitiveType.Cube, new Vector3(0, 1.005f, 0), new Vector3(0.7f, 0.055f, 0.32f), dark);
-            Part("Exposed circuit board", transform, PrimitiveType.Cube, new Vector3(0, 1.04f, 0), new Vector3(0.53f, 0.03f, 0.23f), green);
-            foreach (var x in new[] { -0.08f, 0.08f })
-                Part("Broken copper contact", transform, PrimitiveType.Cube, new Vector3(x, 1.068f, 0), new Vector3(0.085f, 0.025f, 0.075f), copper);
-            Part("Loose red wire", transform, PrimitiveType.Cube, new Vector3(-0.19f, 1.065f, 0.04f), new Vector3(0.18f, 0.024f, 0.025f), Material(new Color(0.65f, 0.035f, 0.025f)));
-            Part("Battery", transform, PrimitiveType.Cylinder, new Vector3(0, 1.075f, 0.092f), new Vector3(0.045f, 0.12f, 0.045f), metal).localRotation = Quaternion.Euler(0, 0, 90);
-            Part("Flashlight reflector", transform, PrimitiveType.Cylinder, new Vector3(0.31f, 1.065f, 0), new Vector3(0.25f, 0.04f, 0.25f), metal).localRotation = Quaternion.Euler(0, 0, 90);
-            Part("Lens", transform, PrimitiveType.Cylinder, new Vector3(0.355f, 1.065f, 0), new Vector3(0.19f, 0.012f, 0.19f), white).localRotation = Quaternion.Euler(0, 0, 90);
+            if (flashlightVisualPrefab != null) Visual(flashlightVisualPrefab, transform, Joint);
+            else
+            {
+                Part("Open flashlight lower shell", transform, PrimitiveType.Cube, new Vector3(0, 1.005f, 0), new Vector3(0.7f, 0.055f, 0.32f), dark);
+                Part("Exposed circuit board", transform, PrimitiveType.Cube, new Vector3(0, 1.04f, 0), new Vector3(0.53f, 0.03f, 0.23f), green);
+                foreach (var x in new[] { -0.08f, 0.08f })
+                    Part("Broken copper contact", transform, PrimitiveType.Cube, new Vector3(x, 1.068f, 0), new Vector3(0.085f, 0.025f, 0.075f), copper);
+                Part("Loose red wire", transform, PrimitiveType.Cube, new Vector3(-0.19f, 1.065f, 0.04f), new Vector3(0.18f, 0.024f, 0.025f), Material(new Color(0.65f, 0.035f, 0.025f)));
+                Part("Battery", transform, PrimitiveType.Cylinder, new Vector3(0, 1.075f, 0.092f), new Vector3(0.045f, 0.12f, 0.045f), metal).localRotation = Quaternion.Euler(0, 0, 90);
+                Part("Flashlight reflector", transform, PrimitiveType.Cylinder, new Vector3(0.31f, 1.065f, 0), new Vector3(0.25f, 0.04f, 0.25f), metal).localRotation = Quaternion.Euler(0, 0, 90);
+                Part("Lens", transform, PrimitiveType.Cylinder, new Vector3(0.355f, 1.065f, 0), new Vector3(0.19f, 0.012f, 0.19f), white).localRotation = Quaternion.Euler(0, 0, 90);
+            }
             bead = Part("Growing solder bridge", transform, PrimitiveType.Sphere, Joint, Vector3.one * 0.02f, metal);
             placedSolder = Part("Unmelted solder wire", transform, PrimitiveType.Cylinder,
                 Joint + Vector3.up * 0.007f, new Vector3(0.012f, 0.065f, 0.012f), metal);
             placedSolder.localRotation = Quaternion.Euler(0, 0, 90);
             iron = new GameObject("Soldering iron - tip origin").transform;
             iron.SetParent(transform, false);
-            tip = Part("Hot tip", iron, PrimitiveType.Sphere, Vector3.zero, new Vector3(0.025f, 0.025f, 0.05f), hotMetal);
-            var shaftEnd = new Vector3(0.16f, 0.12f, -0.16f);
-            var shaft = Part("Shaft", iron, PrimitiveType.Cylinder, shaftEnd / 2,
-                new Vector3(0.025f, shaftEnd.magnitude / 2, 0.025f), metal);
-            shaft.localRotation = Quaternion.FromToRotation(Vector3.up, shaftEnd);
-            var grip = Part("Iron grip", iron, PrimitiveType.Capsule, shaftEnd * 1.4f,
-                new Vector3(0.065f, 0.10f, 0.065f), dark);
-            grip.localRotation = shaft.localRotation;
+            if (ironVisualPrefab != null)
+            {
+                var visual = Visual(ironVisualPrefab, iron, Vector3.zero);
+                foreach (var renderer in visual.GetComponentsInChildren<MeshRenderer>())
+                    if (renderer.name == "HotTip") renderer.sharedMaterial = hotMetal;
+                tip = new GameObject("Iron working end").transform;
+                tip.SetParent(iron, false);
+            }
+            else
+            {
+                tip = Part("Hot tip", iron, PrimitiveType.Sphere, Vector3.zero, new Vector3(0.025f, 0.025f, 0.05f), hotMetal);
+                var shaftEnd = new Vector3(0.16f, 0.12f, -0.16f);
+                var shaft = Part("Shaft", iron, PrimitiveType.Cylinder, shaftEnd / 2,
+                    new Vector3(0.025f, shaftEnd.magnitude / 2, 0.025f), metal);
+                shaft.localRotation = Quaternion.FromToRotation(Vector3.up, shaftEnd);
+                var grip = Part("Iron grip", iron, PrimitiveType.Capsule, shaftEnd * 1.4f,
+                    new Vector3(0.065f, 0.10f, 0.065f), dark);
+                grip.localRotation = shaft.localRotation;
+            }
             solder = new GameObject("Solder spool - wire end origin").transform;
             solder.SetParent(transform, false);
-            wireEnd = Part("Solder wire end", solder, PrimitiveType.Sphere, Vector3.zero,
-                Vector3.one * 0.013f, metal);
-            var spoolPosition = new Vector3(-0.08f, 0.14f, -0.07f);
-            var wire = Part("Wire from spool", solder, PrimitiveType.Cylinder, spoolPosition / 2,
-                new Vector3(0.012f, spoolPosition.magnitude / 2, 0.012f), metal);
-            wire.localRotation = Quaternion.FromToRotation(Vector3.up, spoolPosition);
-            Part("Coiled solder", solder, PrimitiveType.Cylinder, spoolPosition,
-                new Vector3(0.115f, 0.035f, 0.115f), metal);
-            foreach (var y in new[] { -0.038f, 0.038f })
-                Part("Spool rim", solder, PrimitiveType.Cylinder, spoolPosition + Vector3.up * y,
-                    new Vector3(0.145f, 0.008f, 0.145f), dark);
+            if (solderVisualPrefab != null)
+            {
+                Visual(solderVisualPrefab, solder, Vector3.zero);
+                wireEnd = new GameObject("Solder working end").transform;
+                wireEnd.SetParent(solder, false);
+            }
+            else
+            {
+                wireEnd = Part("Solder wire end", solder, PrimitiveType.Sphere, Vector3.zero,
+                    Vector3.one * 0.013f, metal);
+                var spoolPosition = new Vector3(-0.08f, 0.14f, -0.07f);
+                var wire = Part("Wire from spool", solder, PrimitiveType.Cylinder, spoolPosition / 2,
+                    new Vector3(0.012f, spoolPosition.magnitude / 2, 0.012f), metal);
+                wire.localRotation = Quaternion.FromToRotation(Vector3.up, spoolPosition);
+                Part("Coiled solder", solder, PrimitiveType.Cylinder, spoolPosition,
+                    new Vector3(0.115f, 0.035f, 0.115f), metal);
+                foreach (var y in new[] { -0.038f, 0.038f })
+                    Part("Spool rim", solder, PrimitiveType.Cylinder, spoolPosition + Vector3.up * y,
+                        new Vector3(0.145f, 0.008f, 0.145f), dark);
+            }
             pointer = new GameObject("Tool projection ring").transform;
             pointer.SetParent(transform, false);
             var ring = pointer.gameObject.AddComponent<LineRenderer>();
@@ -298,9 +329,13 @@ namespace Interactables
             main.startLifetime = 0.65f;
             main.startSpeed = 0.12f;
             main.startSize = 0.028f;
+            main.startRotation = new ParticleSystem.MinMaxCurve(0, Mathf.PI * 2);
             main.startColor = new Color(0.78f, 0.82f, 0.85f, 0.23f);
             main.maxParticles = 24;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
+            var expansion = smoke.sizeOverLifetime;
+            expansion.enabled = true;
+            expansion.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, 0.45f, 1, 1.8f));
             var emission = smoke.emission;
             emission.rateOverTime = 18;
             var shape = smoke.shape;
@@ -312,6 +347,7 @@ namespace Interactables
             smokeMaterial.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
             smokeMaterial.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
             smokeMaterial.SetFloat("_ZWrite", 0);
+            if (smokeTexture != null) smokeMaterial.SetTexture("_BaseMap", smokeTexture);
             smokeMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             smokeMaterial.renderQueue = 3000;
             resources.Add(smokeMaterial);
@@ -343,6 +379,15 @@ namespace Interactables
             var material = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
             resources.Add(material);
             return material;
+        }
+
+        private Transform Visual(GameObject prefab, Transform parent, Vector3 position)
+        {
+            var visual = Instantiate(prefab, parent).transform;
+            visual.localPosition = position;
+            visual.localRotation = Quaternion.identity;
+            visual.localScale = Vector3.one;
+            return visual;
         }
 
         private Transform Part(string name, Transform parent, PrimitiveType type, Vector3 position,
