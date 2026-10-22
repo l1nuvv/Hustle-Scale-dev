@@ -38,7 +38,12 @@ namespace Inventory
         private DealOrder[] previousOrders;
         private Random cityRandom;
         public DealOrder PreviousOrder(DealOrderId id) => previousOrders == null || (int)id < 0 || (int)id > 1 ? null : previousOrders[(int)id];
-        public bool CanPurchaseLot => !LotPurchased || (IsCity && PurchasedLots == 1 && OwnedLampCount == 0 && !IsCrateInVehicle);
+        public int SellerLampCount
+        {
+            get { var count = 0; foreach (var unit in units) if (unit.Location == FlashlightLocation.Seller) count++; return count; }
+        }
+        public bool CanPurchaseLot => !LotPurchased || (IsCity && PurchasedLots == 1 && OwnedLampCount == 0 && SellerLampCount == 0);
+        public bool CanPurchaseCityLamp => IsCity && (SellerLampCount > 0 || CanPurchaseLot);
         public string LotPurchaseStatus => PurchasedLots >= 2 ? "Обе партии куплены" :
             OwnedLampCount > 0 ? "Сначала продай остатки партии" : IsCrateInVehicle ? "Сначала выгрузи ящик" : "Нет денег";
         public bool HasTransportedCrate { get; private set; }
@@ -61,7 +66,7 @@ namespace Inventory
             if (!HasTrading || !LotPurchased) return;
             foreach (var order in orders)
                 if ((order.State == DealOrderState.Available || order.State == DealOrderState.Accepted) &&
-                    OwnedLampCount < order.Quantity) order.State = DealOrderState.Unavailable;
+                    OwnedLampCount + (IsCity ? SellerLampCount : 0) < order.Quantity) order.State = DealOrderState.Unavailable;
         }
 
         public bool CanPursueOrder(DealOrderId id) => !ShiftEnded &&
@@ -86,7 +91,8 @@ namespace Inventory
         {
             if (ShiftEnded) return Reject("Смена завершена. Начни заново для новой попытки.", out message);
             if (IsPaused) return Reject("Close the menu first.", out message);
-            if (HasTrading && !LotPurchased) return Reject("Buy the seller's lot first: three lamps for $180.", out message);
+            if (HasTrading && !LotPurchased) return Reject(IsCity ? "Сначала купи фонарь у продавца за $60." :
+                "Buy the seller's lot first: three lamps for $180.", out message);
             message = "";
             return true;
         }
@@ -120,6 +126,35 @@ namespace Inventory
             foreach (var unit in units) unit.Location = FlashlightLocation.Crate;
             return Complete("Purchased three lamps: -$180. Carry the crate back to the workshop.", out message);
         }
+
+        public bool PurchaseCityLamp(out string message)
+        {
+            if (!IsCity || IsPaused || ShiftEnded || !CanPurchaseCityLamp)
+                return Reject("Новых фонарей нет: сначала купи и продай текущую партию. Всего две партии.", out message);
+            if (Balance < 60) return Reject("Один фонарь стоит $60.", out message);
+            if (SellerLampCount == 0)
+            {
+                previousUnits = (FlashlightUnit[])units.Clone();
+                previousOrders = new[] { orders[0], orders[1] };
+                orders[0] = new DealOrder(DealOrderId.A, 2, 260, 0, DealOrderState.Available);
+                orders[1] = new DealOrder(DealOrderId.B, 1, 125, 0, DealOrderState.Available);
+                for (var i = 0; i < units.Length; i++) units[i] = new FlashlightUnit(FlashlightCondition.Working) { Location = FlashlightLocation.Seller };
+                PurchasedLots++;
+            }
+            else if (!LotPurchased) PurchasedLots = 1;
+            for (var i = 0; i < units.Length; i++)
+                if (units[i].Location == FlashlightLocation.Seller)
+                {
+                    units[i] = new FlashlightUnit(cityRandom.Next(2) == 0 ? FlashlightCondition.Working : FlashlightCondition.BatteryFault)
+                    { Location = FlashlightLocation.Pocket };
+                    break;
+                }
+            LotPurchased = true; Balance -= 60; Expenses += 60;
+            return Complete("Фонарь в инвентаре · −$60 · 1–3 выбрать, Tab — имущество", out message);
+        }
+
+        public bool IsPresented(FlashlightUnit unit) => unit != null && (unit.Location == FlashlightLocation.Hands ||
+            IsCity && unit.Location == FlashlightLocation.Pocket || IsCrateCarried && unit.Location == FlashlightLocation.Crate);
 
         public void StartShift()
         {
@@ -190,7 +225,8 @@ namespace Inventory
             if (order.State != DealOrderState.Accepted) return Reject("Accept this order before delivering; closed orders cannot pay again.", out message);
             if (ElapsedSeconds >= order.DeadlineSeconds) return Reject("The deadline has passed. No payment.", out message);
             if (presentedIds == null || presentedIds.Count != order.Quantity)
-                return Reject("Present exactly " + order.Quantity + " tested working lamps together. Carry the crate for A.", out message);
+                return Reject(IsCity ? "Выбери ровно " + order.Quantity + " проверенных исправных фонаря из переносимого запаса." :
+                    "Present exactly " + order.Quantity + " tested working lamps together. Carry the crate for A.", out message);
             var selected = new List<FlashlightUnit>();
             var unique = new HashSet<string>();
             foreach (var identity in presentedIds)
@@ -198,8 +234,7 @@ namespace Inventory
                 if (identity == null || !unique.Add(identity)) return Reject("Every lamp must have a different owned identity.", out message);
                 FlashlightUnit found = null;
                 foreach (var unit in units) if (unit.InstanceId == identity) { found = unit; break; }
-                if (found == null || !(found.Location == FlashlightLocation.Hands ||
-                    (IsCrateCarried && found.Location == FlashlightLocation.Crate)))
+                if (!IsPresented(found))
                     return Reject("Bring your lamps here in your hands or carried crate; stored and sold lamps cannot transfer.", out message);
                 if (!found.IsTested) return Reject("Test every presented lamp on the workbench first.", out message);
                 if (!found.LastTestPassed || found.Condition != FlashlightCondition.Working)

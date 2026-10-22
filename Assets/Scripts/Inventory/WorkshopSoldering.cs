@@ -26,7 +26,7 @@ namespace Inventory
             if (IsCity && SolderingLamp != null) yield return SolderingLamp;
         }
         public bool CanBuyStation => IsCity && !StationOwned && PurchasedLots > 0 &&
-            (previousUnits != null || OwnedLampCount == 0);
+            (previousUnits != null || OwnedLampCount == 0 && SellerLampCount == 0);
         public bool CanAutosaveSoldering => repairState == null || repairState.HandsFree;
         public bool SolderingAssembled => RepairState.Cover == FlashlightRepairState.CoverPlace.Attached &&
             RepairState.IsSecured(0) && RepairState.IsSecured(1);
@@ -125,7 +125,7 @@ namespace Inventory
             var lamp = SolderingLamp;
             if (solderingOrder.State != DealOrderState.Accepted || ElapsedSeconds >= solderingOrder.DeadlineSeconds ||
                 lamp == null || !SolderingReady || ids == null || ids.Count != 1 || ids[0] != lamp.InstanceId ||
-                !(lamp.Location == FlashlightLocation.Hands || IsCrateCarried && lamp.Location == FlashlightLocation.Crate))
+                !IsPresented(lamp))
                 return Reject("Предъяви один восстановленный и проверенный фонарик по принятому заказу до срока.", out message);
             if (Balance > int.MaxValue - 400) return Reject("Кошелёк заполнен.", out message);
             lamp.Location = FlashlightLocation.SolderBuyer; lamp.IsPowered = false;

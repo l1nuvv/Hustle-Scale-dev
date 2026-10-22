@@ -737,6 +737,8 @@ GameObject:
   m_Component:
   - component: {fileID: 6094918492551333107}
   - component: {fileID: 8671859900470298074}
+  - component: {fileID: 4302217749323543913}
+  - component: {fileID: 8398460800119131859}
   m_Layer: 0
   m_Name: "\u041F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044C \u0411"
   m_TagString: Untagged
@@ -772,6 +774,41 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f7788310c2ea71c4992808d9d705a560, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Interactables.CityTradeReaction
+--- !u!65 &4302217749323543913
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1633023484212504906}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.59669876, y: 1.8360081, z: 0.34731102}
+  m_Center: {x: 0, y: 0.8338915, z: 0.018854141}
+--- !u!114 &8398460800119131859
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1633023484212504906}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 913b05b175c7a7741a9b2b33c0fdb3ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Interactables.CityTradePoint
+  kind: 4
+  index: -1
 --- !u!1 &1663587154213964327
 GameObject:
   m_ObjectHideFlags: 0

@@ -144,6 +144,20 @@ public static partial class M5SolderingVerification
         add(() => { click(false); Check(t.State.Complete && !save.Session.SolderingReady && save.Session.SolderDoses == 0, "completed solder keeps assembly/test gate and no second charge"); }, .15);
         returnTool(); take(SolderingTrial.RepairTarget.Cover); take(SolderingTrial.RepairTarget.WorkMat);
         turn(SolderingTrial.RepairTarget.Fastener0); turn(SolderingTrial.RepairTarget.Fastener1);
+        add(() => key(Key.Escape), .2);
+        add(() => { key(null); Check(!t.IsActive && save.Session.AtSolderingStation && t.Repair.Assembled, "Esc leaves closed lamp placed on station"); }, .2);
+        add(() => key(Key.E), .25);
+        add(() => { key(null); Check(t.IsActive && t.Repair.Assembled && t.State.Complete, "real E reentry keeps closed lamp and completed solder"); }, .2);
+        add(() => key(Key.P), .2); add(() => key(null), .2);
+        add(() => key(Key.F5), .2); add(() => key(null), .2);
+        add(() => key(Key.F9), .3);
+        add(() =>
+        {
+            key(null); Check(walk.IsPaused && !t.IsActive && save.Session.AtSolderingStation && t.Repair.Assembled && t.State.Complete,
+            "F5/F9 preserves closed lamp on station without manual replacement");
+        }, .2);
+        add(() => key(Key.Escape), .2); add(() => key(null), .2);
+        add(() => key(Key.E), .25); add(() => key(null), .2);
         add(() => aim(SolderingTrial.RepairTarget.Power), .15); add(() => click(true), .2);
         add(() => { click(false); Check(t.BeamEnabled && save.Session.SolderingReady, "manual assembled switch gives real light and ready city item"); }, .15);
         take(SolderingTrial.RepairTarget.Flashlight);

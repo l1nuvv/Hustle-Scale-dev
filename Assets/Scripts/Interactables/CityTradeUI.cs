@@ -168,6 +168,7 @@ namespace Interactables
             rebuilding = true;
             try
             {
+                HideProductTooltip();
                 var focused = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
                 var focusName = focused != null && focused.transform.IsChildOf(menuContent) ? focused.name.Replace("[x]", "[ ]") : null;
                 var scrollPosition = menuScroll.verticalNormalizedPosition;
@@ -179,6 +180,21 @@ namespace Interactables
                 {
                     BuildLocalMap();
                     Line("$" + session.Balance + " · Батареи: " + session.SpareBatteries);
+                    var carriedCount = 0;
+                    for (var i = 0; i < 3; i++)
+                        if (session.IsPresented(session.CityUnit(i))) carriedCount++;
+                    Line("Фонари ×" + carriedCount + " · выбери экземпляр ниже");
+                    if (Reachable(crate.GetComponent<CityTradePoint>()))
+                    {
+                        Button("Ящик: забрать содержимое", () => Execute("contents"));
+                        if (session.InHands != null)
+                        {
+                            var heldSlot = -1;
+                            for (var i = 0; i < lamps.Length; i++)
+                                if (session.CityUnit(i) == session.InHands) heldSlot = i;
+                            Button("Положить фонарь в ящик", () => Execute("unit", heldSlot));
+                        }
+                    }
                     Button(showControls ? "Скрыть управление" : "Управление", () => { showControls = !showControls; RebuildMenu(); });
                     if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — выбросить · F — свет\nУ верстака: T — тест · R — замена батареи\nTab — карта · Esc — пауза · F5 / F9 в паузе — сохранить / загрузить");
                     for (var i = 0; i < lamps.Length; i++)
@@ -192,10 +208,10 @@ namespace Interactables
                 else switch (current.Kind)
                     {
                         case CityTradeKind.Seller:
-                            var crateHere = !session.LotPurchased || CrateAtSeller;
-                            ProductCard(session.LotPurchased ? "Вторая партия" : "Партия фонарей", "3 шт. · поломка каждого: 50%", "$180", lampIcon,
-                                () => Execute("purchase"), session.CanPurchaseLot && session.Balance >= 180 && crateHere,
-                                !crateHere && session.CanPurchaseLot ? "Принеси пустой ящик" : session.LotPurchaseStatus);
+                            ProductCard("Фонарь", "1 шт. в инвентарь · поломка: 50% · партия " + Math.Max(1, session.PurchasedLots) + "/2", "$60", lampIcon,
+                                () => Execute("purchase"), session.CanPurchaseCityLamp && session.Balance >= 60,
+                                session.CanPurchaseCityLamp ? "Нужно $60 за один фонарь" : "Сначала продай текущую партию. Всего две партии по три фонаря.",
+                                session.PurchasedLots == 2 && session.SellerLampCount == 0);
                             ProductCard("Батарея", "1 шт. · для ремонта", "$50", batteryIcon,
                                 () => Execute("battery"), session.Balance >= 50);
                             SolderingShop();
@@ -233,7 +249,7 @@ namespace Interactables
                             if (order.State == DealOrderState.Accepted)
                             {
                                 SelectGoods();
-                                Button("Передать · " + Selection().Count + "/" + order.Quantity, () => Execute("deliver"));
+                                Button("Передать · " + Selection().Count + "/" + order.Quantity, () => Execute("deliver"), Selection().Count == order.Quantity);
                             }
                             if (current.Kind == CityTradeKind.B) SolderingOffer();
                             break;

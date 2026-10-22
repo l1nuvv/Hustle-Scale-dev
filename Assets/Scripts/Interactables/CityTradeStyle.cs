@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace Interactables
 {
@@ -9,6 +10,8 @@ namespace Interactables
         private Sprite roundedUi, lampIcon, batteryIcon;
         private Texture2D roundedTexture, lampTexture, batteryTexture;
         private Text menuWallet;
+        private RectTransform productTooltip;
+        private Text productTooltipText;
         private static readonly Color Ink = new Color(0.055f, 0.07f, 0.085f);
         private static readonly Color Paper = new Color(0.94f, 0.95f, 0.93f);
         private static readonly Color Muted = new Color(0.58f, 0.64f, 0.66f);
@@ -87,7 +90,7 @@ namespace Interactables
             return image;
         }
 
-        private void ProductCard(string title, string detail, string price, Sprite icon, Action purchase, bool available, string unavailable = "Нет денег")
+        private void ProductCard(string title, string detail, string price, Sprite icon, Action purchase, bool available, string unavailable = "Нет денег", bool purchased = false)
         {
             var card = Rect(title, menuContent, Vector2.zero, Vector2.one);
             card.gameObject.AddComponent<LayoutElement>().preferredHeight = 124 * textScale;
@@ -100,20 +103,62 @@ namespace Interactables
             var titleLabel = Label(card, title, 22); titleLabel.fontStyle = FontStyle.Bold;
             titleLabel.alignment = TextAnchor.LowerLeft;
             titleLabel.rectTransform.anchorMin = new Vector2(0, 0.52f); titleLabel.rectTransform.anchorMax = new Vector2(1, 1);
-            titleLabel.rectTransform.offsetMin = new Vector2(132, 0); titleLabel.rectTransform.offsetMax = new Vector2(-170, -14);
+            titleLabel.rectTransform.offsetMin = new Vector2(132, 0); titleLabel.rectTransform.offsetMax = new Vector2(-170 * textScale, -14);
             var description = Label(card, detail, 15); description.color = Muted; description.alignment = TextAnchor.UpperLeft;
             description.rectTransform.anchorMin = Vector2.zero; description.rectTransform.anchorMax = new Vector2(1, 0.47f);
-            description.rectTransform.offsetMin = new Vector2(132, 12); description.rectTransform.offsetMax = new Vector2(-170, 0);
+            description.rectTransform.offsetMin = new Vector2(132, 12); description.rectTransform.offsetMax = new Vector2(-170 * textScale, 0);
             var priceLabel = Label(card, price, 26); priceLabel.fontStyle = FontStyle.Bold; priceLabel.alignment = TextAnchor.MiddleRight;
             priceLabel.rectTransform.anchorMin = new Vector2(1, 0.51f); priceLabel.rectTransform.anchorMax = Vector2.one;
             priceLabel.rectTransform.offsetMin = new Vector2(-154, 0); priceLabel.rectTransform.offsetMax = new Vector2(-22, -10);
-            var buy = ActionButton(card, available ? "Купить" : unavailable, purchase, available);
+            var buy = ActionButton(card, purchased ? "КУПЛЕНО" : available ? "Купить" : "Недоступно", purchase, available && !purchased);
             var rect = buy.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(1, 0); rect.pivot = Vector2.one;
-            rect.anchoredPosition = new Vector2(-20, 16 + 40 * textScale); rect.sizeDelta = new Vector2(134, 40 * textScale);
+            rect.anchoredPosition = new Vector2(-20, 16 + 44 * textScale); rect.sizeDelta = new Vector2(154 * textScale, 44 * textScale);
             buy.GetComponent<LayoutElement>().ignoreLayout = true;
             buy.GetComponentInChildren<Text>().alignment = TextAnchor.MiddleCenter;
             SetButtonTone(buy, true);
+            var explanation = title + " · " + price + "\n" + detail + "\n" +
+                (purchased ? "КУПЛЕНО · повторная покупка недоступна" : available ? "Купить: " + price : unavailable);
+            var events = buy.gameObject.AddComponent<EventTrigger>();
+            foreach (var eventId in new[] { EventTriggerType.PointerEnter, EventTriggerType.Select, EventTriggerType.PointerExit, EventTriggerType.Deselect })
+            {
+                var entry = new EventTrigger.Entry { eventID = eventId };
+                var show = eventId == EventTriggerType.PointerEnter || eventId == EventTriggerType.Select;
+                entry.callback.AddListener(_ => { if (show) ShowProductTooltip(explanation); else HideProductTooltip(); });
+                events.triggers.Add(entry);
+            }
+        }
+
+        private void HideProductTooltip()
+        {
+            if (productTooltip != null) productTooltip.gameObject.SetActive(false);
+        }
+
+        private void ShowProductTooltip(string value)
+        {
+            if (!MenuOpen) return;
+            if (productTooltip == null)
+            {
+                productTooltip = Rect("Product tooltip", safeArea, new Vector2(.5f, 0), new Vector2(.5f, 0));
+                productTooltip.pivot = new Vector2(.5f, 0);
+                Round(productTooltip, Ink).raycastTarget = false;
+                productTooltipText = Label(productTooltip, "", 17);
+                productTooltipText.alignment = TextAnchor.MiddleLeft;
+                productTooltipText.raycastTarget = false;
+                productTooltipText.rectTransform.offsetMin = new Vector2(18, 12);
+                productTooltipText.rectTransform.offsetMax = new Vector2(-18, -12);
+            }
+            productTooltip.SetAsLastSibling();
+            productTooltip.gameObject.SetActive(true);
+            productTooltip.anchoredPosition = new Vector2(0, 12);
+            productTooltip.sizeDelta = new Vector2(Mathf.Min(580, safeArea.rect.width - 24), 120);
+            productTooltipText.fontSize = Mathf.RoundToInt(17 * textScale);
+            productTooltipText.text = value;
+            Canvas.ForceUpdateCanvases();
+            var maxHeight = safeArea.rect.height - 24;
+            while (productTooltipText.preferredHeight + 24 > maxHeight && productTooltipText.fontSize > 12)
+                productTooltipText.fontSize--;
+            productTooltip.sizeDelta = new Vector2(productTooltip.sizeDelta.x, Mathf.Min(maxHeight, productTooltipText.preferredHeight + 24));
         }
 
         private static void SetButtonTone(Button button, bool primary)

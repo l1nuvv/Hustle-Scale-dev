@@ -23,7 +23,7 @@ namespace Inventory
             if (!IsCity) throw new InvalidOperationException("Only city sessions use this save format.");
             var data = new CitySaveData
             {
-                Version = 5, Soldering = CaptureSoldering(), Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
+                Version = 6, Soldering = CaptureSoldering(), Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
                 Expenses = Expenses, SpareBatteries = SpareBatteries, RepairSeconds = RepairSeconds,
                 LotPurchased = LotPurchased, HasTransportedCrate = HasTransportedCrate,
                 IsCrateCarried = IsCrateCarried, ElapsedSeconds = ElapsedSeconds, World = world,
@@ -117,7 +117,7 @@ namespace Inventory
         private static bool ValidateCity(CitySaveData data, out string message)
         {
             message = "Некорректное или несовместимое сохранение города.";
-            if (data == null || data.Version < 1 || data.Version > 5 || data.InitialBalance != 300 || data.Balance < 0 ||
+            if (data == null || data.Version < 1 || data.Version > 6 || data.InitialBalance != 300 || data.Balance < 0 ||
                 data.Revenue < 0 || data.Expenses < 0 || data.Revenue > int.MaxValue ||
                 data.Expenses > (long)int.MaxValue * 55 + 700 || data.SpareBatteries < 0 ||
                 (long)data.InitialBalance + data.Revenue - data.Expenses != data.Balance ||
@@ -141,11 +141,13 @@ namespace Inventory
             var owned = 0;
             long revenue = 0;
             var repairs = 0;
+            var purchasedLamps = 0;
             for (var lot = 0; lot < (lots == 2 ? 2 : 1); lot++)
             {
                 var lamps = lot == 0 ? data.Lamps : data.PreviousLamps;
                 var lotOrders = lot == 0 ? data.Orders : data.PreviousOrders;
                 buyerA = buyerB = owned = 0;
+                var seller = 0;
                 for (var i = 0; i < lamps.Length; i++)
                 {
                     var lamp = lamps[i];
@@ -159,7 +161,10 @@ namespace Inventory
                         (lamp.IsTested && lamp.LastTestPassed != (lamp.Condition == FlashlightCondition.Working)) ||
                         (lamp.IsPowered && lamp.Condition != FlashlightCondition.Working) ||
                         (!data.LotPurchased && (lamp.Location != FlashlightLocation.Seller || lamp.IsTested || lamp.IsPowered)) ||
-                        (data.LotPurchased && lamp.Location == FlashlightLocation.Seller)) return false;
+                        (data.Version < 6 && data.LotPurchased && lamp.Location == FlashlightLocation.Seller) ||
+                        (lamp.Location == FlashlightLocation.Seller && (lamp.IsTested || lamp.IsPowered || lamp.Condition != initial))) return false;
+                    if (lamp.Location == FlashlightLocation.Seller) seller++;
+                    else purchasedLamps++;
                     if (initial == FlashlightCondition.BatteryFault && lamp.Condition == FlashlightCondition.Working) repairs++;
                     if (lamp.Location == FlashlightLocation.Hands) hands++;
                     if (lamp.Location == FlashlightLocation.Bench) benches++;
@@ -176,7 +181,7 @@ namespace Inventory
                     }
                     else if (lamp.Location != FlashlightLocation.Seller) owned++;
                 }
-                if (lot == 1 && owned != 0) return false;
+                if (lot == 1 && (owned != 0 || seller != 0) || data.LotPurchased && lot == 0 && seller == 3) return false;
 
                 for (var i = 0; i < 2; i++)
                 {
@@ -198,8 +203,8 @@ namespace Inventory
                     var delivered = i == 0 ? buyerA : buyerB;
                     var quantity = i == 0 ? 2 : 1;
                     if (delivered != (order.State == DealOrderState.Completed ? quantity : 0) ||
-                        (data.LotPurchased && owned < quantity && (order.State == DealOrderState.Available || order.State == DealOrderState.Accepted)) ||
-                        (order.State == DealOrderState.Unavailable && (!data.LotPurchased || owned >= quantity))) return false;
+                        (data.LotPurchased && owned + seller < quantity && (order.State == DealOrderState.Available || order.State == DealOrderState.Accepted)) ||
+                        (order.State == DealOrderState.Unavailable && (!data.LotPurchased || owned + seller >= quantity))) return false;
                     if (order.State == DealOrderState.Completed) revenue += i == 0 ? 260 : 125;
                 }
             }
@@ -208,7 +213,7 @@ namespace Inventory
                 (data.IsCrateInVehicle && (data.Version < 2 || data.IsCrateCarried || !data.LotPurchased || !data.HasTransportedCrate)) ||
                 (!data.LotPurchased && (data.IsCrateCarried || data.HasTransportedCrate)) ||
                 (data.IsCrateCarried && !data.HasTransportedCrate) ||
-                data.Expenses != lots * 180L + ((long)data.SpareBatteries + repairs) * 50 + solderingExpenses ||
+                data.Expenses != (data.Version >= 6 ? purchasedLamps * 60L : lots * 180L) + ((long)data.SpareBatteries + repairs) * 50 + solderingExpenses ||
                 data.RepairSeconds != repairs * 240 || data.Revenue != revenue) return false;
 
             var world = data.World;

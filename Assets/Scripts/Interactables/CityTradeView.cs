@@ -81,6 +81,7 @@ namespace Interactables
             session = save.Session;
             Array.Clear(selected, 0, selected.Length);
             message = "";
+            HideProductTooltip();
             if (MenuOpen) { panel.SetActive(false); current = null; }
             if (session == null) return;
             // Runtime yard obstacles exist only after BuildWorld, later than the initial save restore.
@@ -200,6 +201,8 @@ namespace Interactables
         {
             if (!Allowed || !Reachable(point)) return;
             if (point.Kind == CityTradeKind.Cargo) { TransferCargo(); return; }
+            if (point.Kind == CityTradeKind.Crate)
+            { ActionFeedback("crate", session.ToggleCrate(out message)); Refresh(); return; }
             if (point.Kind == CityTradeKind.Workshop || point.Kind == CityTradeKind.Lamp &&
                 session.CityUnit(point.Index).Location == FlashlightLocation.Bench)
             { WorkshopAction(point, "bench"); return; }
@@ -207,7 +210,14 @@ namespace Interactables
             { ActionFeedback("unit", session.PickUpPlaced(point.Index, out message)); Refresh(); return; }
             current = point;
             UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
-            for (var i = 0; i < lamps.Length; i++) selected[i] = Presented(i) && session.CityUnit(i).IsTested && (i < 3 || point.Kind == CityTradeKind.Buyback);
+            var remaining = point.Kind == CityTradeKind.A ? 2 : point.Kind == CityTradeKind.B ? 1 : lamps.Length;
+            for (var i = 0; i < lamps.Length; i++)
+            {
+                var unit = session.CityUnit(i);
+                selected[i] = remaining > 0 && Presented(i) && unit.IsTested &&
+                    (point.Kind == CityTradeKind.Buyback || i < 3 && unit.LastTestPassed);
+                if (selected[i]) remaining--;
+            }
             walk.SetPaused(true);
             panel.SetActive(true);
             RebuildMenu();
@@ -225,6 +235,7 @@ namespace Interactables
         public void CloseMenu()
         {
             if (!MenuOpen) return;
+            HideProductTooltip();
             panel.SetActive(false); current = null;
             UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
             walk.SetPaused(false);
@@ -251,18 +262,16 @@ namespace Interactables
                     case "solderdeliver" when kind == CityTradeKind.B:
                         success = session.DeliverSoldering(Presented(3) ? new[] { session.SolderingLamp.InstanceId } : Array.Empty<string>(), out message); break;
                     case "purchase" when kind == CityTradeKind.Seller:
-                        if (session.LotPurchased && !CrateAtSeller)
-                        { message = "Принеси пустой ящик к продавцу."; break; }
-                        success = session.PurchaseLot(out message);
+                        success = session.PurchaseCityLamp(out message);
                         if (success) Array.Clear(selected, 0, selected.Length);
                         break;
                     case "battery" when kind == CityTradeKind.Battery || kind == CityTradeKind.Seller:
                         success = session.BuyBattery(out message); break;
                     case "crate" when kind == CityTradeKind.Crate:
                         success = session.ToggleCrate(out message); break;
-                    case "contents" when kind == CityTradeKind.Crate:
+                    case "contents" when kind == CityTradeKind.Crate || kind == null && Reachable(crate.GetComponent<CityTradePoint>()):
                         success = session.TakeCrateContents(out message); break;
-                    case "unit" when kind == CityTradeKind.Crate:
+                    case "unit" when kind == CityTradeKind.Crate || kind == null && Reachable(crate.GetComponent<CityTradePoint>()):
                         success = session.ToggleUnit(index, out message); break;
                     case "equip" when kind == null: success = session.EquipSlot(index, out message); break;
                     case "accept" when kind == CityTradeKind.A || kind == CityTradeKind.B:
@@ -286,8 +295,7 @@ namespace Interactables
             return success;
         }
 
-        private bool Presented(int i) => session.CityUnit(i) != null && (session.CityUnit(i).Location == FlashlightLocation.Hands ||
-            session.IsCrateCarried && session.CityUnit(i).Location == FlashlightLocation.Crate);
+        private bool Presented(int i) => session.IsPresented(session.CityUnit(i));
 
         private bool CrateAtSeller => session.IsCrateCarried || !session.IsCrateInVehicle &&
             sellerCounter != null && Vector3.ProjectOnPlane(crate.position - sellerCounter.position, Vector3.up).magnitude <= 2.5f;

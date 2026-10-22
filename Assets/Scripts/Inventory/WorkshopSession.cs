@@ -96,7 +96,8 @@ namespace Inventory
                 OnBench.Location = FlashlightLocation.Hands;
                 return Complete("Lamp retrieved from bench.", out message);
             }
-            if (InHands == null) return Reject("Take a lamp from the crate first.", out message);
+            if (InHands == null) return Reject(IsCity ? "Сначала выбери фонарь из инвентаря: 1–3 или Tab → имущество." :
+                "Take a lamp from the crate first.", out message);
             InHands.Location = FlashlightLocation.Bench;
             return Complete("Lamp placed on bench. Run the test.", out message);
         }

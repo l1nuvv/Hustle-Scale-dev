@@ -42,7 +42,7 @@ namespace Inventory
                 FlashlightUnit found = null;
                 foreach (var unit in CarryUnits()) if (unit.InstanceId == identity) { found = unit; break; }
                 if (identity == null || !unique.Add(identity) || found == null ||
-                    !(found.Location == FlashlightLocation.Hands || (IsCrateCarried && found.Location == FlashlightLocation.Crate)))
+                    !IsPresented(found))
                     return Reject("Принеси каждый свой фонарь сюда. Проданные, хранящиеся и повторяющиеся экземпляры не принимаются.", out message);
                 if (found == SolderingLamp && (!SolderingAssembled || found.Condition == FlashlightCondition.Working && !SolderingReady))
                     return Reject("Сначала собери и проверь фонарик на станции.", out message);
