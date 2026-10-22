@@ -35,14 +35,26 @@ public static class CityProximityVerification
             });
             check(vehicle.HasBlockingCityOverlap(), "reproduce saved car/container penetration");
             check(vehicle.EnsureClearCityPose() && !vehicle.HasBlockingCityOverlap(), "recover only obstructed car to clear parking");
+            check(Vector3.Dot(vehicle.transform.forward, Vector3.back) > .99f, "parking faces street exit");
+            vehicle.RestoreCityPose(new Inventory.CityWorldData
+            {
+                HasVehiclePose = true,
+                VehiclePosition = CityUtilityVehicle.WorkshopParkingPosition, VehicleEuler = new Vector3(0, 270, 0)
+            });
+            check(vehicle.EnsureClearCityPose() && Vector3.Dot(vehicle.transform.forward, Vector3.back) > .99f,
+                "previous parking heading corrected on load");
+            foreach (var fence in UnityEngine.Object.FindObjectsByType<Collider>().Where(c => c.name == "Низкое ограждение двора"))
+                foreach (var stall in UnityEngine.Object.FindObjectsByType<Collider>().Where(c =>
+                    c.name == "Прилавок фонарей" || c.name == "Навес прилавка" || c.name == "Стойка навеса"))
+                    check(!stall.bounds.Intersects(fence.bounds), "entire seller stall clears yard fence");
             var parked = body.position;
             check(!vehicle.EnsureClearCityPose() && body.position == parked, "valid pose retained");
             check(save.Save() && save.Load(false) && !vehicle.HasBlockingCityOverlap(), "safe pose survives actual save/load");
             save.NewGame(); walk.SetPaused(false);
             player.RestorePose(new Vector3(-65, .08f, 25), 0, 0);
             var capsule = player.GetComponent<CharacterController>(); float distance = 0;
-            foreach (var goal in new[] { new Vector3(-65, .08f, 14), new Vector3(-60, .08f, 14),
-                new Vector3(-60, .08f, 8.35f), new Vector3(-53, .08f, 8.35f) })
+            foreach (var goal in new[] { new Vector3(-65, .08f, 14), new Vector3(-62.5f, .08f, 14),
+                new Vector3(-62.5f, .08f, 4.35f), new Vector3(-56, .08f, 4.35f) })
             {
                 for (var step = 0; step < 400; step++)
                 {

@@ -178,7 +178,7 @@ namespace Interactables
             map.gameObject.AddComponent<Image>().color = new Color(0.07f, 0.13f, 0.14f);
             var paths = Rect("Пешие проходы", map, Vector2.zero, Vector2.one).gameObject.AddComponent<CityTradeMapPaths>();
             paths.color = new Color(0.34f, 0.49f, 0.48f); paths.raycastTarget = false;
-            paths.AddPath(-65, 25, -65, 14, -60, 14, -60, 8.35f, -53, 8.35f);
+            paths.AddPath(-65, 25, -65, 14, -62.5f, 14, -62.5f, 4.35f, -56, 4.35f);
             paths.AddPath(-65, 14, -65, 0, -42, 0, -15, -7, 35, -7, 65, 0);
             paths.AddPath(65, 0, 65, 26);
             paths.AddPath(-65, 0, -80, 0, -80, -65, -65, -65, -65, -49);

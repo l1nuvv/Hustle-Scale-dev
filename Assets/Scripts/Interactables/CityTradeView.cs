@@ -36,7 +36,7 @@ namespace Interactables
         public IReadOnlyList<CityTradePoint> Points => points;
         public Transform Crate => crate;
         public Transform Lamp(int index) => lamps[index];
-        public static readonly Vector3 SellerPosition = new Vector3(-53, 1.3f, 10);
+        public static readonly Vector3 SellerPosition = new Vector3(-56, 1.3f, 6);
         public static readonly Vector3 SellerDock = SellerPosition + new Vector3(-5, -0.9f, 2);
         public static readonly Vector3 WorkshopDock = new Vector3(-69, 0.4f, 32);
         private bool Allowed => session != null && !session.IsPaused && !save.IsDriving && player.CanInteract;

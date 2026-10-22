@@ -23,6 +23,7 @@ namespace Player
         private Vector3 spawnPosition;
         private Quaternion spawnRotation;
         public static readonly Vector3 WorkshopParkingPosition = new Vector3(-65, 0.4f, 8);
+        public static readonly Quaternion WorkshopParkingRotation = Quaternion.Euler(0, 180, 0);
 
         public bool HasBlockingCityOverlap()
         {
@@ -44,13 +45,22 @@ namespace Player
         }
 
         // Called after the runtime yard is built and after each restored city session.
-        // A valid parked pose is retained; only penetration into solid geometry triggers recovery.
+        // Preserve free saved parking, correcting the previous crosswise heading only at the workshop bay.
         public bool EnsureClearCityPose()
         {
-            if (IsDriving || !HasBlockingCityOverlap()) return false;
+            if (IsDriving) return false;
+            var aligned = false;
+            if (Vector3.ProjectOnPlane(body.position - WorkshopParkingPosition, Vector3.up).sqrMagnitude < 0.25f &&
+                Mathf.Abs(Mathf.DeltaAngle(body.rotation.eulerAngles.y, 270)) < 2)
+            {
+                body.rotation = WorkshopParkingRotation;
+                transform.SetPositionAndRotation(body.position, body.rotation);
+                aligned = true;
+            }
+            if (!HasBlockingCityOverlap()) return aligned;
             var position = body.position; var rotation = body.rotation;
             body.position = WorkshopParkingPosition;
-            body.rotation = Quaternion.Euler(0, 270, 0);
+            body.rotation = WorkshopParkingRotation;
             transform.SetPositionAndRotation(body.position, body.rotation);
             if (HasBlockingCityOverlap())
             { body.position = position; body.rotation = rotation; transform.SetPositionAndRotation(position, rotation); return false; }
