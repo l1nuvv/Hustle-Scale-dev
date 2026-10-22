@@ -176,7 +176,7 @@ namespace Interactables
         private void FitTradeMenu()
         {
             var rect = panel.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(Mathf.Min(current == null ? 960 : 760, safeArea.rect.width - 48), rect.sizeDelta.y);
+            rect.sizeDelta = new Vector2(Mathf.Min(current == null ? showInventoryMap ? 960 : 620 : 760, safeArea.rect.width - 48), rect.sizeDelta.y);
             Canvas.ForceUpdateCanvases();
             rect.sizeDelta = new Vector2(rect.sizeDelta.x,
                 Mathf.Min(safeArea.rect.height * 0.88f, LayoutUtility.GetPreferredHeight(menuContent) + 132));
@@ -203,6 +203,7 @@ namespace Interactables
         {
             Destroy(roundedUi); Destroy(lampIcon); Destroy(batteryIcon);
             Destroy(roundedTexture); Destroy(lampTexture); Destroy(batteryTexture);
+            Destroy(solderIcon); Destroy(solderTexture);
         }
     }
 }

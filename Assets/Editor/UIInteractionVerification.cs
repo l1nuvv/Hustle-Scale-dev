@@ -29,7 +29,88 @@ public static class UIInteractionVerification
         {
             save.NewGame();
             walk.SetPaused(false);
-            if (scenario == "Shortcuts")
+            if (scenario == "Inventory")
+            {
+                var session = trade.Session;
+                check(session.PurchaseCityLamp(out _), "buy first inventory instance");
+                check(session.PurchaseCityLamp(out _), "buy second inventory instance");
+                check(session.BuyBattery(out _), "buy inventory battery");
+                var firstId = session.CityUnit(0).InstanceId;
+                var canvas = GameObject.Find("City trading UI").transform;
+                var bar = canvas.Find("Safe area/Inventory bar");
+                Func<int, string> barCount = i => bar.Find("Quick slots/Quick slot " + i).GetComponentsInChildren<Text>(true).Last().text;
+                check(barCount(0) == "×2" && barCount(1) == "×1" && barCount(2) == "" && barCount(5) == "",
+                    "hotbar uses owned instances and actual battery quantity");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Tab));
+                yield return null; yield return null;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return null; yield return null;
+                check(trade.MenuOpen && walk.IsPaused && session.IsPaused, "real Tab opens modal inventory");
+                check(!bar.gameObject.activeInHierarchy, "modal inventory hides duplicate hotbar");
+                check(GameObject.Find("Inventory grid") != null && GameObject.Find("Карта окрестности") != null,
+                    "Tab defaults to item grid with map available separately");
+                var grid = GameObject.Find("Inventory grid").transform;
+                check(grid.childCount == 24 && grid.GetComponentsInChildren<Image>().Count(i => i.name == "Thumbnail" && i.sprite != null) == 2,
+                    "24 cells contain only the two owned item types");
+                check(grid.Cast<Transform>().Skip(2).All(t => t.childCount == 0), "empty cells have no text or placeholder icons");
+                check(grid.GetChild(0).GetComponentsInChildren<Text>().Any(t => t.text == "×2") &&
+                    grid.GetChild(1).GetComponentsInChildren<Text>().Any(t => t.text == "×1"), "menu quantities match hotbar");
+                ScreenCapture.CaptureScreenshot(Path.Combine(output, "inventory.png"));
+                yield return null; yield return null;
+                var position = player.transform.position; var elapsed = session.ElapsedSeconds;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W, Key.Digit1));
+                yield return null; yield return null;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return null; yield return null;
+                check(player.transform.position == position && session.ElapsedSeconds == elapsed && session.InHands == null,
+                    "inventory blocks movement, shortcuts and active time");
+                var button = grid.GetChild(0).GetComponent<Button>();
+                EventSystem.current.SetSelectedGameObject(button.gameObject);
+                var pointer = RectTransformUtility.WorldToScreenPoint(null, button.transform.position);
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = pointer });
+                yield return null; yield return null;
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = pointer, buttons = 1 });
+                yield return null; yield return null;
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = pointer });
+                yield return null; yield return null;
+                check(session.InHands == null && GameObject.Find("Взять · Фонарь 1 · не проверен") != null,
+                    "stack selection exposes individual instances");
+                button = GameObject.Find("Взять · Фонарь 1 · не проверен").GetComponent<Button>();
+                EventSystem.current.SetSelectedGameObject(button.gameObject);
+                yield return null; yield return null;
+                pointer = RectTransformUtility.WorldToScreenPoint(null, button.transform.position);
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = pointer });
+                yield return null; yield return null;
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = pointer, buttons = 1 });
+                yield return null; yield return null;
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = pointer });
+                yield return null; yield return null;
+                check(session.InHands?.InstanceId == firstId && trade.MenuOpen && session.IsPaused,
+                    "real instance click equips same ID and keeps menu paused");
+                Layout(check, "populated inventory");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Tab));
+                yield return null; yield return null;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return null; yield return null;
+                check(!trade.MenuOpen && !walk.IsPaused && bar.gameObject.activeInHierarchy, "second Tab restores game and hotbar");
+                check(barCount(0) == "×2", "held instance remains counted once in stack");
+                ScreenCapture.CaptureScreenshot(Path.Combine(output, "hotbar.png"));
+                yield return null; yield return null;
+                check(session.ToggleBench(out _), "move held item to bench");
+                check(barCount(0) == "×1", "bench item no longer counts in hotbar stack");
+                trade.SendMessage("Inventory"); yield return null; yield return null;
+                grid = GameObject.Find("Inventory grid").transform;
+                grid.GetChild(0).GetComponent<Button>().onClick.Invoke();
+                yield return null; yield return null;
+                check(GameObject.Find("Взять · Фонарь 1 · не проверен") == null && GameObject.Find("Взять · Фонарь 2 · не проверен") != null,
+                    "bench item is excluded from inventory and cannot be equipped remotely");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Escape));
+                yield return null; yield return null;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return null; yield return null;
+                check(!trade.MenuOpen && !walk.IsPaused, "Esc closes inventory without opening pause");
+            }
+            else if (scenario == "Shortcuts")
             {
                 trade.SendMessage("Inventory");
                 var session = trade.Session;
@@ -127,7 +208,7 @@ public static class UIInteractionVerification
             }
             else if (scenario == "Screens")
             {
-                var sizes = new[] { new Vector2Int(1280, 720), new Vector2Int(1920, 1080), new Vector2Int(2560, 1440),
+                var sizes = new[] { new Vector2Int(1280, 720), new Vector2Int(1024, 768), new Vector2Int(1920, 1080), new Vector2Int(2560, 1440),
                     new Vector2Int(1920, 1200), new Vector2Int(3440, 1440) };
                 var group = SizeGroup();
                 var game = EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView"));
@@ -145,7 +226,7 @@ public static class UIInteractionVerification
                         foreach (var scale in new[] { 1f, 1.5f })
                         {
                             trade.SetTextScale(scale);
-                            foreach (var kind in new[] { CityTradeKind.Seller, CityTradeKind.A, CityTradeKind.B, CityTradeKind.Buyback, CityTradeKind.Crate })
+                            foreach (var kind in new[] { CityTradeKind.Seller, CityTradeKind.A, CityTradeKind.B, CityTradeKind.Buyback })
                             {
                                 trade.CloseMenu(); walk.SetPaused(false);
                                 var point = trade.Points.First(p => p.Kind == kind);

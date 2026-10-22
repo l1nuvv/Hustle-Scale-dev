@@ -26,6 +26,8 @@ public sealed class UIInteractionTests
     public IEnumerator ClosingMapDoesNotEnterVehicle() => Run("VehicleEntry");
     [UnityTest]
     public IEnumerator ResumingVehicleDoesNotExitIt() => Run("VehiclePause");
+    [UnityTest]
+    public IEnumerator InventoryThumbnailsFollowItemsAndModalInput() => Run("Inventory");
 
     private static IEnumerator Run(string scenario)
     {

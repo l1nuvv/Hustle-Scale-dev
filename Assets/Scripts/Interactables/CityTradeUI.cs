@@ -86,7 +86,8 @@ namespace Interactables
             Round(orders, new Color(0.055f, 0.07f, 0.085f, 0.94f));
             orderHud = Label(orders, "", 18); orderHud.alignment = TextAnchor.MiddleLeft;
             orderHud.rectTransform.offsetMin = new Vector2(18, 10); orderHud.rectTransform.offsetMax = new Vector2(-14, -10);
-            var context = Rect("Action context", safe, new Vector2(0.18f, 0.03f), new Vector2(0.82f, 0.03f));
+            BuildInventoryBar(safe);
+            var context = Rect("Action context", safe, new Vector2(0.18f, 0.19f), new Vector2(0.82f, 0.19f));
             bottomContext = context; context.pivot = new Vector2(0.5f, 0);
             Round(context, new Color(0.055f, 0.07f, 0.085f, 0.94f));
             var contextLayout = context.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -169,21 +170,19 @@ namespace Interactables
             try
             {
                 HideProductTooltip();
+                menuContent.GetComponent<VerticalLayoutGroup>().spacing = current == null ? 6 : 12;
                 var focused = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
                 var focusName = focused != null && focused.transform.IsChildOf(menuContent) ? focused.name.Replace("[x]", "[ ]") : null;
                 var scrollPosition = menuScroll.verticalNormalizedPosition;
                 foreach (Transform child in menuContent) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
-                menuHeading.text = current != null ? Title(current.Kind) : "Карта и имущество";
+                menuHeading.text = current != null ? Title(current.Kind) : "Инвентарь";
                 menuWallet.text = "$" + session.Balance;
                 if (message.Length > 0 && (displayedMessage != message || Time.unscaledTime < messageUntil)) Line(CityMessage(message));
                 if (current == null)
                 {
-                    BuildLocalMap();
-                    Line("$" + session.Balance + " · Батареи: " + session.SpareBatteries);
-                    var carriedCount = 0;
-                    for (var i = 0; i < 3; i++)
-                        if (session.IsPresented(session.CityUnit(i))) carriedCount++;
-                    Line("Фонари ×" + carriedCount + " · выбери экземпляр ниже");
+                    BuildInventoryGrid();
+                    Button(showInventoryMap ? "Скрыть карту" : "Карта окрестности", () => { showInventoryMap = !showInventoryMap; RebuildMenu(); });
+                    if (showInventoryMap) BuildLocalMap();
                     if (Reachable(crate.GetComponent<CityTradePoint>()))
                     {
                         Button("Ящик: забрать содержимое", () => Execute("contents"));
@@ -196,14 +195,7 @@ namespace Interactables
                         }
                     }
                     Button(showControls ? "Скрыть управление" : "Управление", () => { showControls = !showControls; RebuildMenu(); });
-                    if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — выбросить · F — свет\nУ верстака: T — тест · R — замена батареи\nTab — карта · Esc — пауза · F5 / F9 в паузе — сохранить / загрузить");
-                    for (var i = 0; i < lamps.Length; i++)
-                    {
-                        var index = i; var unit = session.CityUnit(i);
-                        if (unit == null) continue;
-                        Button("Фонарь " + (i + 1) + " · " + CityCondition(unit) + " · " + Location(unit.Location),
-                            () => Execute("equip", index), unit.Location == FlashlightLocation.Hands || unit.Location == FlashlightLocation.Pocket);
-                    }
+                    if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — поставить · F — свет\nУ верстака: T — тест · R — замена батареи\nTab — инвентарь · Esc — пауза · F5 / F9 в паузе — сохранить / загрузить");
                 }
                 else switch (current.Kind)
                     {

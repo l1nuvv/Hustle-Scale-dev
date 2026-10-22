@@ -147,6 +147,7 @@ namespace Interactables
                     unit.Location == FlashlightLocation.Bench ? Vector3.zero : new Vector3(i == 3 ? 0 : (i - 1) * 0.36f, 0.415f, i == 3 ? 0.26f : 0);
             }
             hud.text = "<b>$" + session.Balance + "</b>  ·  " + WorkshopView.Clock(session.ElapsedSeconds);
+            RefreshInventoryBar();
             var activeA = session.Order(DealOrderId.A).State == DealOrderState.Accepted;
             var activeB = session.Order(DealOrderId.B).State == DealOrderState.Accepted;
             orderHud.text = (activeA ? OrderSummary(DealOrderId.A) : "") + (activeA && activeB ? "\n" : "") +
@@ -228,6 +229,8 @@ namespace Interactables
             if (MenuOpen) { CloseMenu(); return; }
             if (!Allowed) return;
             current = null;
+            showInventoryMap = false;
+            inventorySelection = -1;
             UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
             walk.SetPaused(true); panel.SetActive(true); RebuildMenu();
         }
@@ -456,6 +459,7 @@ namespace Interactables
             // Failed startup loads still need the recovery/new-game controls.
             if (session == null)
             {
+                inventoryBar.gameObject.SetActive(false);
                 hudPanel.gameObject.SetActive(false);
                 bottomContext.gameObject.SetActive(false); prompt.text = "";
                 return;
@@ -463,6 +467,7 @@ namespace Interactables
             KeepMenuFocusVisible();
             canvasObject.SetActive(!save.IsDriving);
             hudPanel.gameObject.SetActive(!walk.IsPaused && !MenuOpen);
+            inventoryBar.gameObject.SetActive(!walk.IsPaused && !MenuOpen);
             prompt.text = !walk.IsPaused && !save.IsDriving ? raycast.FocusLabel : "";
             if (displayedMessage != message)
             { displayedMessage = message; messageUntil = Time.unscaledTime + 4; }
