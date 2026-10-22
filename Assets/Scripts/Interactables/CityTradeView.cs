@@ -28,6 +28,7 @@ namespace Interactables
         private CityTradePoint current;
         private string message = "";
         private string displayedMessage;
+        private bool executingCommand;
         private float messageUntil;
         private readonly bool[] selected = new bool[3];
         public bool MenuOpen => panel != null && panel.activeSelf;
@@ -132,7 +133,7 @@ namespace Interactables
                 (activeB ? OrderSummary(DealOrderId.B) : "");
             orderHud.transform.parent.gameObject.SetActive(activeA || activeB);
             ResizeHud();
-            if (MenuOpen) RebuildMenu();
+            if (MenuOpen && !executingCommand) RebuildMenu();
         }
 
         private string OrderSummary(DealOrderId id)
@@ -194,9 +195,10 @@ namespace Interactables
                 (current != null && !Reachable(current))) return false;
             var kind = current != null ? current.Kind : (CityTradeKind?)null;
             bool success = false;
-            session.SetPaused(false);
+            executingCommand = true;
             try
             {
+                session.SetPaused(false);
                 switch (command)
                 {
                     case "purchase" when kind == CityTradeKind.Seller:
@@ -223,7 +225,13 @@ namespace Interactables
                     case "sell" when kind == CityTradeKind.Buyback: success = session.SellBack(Selection(), out message); break;
                 }
             }
-            finally { session.SetPaused(true); }
+            finally
+            {
+                // Model events still refresh the world/HUD synchronously. Rebuild the
+                // menu once below, after all pause and transaction events have settled.
+                try { session.SetPaused(true); }
+                finally { executingCommand = false; }
+            }
             ActionFeedback(command, success);
             Refresh();
             return success;

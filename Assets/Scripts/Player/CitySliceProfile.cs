@@ -16,6 +16,7 @@ namespace Player
     {
         public static string SavePath { get; private set; }
         private static string output;
+        private static bool commandsOnly;
         private ProfilerRecorder mainThread, draws, gc;
         private Camera profileCamera;
         private RenderTexture profileTexture;
@@ -26,10 +27,13 @@ namespace Player
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
         {
-            SavePath = null; output = null;
+            SavePath = null; output = null; commandsOnly = false;
             if (!Debug.isDebugBuild) return;
             foreach (var argument in Environment.GetCommandLineArgs())
+            {
+                if (argument == "-e5-command-profile") commandsOnly = true;
                 if (argument.StartsWith("-e5-profile=", StringComparison.Ordinal)) output = Path.GetFullPath(argument.Substring(12));
+            }
             if (output == null) return;
             Directory.CreateDirectory(output);
             SavePath = Path.Combine(output, "city-save.json");
@@ -53,6 +57,60 @@ namespace Player
             public bool development, mainThreadAvailable, drawsAvailable, gcAvailable;
             public string conditions;
             public Segment[] segments;
+        }
+
+        [Serializable]
+        private sealed class CommandSample
+        {
+            public string command;
+            public double milliseconds;
+            public long frameGcBytes;
+        }
+
+        [Serializable]
+        private sealed class CommandReport
+        {
+            public string unity, conditions;
+            public bool gcAvailable;
+            public CommandSample[] samples;
+        }
+
+        private IEnumerator ProfileCommands(CityTradeView trade, CityGreyboxWalk walk, PlayerController player)
+        {
+            var samples = new List<CommandSample>();
+            CityTradePoint seller = null;
+            foreach (var point in trade.Points) if (point.Kind == CityTradeKind.Seller) { seller = point; break; }
+            var save = trade.GetComponent<CitySaveController>();
+            for (var run = 0; run < 9; run++)
+            {
+                trade.CloseMenu(); save.NewGame(); walk.SetPaused(false);
+                var position = seller.transform.position;
+                player.RestorePose(new Vector3(position.x, 0.08f, position.z - 1.5f), 0, 0);
+                Physics.SyncTransforms(); trade.Open(seller);
+                if (!trade.MenuOpen) throw new InvalidOperationException("Command profile seller is unreachable.");
+                yield return null; yield return null;
+                foreach (var command in new[] { "purchase", "purchase", "battery" })
+                {
+                    var refused = command == "purchase" && trade.Session.LotPurchased;
+                    var start = Time.realtimeSinceStartupAsDouble;
+                    var success = trade.Execute(command);
+                    var duration = (Time.realtimeSinceStartupAsDouble - start) * 1000;
+                    if (success == refused || !trade.Session.IsPaused) throw new InvalidOperationException("Command profile state regression.");
+                    // Next frame reads the entire command frame, including deferred UI work and autosave.
+                    yield return null;
+                    if (run > 0) samples.Add(new CommandSample
+                    {
+                        command = refused ? "purchase-refused" : command,
+                        milliseconds = duration, frameGcBytes = gc.Valid ? gc.LastValue : -1
+                    });
+                    yield return null;
+                }
+            }
+            File.WriteAllText(Path.Combine(output, "commands.json"), JsonUtility.ToJson(new CommandReport
+            {
+                unity = Application.unityVersion, gcAvailable = gc.Valid, samples = samples.ToArray(),
+                conditions = "Development Player; same offscreen URP target as station profile; 1 warmup + 8 repetitions. Synchronous Execute duration excludes deferred rendering/save. GC covers the entire command frame, not Execute alone. Isolated new game per repetition. No deep profiling."
+            }, true));
         }
 
         private IEnumerator Start()
@@ -81,6 +139,11 @@ namespace Player
             mainThread = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Main Thread", 1);
             draws = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count", 1);
             gc = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame", 1);
+            if (commandsOnly)
+            {
+                yield return ProfileCommands(trade, walk, player);
+                Application.Quit(0); yield break;
+            }
             var report = new Report
             {
                 unity = Application.unityVersion, platform = Application.platform.ToString(), cpu = SystemInfo.processorType,
