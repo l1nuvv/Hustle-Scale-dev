@@ -22,7 +22,8 @@ public static partial class S3Verification
     private static bool IsE5 => SessionState.GetBool(Key + ".E5", false);
     private static bool IsE57 => SessionState.GetBool(Key + ".E57", false);
     private static bool IsE6 => SessionState.GetBool(Key + ".E6", false);
-    private static string Stage => IsE6 ? "E6" : IsE57 ? "E5.7" : IsE5 ? "E5" : IsS4 ? "S4" : "S3";
+    private static bool IsPhysics => SessionState.GetBool(Key + ".Physics", false);
+    private static string Stage => IsPhysics ? "Physics" : IsE6 ? "E6" : IsE57 ? "E5.7" : IsE5 ? "E5" : IsS4 ? "S4" : "S3";
     private static string Log => "Logs/Codex-" + Stage + "-playmode.log";
     private static IEnumerator routine;
     private static int checks, frame;
@@ -42,6 +43,14 @@ public static partial class S3Verification
     [MenuItem("Tools/S3/Verify City Trading in Play Mode")]
     public static void Run()
     { RunCityVerification(false); }
+
+    [MenuItem("Tools/Physics/Verify Collision and Interaction")]
+    public static void RunPhysics()
+    {
+        SessionState.SetBool(Key + ".Physics", true);
+        try { RunCityVerification(false); }
+        catch { SessionState.EraseBool(Key + ".Physics"); throw; }
+    }
 
     private static void RunCityVerification(bool s4)
     {
@@ -90,6 +99,7 @@ public static partial class S3Verification
         SessionState.EraseBool(Key + ".E5");
         SessionState.EraseBool(Key + ".E57");
         SessionState.EraseBool(Key + ".E6");
+        SessionState.EraseBool(Key + ".Physics");
         if (scene.Length > 0) EditorSceneManager.OpenScene(scene);
         // Keep the isolated fixture under Temp for failure diagnosis; never touch the user's save.
     }
@@ -271,6 +281,12 @@ public static partial class S3Verification
         save = trade.GetComponent<CitySaveController>(); walk = trade.GetComponent<CityGreyboxWalk>();
         player = trade.GetComponent<PlayerController>(); eye = player.GetComponentInChildren<Camera>();
         Check(save.Session != null && trade.Session == save.Session, "one shared session");
+        if (IsPhysics)
+        {
+            var physics = CityPlayerVerification.PhysicsChecks(trade, keyboard, Check, text => File.AppendAllText(Log, text + "\n"));
+            while (physics.MoveNext()) yield return physics.Current;
+            yield break;
+        }
         if (IsE6)
         {
             var expansion = ExpansionScenario();

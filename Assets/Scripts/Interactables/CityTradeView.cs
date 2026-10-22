@@ -333,7 +333,8 @@ namespace Interactables
             var rotation = Quaternion.Euler(0, eye.transform.eulerAngles.y, 0);
             if (Physics.Linecast(eye.transform.position, position + Vector3.up * half.y,
                     Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) ||
-                Physics.CheckBox(position, half, rotation, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                // Aiming ignores the walking capsule; placement occupancy must include it.
+                Physics.CheckBox(position, half, rotation, ~0, QueryTriggerInteraction.Ignore))
             { message = "Недостаточно свободного места."; return false; }
             if (isCrate)
             {

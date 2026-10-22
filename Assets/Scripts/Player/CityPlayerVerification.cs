@@ -260,9 +260,9 @@ namespace Player
                 while (firstDeal.MoveNext()) yield return firstDeal.Current;
                 yield break;
             }
-            Check(phase == "prepare" || phase == "continue" || phase == "restore" || phase == "lifecycle", "known phase");
+            Check(phase == "prepare" || phase == "continue" || phase == "restore" || phase == "lifecycle" || phase == "physics", "known phase");
             Check(CitySliceProfile.SavePath == null, "performance harness disabled");
-            Check(phase == "prepare" || phase == "lifecycle" ? !hadSave && !File.Exists(SavePath + ".backup") : hadSave,
+            Check(phase == "prepare" || phase == "lifecycle" || phase == "physics" ? !hadSave && !File.Exists(SavePath + ".backup") : hadSave,
                 "correct fresh/resume precondition");
             trade = FindAnyObjectByType<CityTradeView>();
             Check(trade != null, "CityGreybox trade present");
@@ -272,6 +272,13 @@ namespace Player
             Check(save.Session != null && walk.IsPaused && save.Session.IsPaused, "startup is paused");
             report.initial = JsonUtility.FromJson<CitySaveData>(JsonUtility.ToJson(save.Session.CaptureCity(save.World)));
             Bindings();
+            if (phase == "physics")
+            {
+                verificationKeyboard = InputSystem.AddDevice<Keyboard>("Physics verification keyboard");
+                var physics = PhysicsChecks(trade, verificationKeyboard, Check, events.Add);
+                while (physics.MoveNext()) yield return physics.Current;
+                yield break;
+            }
             if (phase == "lifecycle")
             {
                 var lifecycle = Lifecycle();
