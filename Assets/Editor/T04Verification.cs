@@ -48,6 +48,26 @@ public static class T04Verification
 
     static T04Verification() => EditorApplication.playModeStateChanged += PlayState;
 
+    [MenuItem("Tools/T04/Verify Trade Domain")]
+    public static void RunDomain()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            throw new InvalidOperationException("Stop Play Mode first.");
+        Directory.CreateDirectory("Logs");
+        File.WriteAllText(LogPath, "T04 domain only; Unity " + Application.unityVersion + " UTC " + DateTime.UtcNow.ToString("O") + "\n");
+        try
+        {
+            VerifyDomain();
+            var count = File.ReadAllLines(LogPath).Count(line => line.StartsWith("PASS "));
+            File.AppendAllText(LogPath, "T04 DOMAIN PASS: " + count + " assertions\n");
+        }
+        catch (Exception exception)
+        {
+            File.AppendAllText(LogPath, "T04 DOMAIN FAIL: " + exception + "\n"); throw;
+        }
+        finally { File.Copy(LogPath, "Logs/Codex-T04-domain.log", true); }
+    }
+
     [MenuItem("Tools/T04/Verify Trade")]
     public static void Run()
     {
@@ -231,7 +251,9 @@ public static class T04Verification
             Check(s.DeliverOrder(DealOrderId.A, Ids(s, 1, 2), out _) && s.OwnedLampCount == 0 && s.Balance == 455,
                 "B then A preserves all payments and exhausts stock");
             Check(s.Order(DealOrderId.RepeatB).State == DealOrderState.Unavailable &&
-                s.OrderUnavailableReason(DealOrderId.RepeatB).Contains("Пополнения партии нет"), "available or accepted repeat becomes unavailable with explicit reason");
+                s.OrderUnavailableReason(DealOrderId.RepeatB).Contains("Недостаточно товара") &&
+                s.OrderUnavailableReason(DealOrderId.RepeatB).Contains("нужно 1, осталось 0"),
+                "available or accepted repeat becomes unavailable with explicit stock reason");
             RejectUnchanged(s, () => s.AcceptOrder(DealOrderId.RepeatB, out _), "cannot accept exhausted repeat");
             RejectUnchanged(s, () => s.DeliverOrder(DealOrderId.RepeatB, Ids(s, 0), out _), "cannot sell transferred identity twice");
             RejectUnchanged(s, () => s.PurchaseLot(out _), "repeat purchase after all sales preserves identities diagnostics and wallet");

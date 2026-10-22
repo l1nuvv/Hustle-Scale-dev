@@ -194,6 +194,7 @@ public static class T05Verification
     }
     private static void Click(string name) => GameObject.Find(name).GetComponent<Button>().onClick.Invoke();
     private static Text Terms => GameObject.Find("Terms").GetComponent<Text>();
+    private static Text TradeFeedback => GameObject.Find("Trade feedback").GetComponent<Text>();
     private static void Fits(string description)
     {
         Canvas.ForceUpdateCanvases();
@@ -233,7 +234,8 @@ public static class T05Verification
                         GameObject.Find("Confirm lot - $180").GetComponentInChildren<Text>().text.Contains("уже куплена"), "purchased lot button disabled and explicitly labelled");
                     Click("Confirm lot - $180"); // Invoke a stale callback even though normal UI blocks it.
                     Check(deal.MenuOpen && workshop.Session.IsPaused && !player.CanInteract && Snapshot(workshop.Session) == purchased &&
-                        Terms.text.Contains("Эта единственная партия уже куплена"), "rejected duplicate purchase keeps paused seller visible and preserves diagnostics");
+                        TradeFeedback.text.Contains("Эта единственная партия уже куплена"),
+                        "rejected duplicate purchase keeps paused seller visible and preserves diagnostics");
                     Fits("purchased lot refusal fits");
                     deal.CloseMenu();
                     workshop.Session.StartShift(); workshop.Session.AdvanceActiveSeconds(1080); workshop.Session.ToggleCrate(out _);
@@ -248,10 +250,12 @@ public static class T05Verification
                 case 2:
                     Check(deal.MenuOpen && GameObject.Find("Sell brought lamps") != null, "physical seller E opens serialized buyback action");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState()); Click("Sell brought lamps");
-                    Check(workshop.Session.Balance == 275 && workshop.Session.OwnedLampCount == 0 && visuals.All(t => !t.gameObject.activeSelf), "seller button pays $155 and removes all three bought-back visuals");
-                    Check(Terms.text.Contains("+$155") && Terms.text.Contains("Остаток: 0"), "seller feedback displays payment and remaining stock");
+                    Check(workshop.Session.Balance == 275 && workshop.Session.OwnedLampCount == 0 &&
+                        visuals.All(t => t.GetComponentsInChildren<Collider>().All(c => !c.enabled)),
+                        "seller button pays $155 and immediately disables all bought-back interaction targets");
+                    Check(TradeFeedback.text.Contains("+$155") && TradeFeedback.text.Contains("Остаток: 0"), "seller feedback displays payment and remaining stock");
                     Fits("seller success terms fit"); Click("Sell brought lamps");
-                    Check(workshop.Session.Balance == 275 && Terms.text.Contains("Принеси остатки"), "repeat seller action rejects visibly without payout");
+                    Check(workshop.Session.Balance == 275 && TradeFeedback.text.Contains("Принеси остатки"), "repeat seller action rejects visibly without payout");
                     Check(deal.GetPrompt(FirstDealActionKind.Seller).Contains("уже куплена") &&
                         workshop.GetPrompt(WorkshopActionKind.Unit, 0).Contains("уже продан"), "seller and sold selectors do not imply new or previously diagnosed stock");
                     Click("Shift summary");
@@ -263,6 +267,7 @@ public static class T05Verification
                     Check(EventSystem.current.currentSelectedGameObject != null, "summary has keyboard focus");
                     Click("Finish shift"); Click("Finish shift");
                     Check(workshop.Session.ShiftEnded && Terms.text.Contains("ЗАВЕРШЁННОЙ"), "explicit abandonment finishes reserve route");
+                    Check(visuals.All(t => !t.gameObject.activeSelf), "finished shift settles all sold visuals");
                     Fits("final reserve summary fits"); deal.CloseMenu();
                     Check(deal.MenuOpen && workshop.Session.IsPaused && !player.CanInteract, "finished screen cannot unlock world through resume");
                     Click("Restart shift"); Next(); break;
@@ -272,7 +277,9 @@ public static class T05Verification
                     workshop.Session.StartShift(); workshop.Session.ToggleCrate(out _); workshop.Session.AcceptOrder(DealOrderId.B, out _);
                     workshop.Session.DeliverOrder(DealOrderId.B, Ids(workshop.Session, 0), out _);
                     Check(!deal.MenuOpen && !workshop.Session.IsPaused && player.CanInteract, "primary sale does not automatically interrupt play");
-                    Check(GameObject.Find("Next action").GetComponent<Text>().text.Contains("$245"), "post-sale consequences appear without forcing summary");
+                    var status = (Text)new SerializedObject(workshop).FindProperty("status").objectReferenceValue;
+                    Check(status.text.Contains("$245") && GameObject.Find("Next action").GetComponent<Text>().text.Contains("Осталось: 2"),
+                        "post-sale wallet and remaining stock appear without forcing summary");
                     var guide = UnityEngine.Object.FindAnyObjectByType<FirstDealGuide>();
                     Check((Transform)typeof(FirstDealGuide).GetField("target", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(guide) ==
                         GameObject.Find("OFFERS BOARD").transform, "repeat offer guidance points to the board rather than buyback seller");
@@ -297,14 +304,16 @@ public static class T05Verification
                     workshop.Session.AcceptOrder(DealOrderId.A, out _); workshop.Session.ToggleCrate(out _);
                     Check(workshop.Session.DeliverOrder(DealOrderId.A, Ids(workshop.Session, 1, 2), out _), "B then A consumes remainder in running scene");
                     deal.OpenMenu(false);
+                    var repeatCard = (Text)new SerializedObject(deal).FindProperty("orderCards").GetArrayElementAtIndex(2).objectReferenceValue;
                     Check(!GameObject.Find("Accept RepeatB").GetComponent<Button>().interactable &&
                         !GameObject.Find("Decline / cancel RepeatB").GetComponent<Button>().interactable &&
-                        Terms.text.Contains("Пополнения партии нет") && Terms.text.Contains("Осталось фонарей: 0"), "board disables exhausted repeat and explains no replenishment");
+                        repeatCard.text.Contains("Недостаточно товара") && repeatCard.text.Contains("осталось 0"),
+                        "board disables exhausted repeat and explains remaining stock");
                     Check(FirstDealText.Summary(workshop.Session).Contains("Все фонари проданы") &&
                         !FirstDealText.Summary(workshop.Session).Contains("Можно продолжить торговлю"),
                         "exhausted summary shows one clear next step");
                     Check(deal.GetPrompt(FirstDealActionKind.DeliverRepeatB).Contains("Недостаточно товара") &&
-                        GameObject.Find("Next action").GetComponent<Text>().text.Contains("Все фонари проданы"), "world prompt and guide explain exhausted stock");
+                        GameObject.Find("Next action").GetComponent<Text>().text.Contains("Товар продан"), "world prompt and guide explain exhausted stock");
                     Fits("exhausted board fits"); ScreenCapture.CaptureScreenshot("Logs/T06-exhausted-board.png");
                     deal.CloseMenu();
                     deal.OpenSummary(); Click("Finish shift");
