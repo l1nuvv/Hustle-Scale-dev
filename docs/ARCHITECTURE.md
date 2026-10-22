@@ -17,7 +17,7 @@
 | Мир и городские действия | [CityTradeView.cs](../Assets/Scripts/Interactables/CityTradeView.cs) | Строит runtime-представление, проверяет reach/позы, вызывает операции модели |
 | Городские окна | [CityTradeUI.cs](../Assets/Scripts/Interactables/CityTradeUI.cs), [CityPauseUI.cs](../Assets/Scripts/Interactables/CityPauseUI.cs) | Partial соответствующих компонентов, uGUI; не владельцы баланса |
 
-Отдельных классов `Wallet`, `GameClock`, универсального каталога товаров и order service нет. Схемы ответственности в инженерном стандарте не требуют их создать. В проекте нет собственных asmdef; это не пять отдельных сборок.
+Отдельных классов `Wallet`, `GameClock`, универсального каталога товаров и order service нет. Схемы ответственности в инженерном стандарте не требуют их создать. Runtime использует predefined assemblies; Editor-тесты физики и UI находятся в `HustleScale.Physics.Tests.asmdef` и вызывают общие проверки через reflection, не меняя runtime-границы.
 
 ```mermaid
 flowchart LR
