@@ -197,7 +197,7 @@ namespace Interactables
                 if (held == SolderingTrialState.Tool.Iron) return "Сначала нужен припой. Положите паяльник — E";
                 if (held == SolderingTrialState.Tool.Solder) return aim.magnitude <= 0.038f
                     ? "Удерживайте ЛКМ — уложить припой" : "Подведите конец припоя к зазору";
-                return state.Powered ? "Возьмите припой слева — E" : "Возьмите паяльник справа — E";
+                return "Возьмите припой слева — E";
             }
             if (held == SolderingTrialState.Tool.Solder) return "Припой уложен. Положите катушку — E";
             if (held == SolderingTrialState.Tool.None) return "Возьмите паяльник справа — E";

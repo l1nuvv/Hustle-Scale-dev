@@ -121,6 +121,7 @@ public static class SolderingTrialVerification
             var aim = typeof(SolderingTrial).GetField("aim", BindingFlags.NonPublic | BindingFlags.Instance);
             Action<float, bool, bool> step = (dt, pressing, operating) => tick.Invoke(trial, new object[] { dt, pressing, operating });
             trial.ResetTrial();
+            Check(trial.Instruction == "Возьмите припой слева — E", "fresh trial starts with solder rather than an unnecessary iron pickup");
             trial.State.SelectTool(SolderingTrialState.Tool.Iron);
             aim.SetValue(trial, Vector2.zero);
             step(0.3f, true, true);
@@ -219,24 +220,21 @@ public static class SolderingTrialVerification
         Action<bool> click = down => InputSystem.QueueStateEvent(mouse, new MouseState { buttons = (ushort)(down ? 1 : 0) });
         float partial = 0;
         steps.Add((() => key(Key.E), 0.25));
-        steps.Add((() => { Check(trial.Active, "world E ray enters bench"); key(null); }, 0.25));
-        steps.Add((() => { guide(430); key(Key.E); }, 0.25));
         steps.Add((() =>
         {
-            Check(trial.State.HeldTool == SolderingTrialState.Tool.Iron &&
-                trial.Instruction == "Сначала нужен припой. Положите паяльник — E",
-                "mouse + E picks iron and immediately explains solder/tool change");
+            Check(trial.Active, "world E ray enters bench");
+            Check(trial.Instruction == "Возьмите припой слева — E" && !trial.State.Powered,
+                "first instruction requests solder while iron is still cold");
             key(null);
         }, 0.25));
+        steps.Add((() => guide(-430), 0.25));
         steps.Add((() => key(Key.E), 0.25));
-        steps.Add((() => { key(null); guide(-860); }, 0.25));
-        steps.Add((() => key(Key.E), 0.25));
-        steps.Add((() => { Check(trial.State.HeldTool == SolderingTrialState.Tool.Solder, "E returns iron and picks solder spool"); key(null); guide(430); }, 0.25));
+        steps.Add((() => { Check(trial.State.HeldTool == SolderingTrialState.Tool.Solder, "mouse + E picks solder first"); key(null); guide(430); }, 0.25));
         steps.Add((() => click(true), 0.45));
         steps.Add((() => { Check(trial.State.HasSolder && trial.State.Progress == 0, "LMB lowers wire and deposits solder"); click(false); key(Key.E); }, 0.25));
         steps.Add((() => { key(null); guide(430); }, 0.25));
         steps.Add((() => key(Key.E), 0.25));
-        steps.Add((() => { Check(trial.State.HeldTool == SolderingTrialState.Tool.Iron, "E takes heated iron again"); key(null); guide(-430); }, 1.5));
+        steps.Add((() => { Check(trial.State.HeldTool == SolderingTrialState.Tool.Iron, "E takes iron after placing solder"); key(null); guide(-430); }, 4.3));
         steps.Add((() => { Check(trial.State.Ready, "heat advances with real frame time"); click(true); }, 0.8));
         steps.Add((() =>
         {
