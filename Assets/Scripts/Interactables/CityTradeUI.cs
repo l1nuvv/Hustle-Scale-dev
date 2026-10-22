@@ -180,7 +180,7 @@ namespace Interactables
                     BuildLocalMap();
                     Line("$" + session.Balance + " · Батареи: " + session.SpareBatteries);
                     Button(showControls ? "Скрыть управление" : "Управление", () => { showControls = !showControls; RebuildMenu(); });
-                    if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — выбросить · F — свет\nУ верстака: T — тест · R — замена батареи\nTab — карта · Esc — пауза · F5 / F9 — сохранить / загрузить");
+                    if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — выбросить · F — свет\nУ верстака: T — тест · R — замена батареи\nTab — карта · Esc — пауза · F5 / F9 в паузе — сохранить / загрузить");
                     for (var i = 0; i < 3; i++)
                     {
                         var index = i; var unit = session.Units[i];

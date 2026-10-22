@@ -42,7 +42,8 @@ namespace Player
                 else SetPaused(!_paused);
                 return;
             }
-            if (!_paused) return;
+            // The trade/map window owns input while it covers the pause menu.
+            if (!_paused || _trade.MenuOpen) return;
             if (_confirmNewGame)
             {
                 if (keyboard.enterKey.wasPressedThisFrame) { _confirmNewGame = false; _save.NewGame(); }

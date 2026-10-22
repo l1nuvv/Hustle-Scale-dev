@@ -62,7 +62,12 @@ namespace Player
             if (target != null) FocusLabel = target.Prompt;
             else if (hit.collider.GetComponentInParent<ItemPickup>() != null) FocusLabel = "E - Pick up";
         }
-        private void HandleInteraction() => _interactionRequested = true;
+        private void HandleInteraction()
+        {
+            // Remember the input context now, before Escape can close a modal UI
+            // later in Update. The actual ray still uses the final camera pose.
+            if (_controller.CanInteract) _interactionRequested = true;
+        }
         private void InteractWithHit()
         {
             // The nearest solid hit blocks interaction, even if it is not interactable.

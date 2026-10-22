@@ -87,10 +87,15 @@ namespace Player
                 var delta = door - walkingCamera.transform.position;
                 nearDoor = walker.CanInteract && delta.magnitude < 3 &&
                     Vector3.Dot(walkingCamera.transform.forward, delta.normalized) > 0.25f && !LookingAtCargo();
-                if (nearDoor && interact.WasPressedThisFrame()) TryEnter();
+                // This independent action map must respect the walking UI's
+                // transition keys regardless of the components' Update order.
+                var keyboard = Keyboard.current;
+                var menuTransition = keyboard != null &&
+                    (keyboard.tabKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame);
+                if (nearDoor && !menuTransition && interact.WasPressedThisFrame()) TryEnter();
                 return;
             }
-            if (pause.WasPressedThisFrame()) SetPaused(!paused);
+            if (pause.WasPressedThisFrame()) { SetPaused(!paused); return; }
             if (comfort.WasPressedThisFrame()) cameraMotion = cameraMotion > 0 ? 0 : 0.6f;
             if (paused) return;
 #if UNITY_EDITOR

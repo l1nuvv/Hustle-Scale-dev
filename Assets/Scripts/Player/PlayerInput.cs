@@ -64,7 +64,13 @@ namespace Player
             // Mouse delta is already per-frame; do not multiply by deltaTime.
             _mouseInput = MouseInputEnabled && Mouse.current != null
                 ? Mouse.current.delta.ReadValue() : Vector2.zero;
-            if (_inventory.WasPressedThisFrame()) OnToggleInventory?.Invoke();
+            // A menu transition consumes this frame's gameplay shortcuts, including
+            // when the menu closes and immediately restores the controller.
+            if (_inventory.WasPressedThisFrame())
+            {
+                OnToggleInventory?.Invoke();
+                return;
+            }
             if (_interact.WasPressedThisFrame()) OnInteract?.Invoke();
             if (_light.WasPressedThisFrame()) OnToggleLight?.Invoke();
             if (_place.WasPressedThisFrame()) OnPlaceItem?.Invoke();
