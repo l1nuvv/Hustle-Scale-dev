@@ -79,6 +79,15 @@ namespace Interactables
             }
         }
 
+        public Transform PickupTarget(ArtTestInteraction.ActionKind action, int index)
+        {
+            if (session == null || !controller.CanInteract) return null;
+            if (action == ArtTestInteraction.ActionKind.Lamp)
+                return session.Units[index].Location == FlashlightLocation.Bench ?
+                    session.CanPickUpBench ? lamps[index] : null : session.CanPickUpUnit(index) ? lamps[index] : null;
+            return action == ArtTestInteraction.ActionKind.Bench && session.CanPickUpBench ? lamps[IndexOf(session.OnBench)] : null;
+        }
+
         public string Prompt(ArtTestInteraction.ActionKind action, int index)
         {
             switch (action)

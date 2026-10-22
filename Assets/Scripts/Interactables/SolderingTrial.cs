@@ -35,6 +35,15 @@ namespace Interactables
         private bool active, focused = true, exitRequested;
         private GUIStyle hudStyle;
         private string instruction;
+        private PickupOutline outline;
+        private BoxCollider ironHit, solderHit;
+        private Vector2 cursorViewport;
+        private SolderingTrialState.Tool hoveredTool;
+        private Transform movingTool;
+        private Vector3 motionStart;
+        private Quaternion motionRotation;
+        private float motionTime;
+        private bool returningTool;
         private static readonly Vector3 Joint = new Vector3(0, 1.075f, 0);
         private static readonly Vector3 IronDock = new Vector3(0.56f, 1.075f, 0);
         private static readonly Vector3 SolderDock = new Vector3(-0.56f, 1.075f, 0);
@@ -47,6 +56,12 @@ namespace Interactables
         public Vector3 TipPosition => state.HeldTool == SolderingTrialState.Tool.Solder ? wireEnd.position : tip.position;
         public string Instruction => instruction;
         public bool UsesAuthoredVisuals => ironVisualPrefab != null && solderVisualPrefab != null && flashlightVisualPrefab != null;
+        public bool IsToolAnimating => movingTool != null;
+        public SolderingTrialState.Tool HoveredTool => hoveredTool;
+        public Vector2 CursorScreenPosition => view.ViewportToScreenPoint(cursorViewport);
+        public Vector2 JointScreenPosition => view.WorldToScreenPoint(transform.TransformPoint(Joint));
+        public Vector2 ToolScreenPosition(SolderingTrialState.Tool tool) =>
+            view.WorldToScreenPoint((tool == SolderingTrialState.Tool.Iron ? ironHit : solderHit).bounds.center);
 
         private void Awake()
         {
@@ -57,6 +72,9 @@ namespace Interactables
             reset = actions.AddAction("Reset trial", InputActionType.Button, "<Keyboard>/r");
             leave = actions.AddAction("Leave bench", InputActionType.Button, "<Keyboard>/escape");
             BuildWorkplace();
+            outline = gameObject.AddComponent<PickupOutline>();
+            ironHit = ToolCollider(iron);
+            solderHit = ToolCollider(solder);
             RefreshFeedback();
         }
 
@@ -79,6 +97,8 @@ namespace Interactables
             player.SetCursorLocked(true);
             aim = Vector2.zero;
             depth = 0;
+            SetWorkCamera();
+            cursorViewport = view.WorldToViewportPoint(transform.TransformPoint(Joint));
             actions.Enable();
         }
 
@@ -95,6 +115,9 @@ namespace Interactables
             active = false;
             titleLabel.gameObject.SetActive(true);
             actions.Disable();
+            CancelToolMotion();
+            hoveredTool = SolderingTrialState.Tool.None;
+            outline.Focus(null, view);
             state.SelectTool(SolderingTrialState.Tool.None);
             AdvanceTool(0, false, false);
             if (player != null)
@@ -117,21 +140,28 @@ namespace Interactables
             if (focused && Application.isFocused && Time.timeScale > 0)
             {
                 var delta = move.ReadValue<Vector2>();
-                aim += delta * 0.0013f;
+                cursorViewport += new Vector2(delta.x / Screen.width, delta.y / Screen.height);
+                cursorViewport.x = Mathf.Clamp(cursorViewport.x, 0.05f, 0.95f);
+                cursorViewport.y = Mathf.Clamp(cursorViewport.y, 0.08f, 0.88f);
+                var ray = view.ViewportPointToRay(cursorViewport);
+                var plane = new Plane(transform.up, transform.TransformPoint(Joint));
+                if (plane.Raycast(ray, out var distance))
+                {
+                    var point = transform.InverseTransformPoint(ray.GetPoint(distance));
+                    aim = new Vector2(point.x, point.z);
+                }
                 aim.x = Mathf.Clamp(aim.x, -0.79f, 0.79f);
                 aim.y = Mathf.Clamp(aim.y, -0.30f, 0.30f);
-                if (take.WasPressedThisFrame())
-                {
-                    if (state.HeldTool != SolderingTrialState.Tool.None)
-                        state.SelectTool(SolderingTrialState.Tool.None);
-                    else if (Vector2.Distance(aim, new Vector2(IronDock.x, IronDock.z)) < 0.17f)
-                        state.SelectTool(SolderingTrialState.Tool.Iron);
-                    else if (Vector2.Distance(aim, new Vector2(SolderDock.x, SolderDock.z)) < 0.17f)
-                        state.SelectTool(SolderingTrialState.Tool.Solder);
-                }
+                hoveredTool = ToolUnderCursor(ray);
+                if (take.WasPressedThisFrame() && !IsToolAnimating) TakeOrReturnTool();
+                TickToolMotion(Time.deltaTime);
                 AdvanceTool(Time.deltaTime, lower.IsPressed(), true);
             }
-            else AdvanceTool(0, false, false);
+            else
+            {
+                hoveredTool = SolderingTrialState.Tool.None;
+                AdvanceTool(0, false, false);
+            }
         }
 
         private void LateUpdate()
@@ -139,8 +169,74 @@ namespace Interactables
             // Restore after the existing Escape handlers, avoiding a second menu transition.
             if (exitRequested) { exitRequested = false; Exit(); return; }
             if (!active) return;
+            SetWorkCamera();
+        }
+
+        private void SetWorkCamera()
+        {
             view.transform.SetPositionAndRotation(transform.TransformPoint(new Vector3(0, 1.78f, -0.9f)),
                 transform.rotation * Quaternion.Euler(40, 0, 0));
+        }
+
+        private BoxCollider ToolCollider(Transform tool)
+        {
+            var renderers = tool.GetComponentsInChildren<MeshRenderer>();
+            var bounds = renderers[0].bounds;
+            foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
+            var collider = tool.gameObject.AddComponent<BoxCollider>();
+            collider.isTrigger = true;
+            collider.center = tool.InverseTransformPoint(bounds.center);
+            collider.size = new Vector3(bounds.size.x / tool.lossyScale.x, bounds.size.y / tool.lossyScale.y, bounds.size.z / tool.lossyScale.z);
+            return collider;
+        }
+
+        private SolderingTrialState.Tool ToolUnderCursor(Ray ray)
+        {
+            if (state.HeldTool != SolderingTrialState.Tool.None || IsToolAnimating) return SolderingTrialState.Tool.None;
+            var hitIron = ironHit.Raycast(ray, out var a, 3);
+            var hitSolder = solderHit.Raycast(ray, out var b, 3);
+            return hitIron && (!hitSolder || a.distance < b.distance) ? SolderingTrialState.Tool.Iron :
+                hitSolder ? SolderingTrialState.Tool.Solder : SolderingTrialState.Tool.None;
+        }
+
+        private void TakeOrReturnTool()
+        {
+            var held = state.HeldTool;
+            returningTool = held != SolderingTrialState.Tool.None;
+            var chosen = returningTool ? held : hoveredTool;
+            if (chosen == SolderingTrialState.Tool.None) return;
+            movingTool = chosen == SolderingTrialState.Tool.Iron ? iron : solder;
+            motionStart = movingTool.localPosition;
+            motionRotation = movingTool.localRotation;
+            motionTime = 0;
+            depth = 0;
+            state.SelectTool(returningTool ? SolderingTrialState.Tool.None : chosen);
+            hoveredTool = SolderingTrialState.Tool.None;
+            if (!returningTool)
+            {
+                aim = new Vector2(chosen == SolderingTrialState.Tool.Iron ? 0.18f : -0.18f, -0.16f);
+                cursorViewport = view.WorldToViewportPoint(transform.TransformPoint(Joint + new Vector3(aim.x, 0, aim.y)));
+            }
+        }
+
+        private void TickToolMotion(float seconds)
+        {
+            if (!IsToolAnimating) return;
+            motionTime += seconds;
+            var t = Mathf.Clamp01(motionTime / 0.24f);
+            var eased = Mathf.SmoothStep(0, 1, t);
+            var end = returningTool ? (movingTool == iron ? IronDock : SolderDock) + Vector3.up * 0.04f :
+                Joint + new Vector3(aim.x, 0.18f, aim.y);
+            movingTool.localPosition = Vector3.Lerp(motionStart, end, eased) + Vector3.up * (Mathf.Sin(t * Mathf.PI) * 0.065f);
+            movingTool.localRotation = Quaternion.Slerp(motionRotation, Quaternion.identity, eased) *
+                Quaternion.Euler(0, 0, Mathf.Sin(t * Mathf.PI) * (returningTool ? -8 : 8));
+            if (t >= 1) { movingTool.localRotation = Quaternion.identity; movingTool = null; }
+        }
+
+        private void CancelToolMotion()
+        {
+            movingTool = null;
+            iron.localRotation = solder.localRotation = Quaternion.identity;
         }
 
         private void AdvanceTool(float seconds, bool pressing, bool operating)
@@ -148,13 +244,13 @@ namespace Interactables
             var held = state.HeldTool;
             depth = Mathf.MoveTowards(depth, pressing && held != SolderingTrialState.Tool.None ? 1 : 0, seconds * 5);
             if (!operating) depth = 0;
-            var workingEnd = Joint + new Vector3(aim.x, Mathf.Lerp(0.18f, 0, depth), aim.y);
-            iron.localPosition = held == SolderingTrialState.Tool.Iron ? workingEnd : IronDock + Vector3.up * 0.04f;
-            solder.localPosition = held == SolderingTrialState.Tool.Solder ? workingEnd : SolderDock + Vector3.up * 0.04f;
+            var workingEnd = Joint + new Vector3(aim.x, Mathf.Lerp(0.18f, 0, Mathf.SmoothStep(0, 1, depth)), aim.y);
+            if (movingTool != iron) iron.localPosition = held == SolderingTrialState.Tool.Iron ? workingEnd : IronDock + Vector3.up * 0.04f;
+            if (movingTool != solder) solder.localPosition = held == SolderingTrialState.Tool.Solder ? workingEnd : SolderDock + Vector3.up * 0.04f;
             pointer.localPosition = Joint + new Vector3(aim.x, 0.006f, aim.y);
             var actualEnd = held == SolderingTrialState.Tool.Solder ? wireEnd : tip;
             // Geometry gates progress: lateral aim alone or the button alone cannot solder.
-            HasContact = operating && pressing && held != SolderingTrialState.Tool.None &&
+            HasContact = operating && pressing && !IsToolAnimating && held != SolderingTrialState.Tool.None &&
                 Vector3.Distance(actualEnd.position, transform.TransformPoint(Joint)) <= 0.038f;
             state.Tick(seconds, HasContact, operating);
             RefreshFeedback();
@@ -163,6 +259,8 @@ namespace Interactables
         public void ResetTrial()
         {
             state.Reset();
+            CancelToolMotion();
+            hoveredTool = SolderingTrialState.Tool.None;
             depth = 0;
             HasContact = false;
             smoke.Clear();
@@ -172,7 +270,9 @@ namespace Interactables
         private void RefreshFeedback()
         {
             instruction = NextInstruction();
-            pointer.gameObject.SetActive(active && !state.Complete);
+            outline?.Focus(active && focused && hoveredTool != SolderingTrialState.Tool.None ?
+                hoveredTool == SolderingTrialState.Tool.Iron ? iron : solder : null, view);
+            pointer.gameObject.SetActive(active && !state.Complete && state.HeldTool != SolderingTrialState.Tool.None && !IsToolAnimating);
             hotMetal.color = Color.Lerp(new Color(0.35f, 0.38f, 0.40f), new Color(1, 0.12f, 0.025f), state.Heat);
             hotMetal.SetColor("_EmissionColor", new Color(1, 0.04f, 0) * state.Heat * 0.6f);
             placedSolder.gameObject.SetActive(state.HasSolder && !state.Complete);
@@ -194,6 +294,9 @@ namespace Interactables
         private string NextInstruction()
         {
             var held = state.HeldTool;
+            if (IsToolAnimating) return returningTool ? "Кладём инструмент…" : "Берём инструмент…";
+            if (held == SolderingTrialState.Tool.None && hoveredTool != SolderingTrialState.Tool.None)
+                return hoveredTool == SolderingTrialState.Tool.Iron ? "E — взять паяльник" : "E — взять припой";
             if (state.Complete) return held == SolderingTrialState.Tool.Iron
                 ? "Пайка готова — отпустите ЛКМ и отведите жало" : "Соединение готово · R — новая проба";
             if (state.Working) return "Держите жало на соединении…";
@@ -213,6 +316,7 @@ namespace Interactables
         private void OnApplicationFocus(bool hasFocus)
         {
             focused = hasFocus;
+            if (!hasFocus) hoveredTool = SolderingTrialState.Tool.None;
             if (active && hasFocus) player.SetCursorLocked(true);
             if (active) AdvanceTool(0, false, false);
         }
@@ -431,6 +535,15 @@ namespace Interactables
             var hintWidth = Mathf.Min(570, width - 30);
             GUI.Box(new Rect((width - hintWidth) / 2, 18, hintWidth, 34), "");
             GUI.Label(new Rect((width - hintWidth) / 2 + 5, 18, hintWidth - 10, 34), instruction, hudStyle);
+            if (state.HeldTool == SolderingTrialState.Tool.None && !IsToolAnimating)
+            {
+                var previous = GUI.color;
+                GUI.color = hoveredTool != SolderingTrialState.Tool.None ? new Color(1, 0.72f, 0.20f) : Color.white;
+                var point = new Vector2(cursorViewport.x * width, (1 - cursorViewport.y) * Screen.height / scale);
+                GUI.DrawTexture(new Rect(point.x - 6, point.y - 1, 12, 2), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(point.x - 1, point.y - 6, 2, 12), Texture2D.whiteTexture);
+                GUI.color = previous;
+            }
             if (state.Powered)
             {
                 GUI.Label(new Rect(width / 2 - 120, 58, 240, 28), state.Ready ? "Жало готово ✓" : "Жало нагревается…", hudStyle);

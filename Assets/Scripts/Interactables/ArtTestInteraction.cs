@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Interactables
 {
     // An interaction target belonging only to the isolated art sample.
-    public sealed class ArtTestInteraction : MonoBehaviour, IWorldInteraction
+    public sealed class ArtTestInteraction : MonoBehaviour, IWorldInteraction, IPickupTarget
     {
         public enum ActionKind { Lamp, Bench, Test, Crate }
         [SerializeField] private ArtDirectionTestView view;
@@ -12,6 +12,7 @@ namespace Interactables
 
         public ActionKind Kind => action;
         public int Index => index;
+        public Transform PickupTarget => view != null ? view.PickupTarget(action, index) : null;
         public string Prompt => view.Prompt(action, index);
         public void Interact() => view.Act(action, index);
     }

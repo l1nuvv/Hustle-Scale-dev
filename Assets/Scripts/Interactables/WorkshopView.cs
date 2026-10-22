@@ -114,6 +114,20 @@ namespace Interactables
             SettleMotions();
         }
 
+        public Transform PickupTarget(WorkshopActionKind action, int index)
+        {
+            if (session == null) return null;
+            if (firstDeal && (action == WorkshopActionKind.Crate || action == WorkshopActionKind.Unit) &&
+                !session.IsCrateCarried && Vector3.Distance(hand.position, crate.position) > 2.5f) return null;
+            switch (action)
+            {
+                case WorkshopActionKind.Crate: return session.CanPickUpCrate ? crate : null;
+                case WorkshopActionKind.Unit: return session.CanPickUpUnit(index) ? lamps[index] : null;
+                case WorkshopActionKind.Bench: return session.CanPickUpBench ? lamps[IndexOf(session.OnBench)] : null;
+                default: return null;
+            }
+        }
+
         public string GetPrompt(WorkshopActionKind action, int index)
         {
             if (firstDeal)

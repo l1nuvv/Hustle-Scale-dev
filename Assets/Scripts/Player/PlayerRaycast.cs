@@ -18,6 +18,8 @@ namespace Player
         private PlayerInput _input;
         private PlayerController _controller;
         private bool _interactionRequested;
+        private PickupOutline outline;
+        public Transform PickupFocus => outline != null ? outline.Target : null;
         public string FocusLabel { get; private set; } = "";
         public void Configure(Camera source, LayerMask mask) { camera = source; layerMask = mask; }
 
@@ -26,6 +28,7 @@ namespace Player
             _input = GetComponent<PlayerInput>();
             _controller = GetComponent<PlayerController>();
             if (camera == null) camera = Camera.main;
+            outline = gameObject.AddComponent<PickupOutline>();
         }
         private void Start()
         {
@@ -37,6 +40,7 @@ namespace Player
             _input.OnInteract -= HandleInteraction;
             _interactionRequested = false;
             FocusLabel = "";
+            if (outline != null) outline.Focus(null, camera);
         }
         private bool TryHit(out RaycastHit hit)
         {
@@ -55,12 +59,23 @@ namespace Player
                 InteractWithHit();
             }
             FocusLabel = "";
-            if (!TryHit(out var hit)) return;
+            if (!TryHit(out var hit)) { outline.Focus(null, camera); return; }
             var interaction = hit.collider.GetComponentInParent<IWorldInteraction>();
-            if (interaction != null) { FocusLabel = interaction.Prompt; return; }
+            if (interaction != null)
+            {
+                outline.Focus((interaction as IPickupTarget)?.PickupTarget, camera);
+                FocusLabel = interaction.Prompt;
+                return;
+            }
+            var pickup = hit.collider.GetComponentInParent<ItemPickup>();
             var target = hit.collider.GetComponentInParent<GrayboxInteractable>();
-            if (target != null) FocusLabel = target.Prompt;
-            else if (hit.collider.GetComponentInParent<ItemPickup>() != null) FocusLabel = "E - Pick up";
+            if (target != null) { outline.Focus(null, camera); FocusLabel = target.Prompt; }
+            else if (pickup != null) { outline.Focus(pickup.PickupTarget, camera); FocusLabel = "E - Pick up"; }
+            else
+            {
+                var slot = hit.collider.GetComponent<InventorySlot>();
+                outline.Focus(slot != null && inventoryManager != null && inventoryManager.CanAddItem(slot.item, slot.amount) ? slot.transform : null, camera);
+            }
         }
         private void HandleInteraction()
         {

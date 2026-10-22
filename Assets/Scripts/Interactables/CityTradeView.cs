@@ -159,6 +159,26 @@ namespace Interactables
                 hit.collider == collider;
         }
 
+        public Transform PickupTarget(CityTradePoint point)
+        {
+            if (!Allowed || !Reachable(point)) return null;
+            switch (point.Kind)
+            {
+                case CityTradeKind.Lamp:
+                    return session.Units[point.Index].Location == FlashlightLocation.Bench ?
+                        session.CanPickUpBench ? lamps[point.Index] : null :
+                        session.CanPickUpPlaced(point.Index) ? lamps[point.Index] : null;
+                case CityTradeKind.Workshop:
+                    if (!session.CanPickUpBench) return null;
+                    for (var i = 0; i < lamps.Length; i++) if (session.Units[i] == session.OnBench) return lamps[i];
+                    return null;
+                case CityTradeKind.Crate: return session.CanPickUpCrate ? crate : null;
+                case CityTradeKind.Cargo:
+                    return session.CanUnloadCrate && vehicle != null && !vehicle.IsDriving && vehicle.Speed <= 0.1f ? crate : null;
+                default: return null;
+            }
+        }
+
         public void Open(CityTradePoint point)
         {
             if (!Allowed || !Reachable(point)) return;

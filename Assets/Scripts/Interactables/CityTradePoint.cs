@@ -4,11 +4,12 @@ namespace Interactables
 {
     public enum CityTradeKind { Seller, Battery, Buyback, A, B, Workshop, SellerDock, WorkshopDock, Crate, Lamp, Cargo }
 
-    public sealed class CityTradePoint : MonoBehaviour, IWorldInteraction
+    public sealed class CityTradePoint : MonoBehaviour, IWorldInteraction, IPickupTarget
     {
         public CityTradeView View { get; private set; }
         public CityTradeKind Kind { get; private set; }
         public int Index { get; private set; }
+        public Transform PickupTarget => View != null ? View.PickupTarget(this) : null;
         private string prompt;
         public string Prompt => Kind == CityTradeKind.Cargo ? View.CargoPrompt :
             Kind == CityTradeKind.Workshop || Kind == CityTradeKind.Lamp && View.Session != null &&

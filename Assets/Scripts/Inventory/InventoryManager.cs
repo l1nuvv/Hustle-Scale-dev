@@ -169,6 +169,14 @@ namespace Inventory
             }
         }
 
+        public bool CanAddItem(Item item, int amount)
+        {
+            if (item == null || amount <= 0 || amount > item.maxStack) return false;
+            foreach (var slot in slots)
+                if (slot != null && (slot.IsEmpty || slot.item == item && slot.amount <= item.maxStack - amount)) return true;
+            return false;
+        }
+
         public bool AddItem(Item item, int amount)
         {
             if (item == null || amount <= 0 || amount > item.maxStack || slots.Count == 0)

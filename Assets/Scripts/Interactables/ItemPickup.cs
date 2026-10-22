@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Interactables
 {
-    public class ItemPickup : MonoBehaviour
+    public class ItemPickup : MonoBehaviour, IPickupTarget
     {
         public Item item;
         public int amount = 1;
@@ -12,6 +12,8 @@ namespace Interactables
         // Ссылка на InventoryManager для прямой коммуникации
         private InventoryManager _inventoryManager;
         private bool consumed;
+        public Transform PickupTarget => !consumed && gameObject.activeInHierarchy && _inventoryManager != null &&
+            _inventoryManager.CanAddItem(item, amount) ? transform : null;
 
         private void Start()
         {

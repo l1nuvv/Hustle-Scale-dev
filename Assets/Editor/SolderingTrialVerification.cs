@@ -217,7 +217,7 @@ public static class SolderingTrialVerification
         var steps = new System.Collections.Generic.List<(Action action, double delay)>();
         Action<Key?> key = value => InputSystem.QueueStateEvent(keyboard,
             value.HasValue ? new KeyboardState(value.Value) : new KeyboardState());
-        Action<float> guide = value => InputSystem.QueueDeltaStateEvent(mouse.delta, new Vector2(value, 0));
+        Action<Vector2> guide = point => InputSystem.QueueDeltaStateEvent(mouse.delta, point - trial.CursorScreenPosition);
         Action<bool> click = down => InputSystem.QueueStateEvent(mouse, new MouseState { buttons = (ushort)(down ? 1 : 0) });
         float partial = 0;
         steps.Add((() => key(Key.E), 0.25));
@@ -228,14 +228,32 @@ public static class SolderingTrialVerification
                 "first instruction requests solder while iron is still cold");
             key(null);
         }, 0.25));
-        steps.Add((() => guide(-430), 0.25));
-        steps.Add((() => key(Key.E), 0.25));
-        steps.Add((() => { Check(trial.State.HeldTool == SolderingTrialState.Tool.Solder, "mouse + E picks solder first"); key(null); guide(430); }, 0.25));
+        steps.Add((() => guide(trial.ToolScreenPosition(SolderingTrialState.Tool.Solder)), 0.25));
+        steps.Add((() =>
+        {
+            Check(trial.HoveredTool == SolderingTrialState.Tool.Solder, "visible spool under screen cursor is the pickup target");
+            key(Key.E);
+        }, 0.06));
+        steps.Add((() =>
+        {
+            Check(trial.State.HeldTool == SolderingTrialState.Tool.Solder && trial.IsToolAnimating && !trial.HasContact,
+                "pickup animates from dock and cannot apply material in transit");
+            key(null); guide(trial.JointScreenPosition);
+        }, 0.25));
         steps.Add((() => click(true), 0.45));
         steps.Add((() => { Check(trial.State.HasSolder && trial.State.Progress == 0, "LMB lowers wire and deposits solder"); click(false); key(Key.E); }, 0.25));
-        steps.Add((() => { key(null); guide(430); }, 0.25));
-        steps.Add((() => key(Key.E), 0.25));
-        steps.Add((() => { Check(trial.State.HeldTool == SolderingTrialState.Tool.Iron, "E takes iron after placing solder"); key(null); guide(-430); }, 4.3));
+        steps.Add((() => { key(null); guide(trial.ToolScreenPosition(SolderingTrialState.Tool.Iron)); }, 0.25));
+        steps.Add((() =>
+        {
+            Check(trial.HoveredTool == SolderingTrialState.Tool.Iron, "visible iron under screen cursor is the pickup target");
+            key(Key.E);
+        }, 0.06));
+        steps.Add((() =>
+        {
+            Check(trial.State.HeldTool == SolderingTrialState.Tool.Iron && trial.IsToolAnimating && !trial.HasContact,
+                "iron pickup animates without soldering in transit");
+            key(null); guide(trial.JointScreenPosition);
+        }, 4.3));
         steps.Add((() => { Check(trial.State.Ready, "heat advances with real frame time"); click(true); }, 0.8));
         steps.Add((() =>
         {
