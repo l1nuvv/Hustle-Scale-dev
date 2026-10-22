@@ -100,7 +100,10 @@ public static class SolderingMatBuilder
             check(material.GetTexture("_BaseMap") != null && material.GetTexture("_BumpMap") != null &&
                 material.GetTexture("_MetallicGlossMap") != null && material.IsKeywordEnabled("_NORMALMAP"), "URP uses colour, normal and packed smoothness maps");
             var bounds = mesh.GetComponent<MeshRenderer>().bounds;
-            check(bounds.size.x > .48f && bounds.size.x < .50f && bounds.size.z <= (trial.IsFullOperation ? .35f : .26f), "mat has practical 49 cm width and fits existing table");
+            var table = trial.transform.Find("Trial table").GetComponent<MeshRenderer>().bounds;
+            check(bounds.size.x > .48f && bounds.size.x < .50f && bounds.size.z <= (trial.IsFullOperation ? .35f : .26f) &&
+                table.size.x < 1 && table.size.z < .8f && bounds.min.x > table.min.x && bounds.max.x < table.max.x &&
+                bounds.min.z > table.min.z && bounds.max.z < table.max.z, "49 cm mat fits inside compact tabletop with clear margins");
             var iron = trial.transform.Find("Soldering iron - tip origin");
             var solder = trial.transform.Find("Solder spool - wire end origin");
             check(Vector3.Distance(iron.position, mat.Find("IronDock").position) < .001f &&

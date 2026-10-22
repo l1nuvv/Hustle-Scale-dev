@@ -177,6 +177,7 @@ public static partial class FlashlightRepairVerification
         Begin();
         var t = M3();
         var player = Prepare(t);
+        var worldLens = Camera.main.fieldOfView;
         t.ResetTrial();
         var keyboard = InputSystem.AddDevice<Keyboard>();
         var mouse = InputSystem.AddDevice<Mouse>();
@@ -218,12 +219,18 @@ public static partial class FlashlightRepairVerification
         Action exitReturn = () =>
         {
             add(() => key(Key.Escape), 0.20);
-            add(() => { Check(!t.Active && player.CanInteract, "Esc restores ordinary controls"); key(null); }, 0.20);
+            add(() =>
+            {
+                Check(!t.Active && player.CanInteract, "Esc restores ordinary controls");
+                Check(Mathf.Approximately(Camera.main.fieldOfView, worldLens), "leaving restores original world FOV without drift");
+                key(null);
+            }, 0.20);
             add(() => key(Key.E), 0.20);
             add(() => { Check(t.Active, "world E returns to M3"); key(null); }, 0.20);
         };
         add(() => key(Key.E), 0.25);
         add(() => { Check(t.Active && t.Instruction.Contains("сначала припой"), "world E enters M3 and explains solder first"); key(null); }, 0.15);
+        add(() => Check(Mathf.Approximately(Camera.main.fieldOfView, worldLens * .8f), "workbench starts with narrower FOV before RMB"), 0.1);
         float normalLens = 0;
         add(() => { normalLens = Camera.main.fieldOfView; InputSystem.QueueStateEvent(mouse, new MouseState { buttons = 2 }); }, 0.4);
         add(() => { Check(Camera.main.fieldOfView < normalLens && !t.RepairAnimating, "held RMB magnifies without picking up"); click(false); }, 0.4);
@@ -269,9 +276,20 @@ public static partial class FlashlightRepairVerification
         add(() => { Check(t.State.Heat == pausedHeat && !t.State.Ready, "paused iron does not heat"); key(Key.P); }, 0.15);
         add(() => key(null), 0.15);
         add(() => { Check(!t.State.Ready, "newly picked iron is cold"); click(true); }, 0.5);
-        add(() => { Check(t.State.Progress == 0, "cold contact gives no solder progress"); click(false); }, 4.2);
+        var stationaryCursor = Vector2.zero;
+        add(() =>
+        {
+            Check(t.State.Progress == 0, "cold contact gives no solder progress");
+            stationaryCursor = t.CursorScreenPosition;
+            click(false);
+        }, 4.2);
         float partial = 0, heat = 0;
-        add(() => { Check(t.State.Ready, "iron heats with real game frames"); click(true); }, 0.8);
+        add(() =>
+        {
+            Check(t.State.Ready, "iron heats with real game frames");
+            Check(Vector2.Distance(t.CursorScreenPosition, stationaryCursor) < .25f, "unchanged FOV cannot accumulate cursor drift during heat-up");
+            click(true);
+        }, 0.8);
         add(() => { Check(t.State.Working && t.SmokePlaying && t.SoundPlaying, "prepared hot contact starts M2 effects"); guide(t.JointScreenPosition + Vector2.right * 150); }, 0.2);
         add(() => { partial = t.State.Progress; Check(!t.State.Working && !t.HasContact, "moving actual tip away stops work with LMB held"); }, 0.3);
         add(() => { Check(t.State.Progress == partial, "withdrawn iron cannot advance"); guide(t.JointScreenPosition); }, 0.4);

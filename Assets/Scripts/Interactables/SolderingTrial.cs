@@ -41,6 +41,7 @@ namespace Interactables
         private BoxCollider ironHit, solderHit, ironDockHit, solderDockHit;
         private bool dockHovered, pointerConsumedUntilRelease;
         private float savedFieldOfView;
+        private float WorkFieldOfView => savedFieldOfView * 0.8f;
         private Vector2 cursorViewport;
         private SolderingTrialState.Tool hoveredTool;
         private Transform movingTool;
@@ -104,6 +105,7 @@ namespace Interactables
             savedYaw = player.transform.eulerAngles.y;
             savedPitch = player.CameraPitch;
             savedFieldOfView = view.fieldOfView;
+            view.fieldOfView = WorkFieldOfView;
             pointerConsumedUntilRelease = Mouse.current != null && Mouse.current.leftButton.isPressed;
             Suspend(player.GetComponent<Player.PlayerInput>());
             Suspend(player.GetComponent<PlayerRaycast>());
@@ -222,13 +224,15 @@ namespace Interactables
 
         private void UpdateMagnification(bool magnify, float seconds)
         {
+            var fieldOfView = seconds > 0 ? Mathf.MoveTowards(view.fieldOfView,
+                magnify ? WorkFieldOfView * 0.78f : WorkFieldOfView, seconds * 80) : WorkFieldOfView;
+            if (view.fieldOfView == fieldOfView) return;
             // Preserve the world point under the cursor while changing the lens.
             var plane = new Plane(transform.up, transform.TransformPoint(Joint));
             var ray = view.ViewportPointToRay(cursorViewport);
             var hasPoint = plane.Raycast(ray, out var distance);
             var point = ray.GetPoint(distance);
-            view.fieldOfView = seconds > 0 ? Mathf.MoveTowards(view.fieldOfView,
-                magnify ? savedFieldOfView * 0.78f : savedFieldOfView, seconds * 80) : savedFieldOfView;
+            view.fieldOfView = fieldOfView;
             if (hasPoint) cursorViewport = view.WorldToViewportPoint(point);
         }
 
@@ -445,9 +449,12 @@ namespace Interactables
             var white = Material(new Color(0.88f, 0.93f, 0.94f));
             hotMetal = Material(Color.gray);
             hotMetal.EnableKeyword("_EMISSION");
-            Part("Trial table", transform, PrimitiveType.Cube, new Vector3(0, 0.94f, 0), new Vector3(1.9f, 0.1f, fullOperation ? 1.4f : 1), wood, true);
-            foreach (var x in new[] { -0.8f, 0.8f })
-                Part("Leg", transform, PrimitiveType.Cube, new Vector3(x, 0.45f, 0), new Vector3(0.09f, 0.9f, 0.65f), dark);
+            var compact = solderingMatPrefab != null;
+            Part("Trial table", transform, PrimitiveType.Cube, new Vector3(0, 0.94f, 0),
+                new Vector3(compact ? 0.95f : 1.9f, 0.1f, compact ? (fullOperation ? 0.7f : 0.6f) : (fullOperation ? 1.4f : 1)), wood, true);
+            var legOffset = compact ? 0.37f : 0.8f;
+            foreach (var x in new[] { -legOffset, legOffset })
+                Part("Leg", transform, PrimitiveType.Cube, new Vector3(x, 0.45f, 0), new Vector3(0.09f, 0.9f, compact ? 0.48f : 0.65f), dark);
             if (solderingMatPrefab != null)
             {
                 workMat = Visual(solderingMatPrefab, transform, new Vector3(0, 0.99f, 0));
@@ -542,7 +549,8 @@ namespace Interactables
             iron.localPosition = IronDock;
             iron.localRotation = DockRotation(ironAnchor);
             solder.localPosition = SolderDock;
-            titleLabel = Label(fullOperation ? "M3 · ПОЛНАЯ ОПЕРАЦИЯ\nE — приступить" : "M2 · ПРОБА ПАЙКИ\nE — приступить", new Vector3(0, 1.24f, fullOperation ? 0.49f : 0.39f), 0.012f);
+            titleLabel = Label(fullOperation ? "M3 · ПОЛНАЯ ОПЕРАЦИЯ\nE — приступить" : "M2 · ПРОБА ПАЙКИ\nE — приступить",
+                new Vector3(0, 1.24f, compact ? (fullOperation ? 0.31f : 0.26f) : (fullOperation ? 0.49f : 0.39f)), 0.012f);
             if (workMat == null)
             {
                 Label("ПРИПОЙ", SolderDock + new Vector3(0, -0.10f, -0.22f), 0.007f);
