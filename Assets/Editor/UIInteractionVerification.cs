@@ -29,7 +29,43 @@ public static class UIInteractionVerification
         {
             save.NewGame();
             walk.SetPaused(false);
-            if (scenario == "Map")
+            if (scenario == "SellerBuyback")
+            {
+                var s = trade.Session;
+                check(s.PurchaseCityLamp(out _) && s.PurchaseCityLamp(out _), "purchase two lamps from dealer");
+                check(s.EquipSlot(0, out _) && s.ToggleBench(out _) && s.Test(out _) && s.ToggleBench(out _) && s.StowHeld(out _),
+                    "diagnose exactly one owned lamp");
+                var expectedPayment = s.CityUnit(0).LastTestPassed ? 60 : 35;
+                var seller = trade.Points.First(p => p.Kind == CityTradeKind.Seller && p.GetComponent<CityTradeReaction>() != null);
+                var collider = seller.GetComponent<Collider>();
+                foreach (var direction in new[] { seller.transform.forward, -seller.transform.forward, seller.transform.right, -seller.transform.right })
+                {
+                    var origin = collider.bounds.center + direction * 1.8f; origin.y = 1.73f;
+                    if (!Physics.Linecast(origin, collider.bounds.center, out var hit) || hit.collider != collider) continue;
+                    var rotation = Quaternion.LookRotation(collider.bounds.center - origin).eulerAngles;
+                    player.RestorePose(new Vector3(origin.x, .08f, origin.z), rotation.y, Mathf.DeltaAngle(0, rotation.x));
+                    Physics.SyncTransforms(); break;
+                }
+                trade.Open(seller); yield return null; yield return null;
+                check(trade.MenuOpen, "nearby dealer opens purchase menu");
+                GameObject.Find("Продать фонари").GetComponent<Button>().onClick.Invoke();
+                yield return null; yield return null;
+                check(GameObject.Find("К покупке товаров") != null, "same dealer offers purchase and buyback");
+                var untested = UnityEngine.Object.FindObjectsByType<Button>(FindObjectsSortMode.None).Single(b => b.name.StartsWith("[ ] Фонарь 2", StringComparison.Ordinal));
+                untested.onClick.Invoke(); yield return null; yield return null;
+                var balance = s.Balance;
+                check(!trade.Execute("sell") && s.Balance == balance && s.CityUnit(0).Location == Inventory.FlashlightLocation.Pocket &&
+                    s.CityUnit(1).Location == Inventory.FlashlightLocation.Pocket, "dealer rejects mixed untested selection atomically");
+                untested = UnityEngine.Object.FindObjectsByType<Button>(FindObjectsSortMode.None).Single(b => b.name.StartsWith("[x] Фонарь 2", StringComparison.Ordinal));
+                untested.onClick.Invoke(); yield return null; yield return null;
+                ScreenCapture.CaptureScreenshot(Path.Combine(output, "seller-buyback.png")); yield return null; yield return null;
+                check(trade.Execute("sell") && s.Balance == balance + expectedPayment && s.CityUnit(0).Location == Inventory.FlashlightLocation.BoughtBack,
+                    "dealer pays existing 35/60 price for the tested instance");
+                check(s.CityUnit(1).Location == Inventory.FlashlightLocation.Pocket, "unselected lamp remains in inventory");
+                check(!trade.Execute("sell") && s.Balance == balance + expectedPayment, "dealer cannot pay twice for same instance");
+                trade.CloseMenu();
+            }
+            else if (scenario == "Map")
             {
                 trade.SendMessage("Inventory"); yield return null; yield return null;
                 var map = GameObject.Find("Карта района").GetComponent<RawImage>();
@@ -37,6 +73,19 @@ public static class UIInteractionVerification
                 check(!camera.enabled && camera.orthographic && camera.targetTexture == map.texture, "map draws scene meshes once as a cartographic plan");
                 check(camera.transform.forward.y < -.99f && camera.transform.up.z > .99f, "map is top down with north up");
                 check(GameObject.Find("Inventory grid") == null, "map replaces inventory grid");
+                var sites = UnityEngine.Object.FindAnyObjectByType<CitySceneBindings>().Sites;
+                var pins = map.GetComponentsInChildren<CityMapIcon>();
+                check(pins.Length == 4 && GameObject.Find("Map pin Battery") == null && GameObject.Find("Map pin Buyback") == null,
+                    "map contains flat dealer, two buyers and workshop without duplicate battery/buyback labels");
+                foreach (var site in sites.Where(site => site.Role == CityTradeKind.Seller || site.Role == CityTradeKind.A || site.Role == CityTradeKind.B || site.Role == CityTradeKind.Workshop))
+                {
+                    var world = site.Reaction != null ? site.Reaction.transform.position : site.transform.position;
+                    var expected = camera.WorldToViewportPoint(world);
+                    var pin = (RectTransform)GameObject.Find("Map pin " + site.Role).transform;
+                    check(Vector2.Distance(pin.anchorMin, new Vector2(expected.x, expected.y)) < .001f && pin.anchoredPosition == Vector2.zero,
+                        "pin is anchored exactly to real scene position without collision offsets: " + site.Role);
+                    check(pin.GetComponent<Image>() == null && pin.GetComponentsInChildren<Outline>().Length == 0, "pin has no badge or black frame: " + site.Role);
+                }
                 var target = camera.targetTexture;
                 check(Mathf.Abs(map.rectTransform.rect.width / map.rectTransform.rect.height - camera.aspect) < .01f,
                     "terrain aspect is preserved");

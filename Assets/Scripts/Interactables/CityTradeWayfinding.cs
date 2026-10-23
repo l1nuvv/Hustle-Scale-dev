@@ -56,6 +56,7 @@ namespace Interactables
         private Button mapCloseButton;
         private Sprite mapPlayerArrow;
         private Texture2D mapPlayerArrowTexture;
+        private Text mapPinCaption;
 
         private Vector2 MapPosition(float x, float z)
         {
@@ -139,13 +140,16 @@ namespace Interactables
             var fit = map.gameObject.AddComponent<AspectRatioFitter>();
             fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             fit.aspectRatio = neighbourhoodBounds.width / neighbourhoodBounds.height;
-            var labelPositions = new System.Collections.Generic.List<UnityEngine.Rect>();
+            mapPinCaption = Label(menuContent, "Север — вверху · стрелка — ты · выбери значок", 16);
+            mapPinCaption.alignment = TextAnchor.MiddleLeft;
+            mapPinCaption.gameObject.AddComponent<LayoutElement>().minHeight = 28;
             foreach (var site in sceneBindings.Sites)
             {
-                var position = site.transform.position;
+                if (site.Role == CityTradeKind.Battery || site.Role == CityTradeKind.Buyback) continue;
+                var position = site.Reaction != null ? site.Reaction.transform.position : site.transform.position;
                 if (wholeCityMap && site.Role != CityTradeKind.Workshop) continue;
                 if (!neighbourhoodBounds.Contains(new Vector2(position.x, position.z))) continue;
-                MapLabel(map, Title(site.Role), position.x, position.z, labelPositions);
+                MapPin(map, site.Role, position);
             }
             var p = transform.position;
             if (neighbourhoodBounds.Contains(new Vector2(p.x, p.z)))
@@ -165,31 +169,32 @@ namespace Interactables
                 var arrow = marker.gameObject.AddComponent<Image>(); arrow.sprite = mapPlayerArrow;
                 arrow.color = new Color(.9f, .5f, .07f);
             }
-            Line("Север — вверху · жёлтая метка — ты", 16);
         }
 
-        private void MapLabel(Transform map, string value, float x, float z, System.Collections.Generic.List<UnityEngine.Rect> occupied)
+        private void MapPin(Transform map, CityTradeKind role, Vector3 worldPosition)
         {
-            Canvas.ForceUpdateCanvases();
-            var label = Label(map, value, 12); label.color = Ink;
-            var position = MapPosition(x, z);
-            label.rectTransform.anchorMin = label.rectTransform.anchorMax = position;
-            var size = new Vector2(label.preferredWidth + 8, 22 * textScale);
-            label.horizontalOverflow = HorizontalWrapMode.Overflow;
-            label.rectTransform.sizeDelta = size;
-            var mapRect = (RectTransform)map;
-            var center = Vector2.Scale(position, mapRect.rect.size);
-            var offset = Vector2.up * 14;
-            for (var attempt = 0; attempt < 12; attempt++)
+            var position = MapPosition(worldPosition.x, worldPosition.z);
+            var pin = Rect("Map pin " + role, map, position, position);
+            pin.anchoredPosition = Vector2.zero;
+            pin.sizeDelta = Vector2.one * (wholeCityMap ? 22 : 28);
+            var icon = pin.gameObject.AddComponent<CityMapIcon>(); icon.Configure(role);
+            var button = pin.gameObject.AddComponent<Button>(); button.targetGraphic = icon;
+            var caption = role == CityTradeKind.Seller ? "Лавка · покупка и скупка фонарей, батареи" : Title(role);
+            button.onClick.AddListener(() => mapPinCaption.text = caption);
+            var colors = button.colors; colors.normalColor = Color.white;
+            colors.highlightedColor = colors.selectedColor = new Color(1.2f, 1.2f, .85f); button.colors = colors;
+            var events = pin.gameObject.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+            foreach (var eventId in new[] { UnityEngine.EventSystems.EventTriggerType.PointerEnter, UnityEngine.EventSystems.EventTriggerType.Select })
             {
-                var candidate = new UnityEngine.Rect(center + offset - size * .5f, size);
-                if (!occupied.Exists(other => other.Overlaps(candidate))) { occupied.Add(candidate); break; }
-                offset.y += size.y * (attempt % 2 == 0 ? -1 : 1) * (attempt + 1);
+                var entry = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = eventId };
+                entry.callback.AddListener(_ => mapPinCaption.text = caption); events.triggers.Add(entry);
             }
-            label.rectTransform.anchoredPosition = offset;
-            label.rectTransform.anchoredPosition = new Vector2(
-                Mathf.Clamp(center.x + offset.x, size.x * .5f, mapRect.rect.width - size.x * .5f) - center.x,
-                Mathf.Clamp(center.y + offset.y, size.y * .5f, mapRect.rect.height - size.y * .5f) - center.y);
+            if (role == CityTradeKind.A || role == CityTradeKind.B)
+            {
+                var letter = Label(pin, role == CityTradeKind.A ? "A" : "Б", 11); letter.color = Ink;
+                letter.alignment = TextAnchor.LowerRight;
+                letter.rectTransform.offsetMin = new Vector2(0, -3); letter.rectTransform.offsetMax = new Vector2(5, 0);
+            }
         }
 
         private void DisposeNeighbourhoodMap()

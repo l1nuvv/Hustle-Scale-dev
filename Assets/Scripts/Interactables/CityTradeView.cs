@@ -210,13 +210,14 @@ namespace Interactables
             if (point.Kind == CityTradeKind.Lamp)
             { ActionFeedback("unit", session.PickUpPlaced(point.Index, out message)); Refresh(); return; }
             current = point;
+            sellerBuyback = false;
             UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
             var remaining = point.Kind == CityTradeKind.A ? 2 : point.Kind == CityTradeKind.B ? 1 : lamps.Length;
             for (var i = 0; i < lamps.Length; i++)
             {
                 var unit = session.CityUnit(i);
                 selected[i] = remaining > 0 && Presented(i) && unit.IsTested &&
-                    (point.Kind == CityTradeKind.Buyback || i < 3 && unit.LastTestPassed);
+                    (point.Kind == CityTradeKind.Buyback || point.Kind == CityTradeKind.Seller || i < 3 && unit.LastTestPassed);
                 if (selected[i]) remaining--;
             }
             walk.SetPaused(true);
@@ -283,7 +284,8 @@ namespace Interactables
                         success = session.CloseOrder(kind == CityTradeKind.A ? DealOrderId.A : DealOrderId.B, out message); break;
                     case "deliver" when kind == CityTradeKind.A || kind == CityTradeKind.B:
                         success = session.DeliverOrder(kind == CityTradeKind.A ? DealOrderId.A : DealOrderId.B, Selection(), out message); break;
-                    case "sell" when kind == CityTradeKind.Buyback: success = session.SellBack(Selection(), out message); break;
+                    case "sell" when kind == CityTradeKind.Buyback || kind == CityTradeKind.Seller:
+                        success = session.SellBack(Selection(), out message); break;
                 }
             }
             finally

@@ -15,6 +15,7 @@ namespace Interactables
         private Vector2 lastScreen;
         private Text hud, orderHud, prompt, feedbackLabel, menuHeading;
         private bool showControls;
+        private bool sellerBuyback;
         private RectTransform hudPanel, bottomContext;
         private Font font;
         private bool rebuilding;
@@ -211,6 +212,20 @@ namespace Interactables
                 else switch (current.Kind)
                     {
                         case CityTradeKind.Seller:
+                            Button(sellerBuyback ? "К покупке товаров" : "Продать фонари", () =>
+                            {
+                                sellerBuyback = !sellerBuyback;
+                                if (sellerBuyback)
+                                    for (var i = 0; i < lamps.Length; i++) selected[i] = Presented(i) && session.CityUnit(i).IsTested;
+                                RebuildMenu();
+                            });
+                            if (sellerBuyback)
+                            {
+                                Line("Скупка после теста: исправный $60 · неисправный $35");
+                                SelectGoods();
+                                Button("Продать выбранные остатки", () => Execute("sell"), Selection().Count > 0);
+                                break;
+                            }
                             ProductCard("Фонарь", "1 шт. в инвентарь · поломка: 50% · партия " + Math.Max(1, session.PurchasedLots) + "/2", "$60", lampIcon,
                                 () => Execute("purchase"), session.CanPurchaseCityLamp && session.Balance >= 60,
                                 session.CanPurchaseCityLamp ? "Нужно $60 за один фонарь" : "Сначала продай текущую партию. Всего две партии по три фонаря.",
@@ -281,7 +296,7 @@ namespace Interactables
             for (var i = 0; i < lamps.Length; i++)
             {
                 var index = i; var unit = session.CityUnit(i);
-                if (unit == null || i == 3 && current.Kind != CityTradeKind.Buyback) continue;
+                if (unit == null || i == 3 && current.Kind != CityTradeKind.Buyback && current.Kind != CityTradeKind.Seller) continue;
                 Button((selected[i] ? "[x] " : "[ ] ") + "Фонарь " + (i + 1) + " · " + CityCondition(unit) +
                     (Presented(i) ? " · предъявлен" : " · принеси сюда"),
                     () => { selected[index] = !selected[index]; RebuildMenu(); }, Presented(i));

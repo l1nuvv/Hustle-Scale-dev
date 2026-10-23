@@ -30,6 +30,8 @@ public sealed class UIInteractionTests
     public IEnumerator InventoryThumbnailsFollowItemsAndModalInput() => Run("Inventory");
     [UnityTest]
     public IEnumerator NeighbourhoodMapShowsActualSceneTerrain() => Run("Map");
+    [UnityTest]
+    public IEnumerator SellerBuysTestedLampsAtExistingPrices() => Run("SellerBuyback");
 
     private static IEnumerator Run(string scenario)
     {
