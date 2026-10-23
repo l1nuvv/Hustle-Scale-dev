@@ -29,6 +29,18 @@ namespace Interactables
             material = new Material(Resources.Load<Shader>("CityCartographicMap"));
             material.SetColor("_MapColor", MapPalette[kind]);
             material.SetInt("_MapZTest", (int)CompareFunction.Always);
+            if (kind <= 4)
+            {
+                var surfaces = Resources.Load<Texture2D>("CityMapSurfaces");
+                if (surfaces == null) throw new InvalidOperationException("CityMapSurfaces atlas is missing.");
+                material.SetTexture("_MapTexture", surfaces);
+                var tile = kind == 1 ? new Vector4(0, .5f, .5f, .5f) :
+                    kind == 3 ? new Vector4(0, 0, .5f, .5f) :
+                    kind == 4 ? new Vector4(.5f, 0, .5f, .5f) : new Vector4(.5f, .5f, .5f, .5f);
+                material.SetVector("_MapTile", tile);
+                material.SetFloat("_MapScale", kind == 2 || kind == 0 ? 8 : 16);
+                material.SetFloat("_MapDetail", .8f);
+            }
             cartographicMaterials.Add(kind, material);
             return material;
         }
@@ -82,6 +94,7 @@ namespace Interactables
                     var path = MapObjectPath(renderer.transform);
                     var kind = MapFeature(renderer, path);
                     command.SetGlobalMatrix("_MapMatrix", projection * renderer.localToWorldMatrix);
+                    command.SetGlobalMatrix("_MapWorldMatrix", renderer.localToWorldMatrix);
                     // DrawRenderer preserves each renderer's own range inside static batches.
                     for (var submesh = 0; submesh < renderer.sharedMaterials.Length; submesh++)
                         command.DrawRenderer(renderer, MapMaterial(kind), submesh, 0);

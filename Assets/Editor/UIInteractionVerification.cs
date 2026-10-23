@@ -84,7 +84,9 @@ public static class UIInteractionVerification
                     var pin = (RectTransform)GameObject.Find("Map pin " + site.Role).transform;
                     check(Vector2.Distance(pin.anchorMin, new Vector2(expected.x, expected.y)) < .001f && pin.anchoredPosition == Vector2.zero,
                         "pin is anchored exactly to real scene position without collision offsets: " + site.Role);
-                    check(pin.GetComponent<Image>() == null && pin.GetComponentsInChildren<Outline>().Length == 0, "pin has no badge or black frame: " + site.Role);
+                    check(pin.GetComponent<CityMapIcon>().sprite != null &&
+                        pin.GetComponent<CityMapIcon>().sprite.texture == Resources.Load<Texture2D>("CityMapIcons") &&
+                        pin.GetComponentsInChildren<Outline>().Length == 0, "pin uses selected generated artwork without badge or black frame: " + site.Role);
                 }
                 var target = camera.targetTexture;
                 check(Mathf.Abs(map.rectTransform.rect.width / map.rectTransform.rect.height - camera.aspect) < .01f,
@@ -100,7 +102,11 @@ public static class UIInteractionVerification
                     pixels.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); pixels.Apply();
                     var roadPosition = camera.WorldToViewportPoint(new Vector3(0, .1f, 60));
                     var roadColor = pixels.GetPixel(Mathf.RoundToInt(roadPosition.x * (target.width - 1)), Mathf.RoundToInt(roadPosition.y * (target.height - 1)));
-                    check(roadColor.r > .94f && roadColor.b > .9f, "existing asphalt is drawn as a light road, not invented vegetation: " + roadColor);
+                    check(roadColor.r > .3f && roadColor.r >= roadColor.g - .04f && roadColor.g >= roadColor.b - .04f,
+                        "existing asphalt retains a neutral road surface: " + roadColor);
+                    var materials = (System.Collections.IDictionary)typeof(CityTradeView).GetField("cartographicMaterials", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(trade);
+                    check(((Material)materials[1]).GetTexture("_MapTexture") == Resources.Load<Texture2D>("CityMapSurfaces"),
+                        "actual road meshes use the generated game-style surface atlas");
                     var before = pixels.GetPixel(target.width / 2, target.height / 2);
                     trade.SendMessage("RebuildMenu");
                     RenderTexture.active = target;

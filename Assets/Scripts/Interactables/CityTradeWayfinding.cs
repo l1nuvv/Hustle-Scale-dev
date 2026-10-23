@@ -176,7 +176,7 @@ namespace Interactables
             var position = MapPosition(worldPosition.x, worldPosition.z);
             var pin = Rect("Map pin " + role, map, position, position);
             pin.anchoredPosition = Vector2.zero;
-            pin.sizeDelta = Vector2.one * (wholeCityMap ? 22 : 28);
+            pin.sizeDelta = Vector2.one * (wholeCityMap ? 22 : role == CityTradeKind.A || role == CityTradeKind.B ? 30 : 38);
             var icon = pin.gameObject.AddComponent<CityMapIcon>(); icon.Configure(role);
             var button = pin.gameObject.AddComponent<Button>(); button.targetGraphic = icon;
             var caption = role == CityTradeKind.Seller ? "Лавка · покупка и скупка фонарей, батареи" : Title(role);
