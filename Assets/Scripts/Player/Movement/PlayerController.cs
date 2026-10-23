@@ -10,7 +10,8 @@ namespace Player.Movement
         [FormerlySerializedAs("_baseMovementSpeed"), SerializeField, Min(0.1f)]
         private float baseMovementSpeed = 4f;
         [FormerlySerializedAs("_speedMultiplier"), SerializeField, Range(1f, 5f)]
-        private float speedMultiplier = 1.5f;
+        private float speedMultiplier = 2f;
+        [SerializeField, Min(0)] private float jumpHeight = 0.8f;
         [FormerlySerializedAs("_cameraTransform"), SerializeField]
         private Transform cameraTransform;
         [FormerlySerializedAs("_cameraOffset"), SerializeField]
@@ -88,7 +89,12 @@ namespace Player.Movement
             var input = _cursorLocked ? Vector2.ClampMagnitude(_input.MoveInput, 1f) : Vector2.zero;
             var speed = baseMovementSpeed * (_input.IsSprinting ? speedMultiplier : 1f);
             var velocity = (transform.forward * input.y + transform.right * input.x) * speed;
-            if (_body.isGrounded && _verticalSpeed < 0) _verticalSpeed = -2f;
+            if (_body.isGrounded)
+            {
+                if (_verticalSpeed < 0) _verticalSpeed = -2f;
+                if (_cursorLocked && _input.JumpPressed && jumpHeight > 0)
+                    _verticalSpeed = Mathf.Sqrt(2f * -Physics.gravity.y * jumpHeight);
+            }
             _verticalSpeed = Mathf.Max(_verticalSpeed + Physics.gravity.y * Time.deltaTime, -40f);
             velocity.y = _verticalSpeed;
             _body.Move(velocity * Time.deltaTime);

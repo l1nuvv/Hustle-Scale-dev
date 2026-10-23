@@ -27,7 +27,7 @@ namespace Interactables
             var session = citySave.Session;
             state = session.SolderingState; repair = session.RepairState;
             CancelRepairMotion();
-            titleLabel.text = "ПАЙКА";
+            titleLabel.text = ""; // The city owns a small wall plaque; no floating trial title.
             RefreshCityItem();
             RefreshFeedback();
         }

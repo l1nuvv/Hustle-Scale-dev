@@ -33,7 +33,7 @@ namespace Interactables
         public void Refresh(bool owned, bool canBuy)
         {
             station.gameObject.SetActive(owned);
-            preview.SetActive(canBuy);
+            preview.SetActive(false);
             plaque.SetActive(owned);
         }
 

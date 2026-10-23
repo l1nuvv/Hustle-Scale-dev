@@ -15,7 +15,7 @@ namespace Interactables
         public void Refresh(bool owned, bool unlocked)
         {
             Station.gameObject.SetActive(owned);
-            Preview.SetActive(!owned && unlocked);
+            Preview.SetActive(false);
             Plaque.SetActive(owned && !Station.Active);
             if (owned) Station.RefreshCityKnife();
         }

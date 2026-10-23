@@ -93,6 +93,7 @@ namespace Interactables
                         lamps[i].SetParent(root, true);
                         lamps[i].SetPositionAndRotation(pose.Position, Quaternion.Euler(0, pose.Yaw, 0));
                     }
+            RestoreInventoryLayout();
             session.Changed += Refresh;
             Refresh();
         }
@@ -109,6 +110,8 @@ namespace Interactables
                         Position = lamps[i].position, Yaw = lamps[i].eulerAngles.y
                     });
             save.World.PlacedLamps = poses.ToArray();
+            save.World.InventoryLampStacks = inventoryLampStacks.ToArray();
+            save.World.InventorySort = inventorySort;
         }
 
         private void Refresh()
@@ -480,6 +483,7 @@ namespace Interactables
             UpdateSafeArea();
             UpdatePauseUI();
             tradeBackdrop.SetActive(MenuOpen);
+            crosshair.gameObject.SetActive(!MenuOpen && !walk.IsPaused && !save.IsDriving);
             // Failed startup loads still need the recovery/new-game controls.
             if (session == null)
             {

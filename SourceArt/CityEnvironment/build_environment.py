@@ -6,6 +6,7 @@ No layout, gameplay anchors or colliders are generated here.
 import bpy
 import json
 import math
+import sys
 from pathlib import Path
 from mathutils import Vector
 
@@ -20,6 +21,7 @@ bpy.context.scene.unit_settings.system = 'METRIC'
 materials = {}
 roots = []
 current = None
+WORKSHOP_ONLY = "--workshop-only" in sys.argv
 
 # FBX/Unity convention used by the project's M2/M3 Blender sources.
 def v(x, y, z):
@@ -127,9 +129,10 @@ def perforated_wall(cx,cz,width,height,side=False,door=False):
     # Actual window apertures, not glass decals over a solid workshop wall.
     openings=[]
     if door: openings.append((-1.2,1.2,0,2.8))
-    for i in range(int(width/4)):
-        p=-width/2+(i+.5)*width/int(width/4)
-        if door and abs(p)<3: continue
+    # Workshop: two windows on each long wall, one on each side wall.
+    # Rebuild the wall spans too, so removed windows leave actual masonry, not holes.
+    positions = [0] if side else [-6, 6]
+    for p in positions:
         openings.append((p-1,p+1,1.3,2.75))
     xs=sorted(set([-width/2,width/2]+[q for op in openings for q in op[:2]]))
     ys=sorted(set([0,height]+[q for op in openings for q in op[2:]]))
@@ -185,6 +188,7 @@ for x in (-1.4,-.6,.7,1.5):
     box('Stock carton tape',(x,.798,.22),(.12,.01,.54),'Ivory')
 
 # Merge by semantic material inside each export: bounded draw calls, editable source.
+exported = 0
 for export_root in roots:
     groups={}
     for obj in list(export_root.children): groups.setdefault(obj.data.materials[0].name,[]).append(obj)
@@ -205,12 +209,14 @@ for export_root in roots:
         # Recalculate outward normals after DCC joins.
         bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.normals_make_consistent(inside=False); bpy.ops.object.mode_set(mode='OBJECT')
+    if WORKSHOP_ONLY and export_root.name != 'WorkshopShell': continue
     bpy.ops.object.select_all(action='DESELECT')
     export_root.select_set(True)
     for obj in export_root.children: obj.select_set(True)
     bpy.ops.export_scene.fbx(filepath=str(OUT/(export_root.name+'.fbx')),use_selection=True,
         object_types={'MESH','EMPTY'},add_leaf_bones=False,axis_forward='-Z',axis_up='Y',
         apply_unit_scale=True,bake_space_transform=True,mesh_smooth_type='FACE',use_mesh_modifiers=True)
+    exported += 1
     print('Exported',export_root.name,flush=True)
 bpy.ops.wm.save_as_mainfile(filepath=str(HERE/'CityEnvironment.blend'))
-print('CITY_ENVIRONMENT_EXPORTED',len(roots),'FBX assets;',sum(len(o.data.polygons) for o in bpy.data.objects if o.type=='MESH'),'polygons')
+print('CITY_ENVIRONMENT_EXPORTED',exported,'FBX assets;',sum(len(o.data.polygons) for o in bpy.data.objects if o.type=='MESH'),'polygons')

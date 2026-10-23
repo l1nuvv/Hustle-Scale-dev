@@ -14,7 +14,7 @@ using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
 
 // Called by the UTF integration tests across the predefined assembly boundary.
-public static class UIInteractionVerification
+public static partial class UIInteractionVerification
 {
     public static IEnumerator RunChecks(string scenario, string output, Action<bool, string> check, Action<string> log)
     {
@@ -29,7 +29,13 @@ public static class UIInteractionVerification
         {
             save.NewGame();
             walk.SetPaused(false);
-            if (scenario == "SellerBuyback")
+            if (scenario == "InventoryStacks" || scenario == "Movement" || scenario == "WorkshopPresentation")
+            {
+                var routine = RunFeedback2(scenario, output, trade, keyboard, mouse, check);
+                try { while (routine.MoveNext()) yield return routine.Current; }
+                finally { (routine as IDisposable)?.Dispose(); }
+            }
+            else if (scenario == "SellerBuyback")
             {
                 var s = trade.Session;
                 check(s.PurchaseCityLamp(out _) && s.PurchaseCityLamp(out _), "purchase two lamps from dealer");
@@ -38,11 +44,12 @@ public static class UIInteractionVerification
                 var expectedPayment = s.CityUnit(0).LastTestPassed ? 60 : 35;
                 var seller = trade.Points.First(p => p.Kind == CityTradeKind.Seller && p.GetComponent<CityTradeReaction>() != null);
                 var collider = seller.GetComponent<Collider>();
-                var customer = new Vector3(collider.bounds.center.x, .08f, collider.bounds.center.z - 2);
-                player.RestorePose(customer, 0, 0);
+                var site = save.SceneBindings.Seller.transform;
+                var customer = new Vector3(collider.bounds.center.x, .08f, collider.bounds.center.z) - site.forward * 2;
+                player.RestorePose(customer, site.eulerAngles.y, 0);
                 Physics.SyncTransforms();
                 var counter = GameObject.Find("CitySeller").transform.Find("Прилавок фонарей").GetComponent<Collider>();
-                check(collider.bounds.min.z > counter.bounds.max.z, "seller stands behind the counter on staff side");
+                check(Vector3.Dot(collider.bounds.center - counter.bounds.center, site.forward) > counter.bounds.extents.z, "seller stands behind the counter on staff side");
                 check(trade.Reachable(seller), "seller is reachable across the counter from customer side");
                 trade.Open(seller); yield return null; yield return null;
                 check(trade.MenuOpen, "nearby dealer opens purchase menu");

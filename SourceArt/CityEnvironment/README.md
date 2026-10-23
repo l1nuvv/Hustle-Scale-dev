@@ -2,13 +2,15 @@
 
 Original project artwork, authored in installed Blender 5.2.3 LTS and the built-in image generator. No downloaded models, paid assets or external services.
 
-`CityEnvironment.blend` and `build_environment.py` are the editable DCC source. `layout.json` contains the 13 existing Court/Market/Loading building dimensions and positions measured from CityGreybox, not a new city layout. Exports are `Assets/Art/CityEnvironment/Models/{NeighbourhoodArchitecture,WorkshopShell,SellerStall}.fbx`. The final export contains 24,012 polygons across three assets and 22 material groups. It includes actual window apertures in the workshop, window frames/sills, folded roofs, gutters/downpipes, an entrance hood, a fabric market canopy and a wooden counter with stock cartons.
+`CityEnvironment.blend` and `build_environment.py` are the editable DCC source. `layout.json` contains the 13 existing Court/Market/Loading building dimensions and positions measured from CityGreybox, not a new city layout. Exports are `Assets/Art/CityEnvironment/Models/{NeighbourhoodArchitecture,WorkshopShell,SellerStall}.fbx`. The initial full export contained 24,012 polygons across three assets and 22 material groups. After workshop feedback the complete source contains 22,896 polygons; only WorkshopShell.fbx was re-exported. It includes actual window apertures in the workshop, window frames/sills, folded roofs, gutters/downpipes, an entrance hood, a fabric market canopy and a wooden counter with stock cartons.
 
 Regenerate with installed Blender:
 
 ```powershell
 & 'Y:/SteamLibrary/steamapps/common/Blender/blender.exe' --background --python SourceArt/CityEnvironment/build_environment.py
 ```
+
+For a focused workshop update append `-- --workshop-only`; this preserves the other two FBX files and existing material/mesh names. The workshop now has six windows: two on each long wall and one on each side, with closed masonry spans in place of the removed openings.
 
 In Unity, open CityGreybox in Edit Mode, then `Tools > City > Apply Blender Environment Art`. This imports the FBX files with no generated colliders, uses a consistent metre scale and assigns project-owned matte materials. The authoring command also assigns textured city materials and hides the replaced greybox renderers. Original collision geometry, interaction roots and save anchors remain intact. After changing the layout, update the Blender layout/source too; the live Tab map always draws the actual current scene meshes.
 

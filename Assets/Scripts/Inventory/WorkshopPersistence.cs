@@ -233,6 +233,18 @@ namespace Inventory
                 !Enum.IsDefined(typeof(CityCrateDock), world.CrateDock) ||
                 (!data.HasTransportedCrate && world.CrateDock != CityCrateDock.Seller) || world.PlacedLamps == null)
                 return false;
+            if (world.InventorySort < 0 || world.InventorySort > 1) return false;
+            if (world.InventoryLampStacks != null && world.InventoryLampStacks.Length > 0)
+            {
+                var mask = 0;
+                if (world.InventoryLampStacks.Length > 3) return false;
+                foreach (var stack in world.InventoryLampStacks)
+                {
+                    if (stack < 1 || stack > 7 || (mask & stack) != 0) return false;
+                    mask |= stack;
+                }
+                if (mask != 7) return false;
+            }
             var placed = new HashSet<string>();
             foreach (var pose in world.PlacedLamps)
             {

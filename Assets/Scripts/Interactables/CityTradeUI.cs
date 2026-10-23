@@ -13,7 +13,7 @@ namespace Interactables
         private RectTransform menuContent, safeArea;
         private UnityEngine.Rect lastSafeArea;
         private Vector2 lastScreen;
-        private Text hud, orderHud, prompt, feedbackLabel, menuHeading;
+        private Text hud, orderHud, prompt, feedbackLabel, menuHeading, crosshair;
         private bool showControls;
         private bool sellerBuyback;
         private RectTransform hudPanel, bottomContext;
@@ -100,7 +100,7 @@ namespace Interactables
             prompt.rectTransform.anchorMin = new Vector2(0.015f, 0.50f); prompt.rectTransform.anchorMax = new Vector2(0.985f, 1);
             feedbackLabel = Label(context, "", 18);
             feedbackLabel.rectTransform.anchorMin = new Vector2(0.015f, 0); feedbackLabel.rectTransform.anchorMax = new Vector2(0.985f, 0.50f);
-            var cross = Label(safe, "·", 22); cross.rectTransform.anchorMin = new Vector2(0.49f, 0.48f);
+            var cross = Label(safe, "·", 22); crosshair = cross; cross.rectTransform.anchorMin = new Vector2(0.49f, 0.48f);
             cross.rectTransform.anchorMax = new Vector2(0.51f, 0.52f);
             tradeBackdrop = Rect("Trade backdrop", safe, Vector2.zero, Vector2.one).gameObject;
             Surface(tradeBackdrop.transform, new Color(0.008f, 0.012f, 0.018f, 0.78f));
@@ -171,8 +171,8 @@ namespace Interactables
             try
             {
                 HideProductTooltip();
-                panel.GetComponent<Image>().enabled = current != null;
-                panel.GetComponent<Shadow>().enabled = current != null;
+                panel.GetComponent<Image>().enabled = true;
+                panel.GetComponent<Shadow>().enabled = true;
                 menuContent.GetComponent<VerticalLayoutGroup>().spacing = current == null ? 6 : 12;
                 var focused = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
                 var focusName = focused != null && focused.transform.IsChildOf(menuContent) ? focused.name.Replace("[x]", "[ ]") : null;

@@ -9,7 +9,8 @@ namespace Player
     {
         private InputActionMap _actions;
         private InputAction _move;
-        private InputAction _sprint;
+        private InputAction _sprint, _jump;
+        public bool JumpPressed { get; private set; }
         private InputAction _interact;
         private InputAction _inventory;
         private InputAction _light, _place, _stow, _test, _repair;
@@ -38,6 +39,7 @@ namespace Player
                 .With("Up", "<Keyboard>/w").With("Down", "<Keyboard>/s")
                 .With("Left", "<Keyboard>/a").With("Right", "<Keyboard>/d");
             _sprint = _actions.AddAction("Sprint", InputActionType.Button, "<Keyboard>/leftShift");
+            _jump = _actions.AddAction("Jump", InputActionType.Button, "<Keyboard>/space");
             _interact = _actions.AddAction("Interact", InputActionType.Button, "<Keyboard>/e");
             _inventory = _actions.AddAction("ToggleInventory", InputActionType.Button, "<Keyboard>/tab");
             _light = _actions.AddAction("ToggleLight", InputActionType.Button, "<Keyboard>/f");
@@ -53,12 +55,13 @@ namespace Player
         {
             _actions.Disable();
             _moveInput = _mouseInput = Vector2.zero;
-            IsSprinting = false;
+            IsSprinting = false; JumpPressed = false;
         }
         private void OnDestroy() => _actions.Dispose();
 
         private void Update()
         {
+            JumpPressed = _jump.WasPressedThisFrame() && !_inventory.WasPressedThisFrame();
             _moveInput = _move.ReadValue<Vector2>();
             IsSprinting = _sprint.IsPressed();
             // Mouse delta is already per-frame; do not multiply by deltaTime.

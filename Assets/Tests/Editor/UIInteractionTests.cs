@@ -33,6 +33,14 @@ public sealed class UIInteractionTests
     [UnityTest]
     public IEnumerator SellerBuysTestedLampsAtExistingPrices() => Run("SellerBuyback");
 
+    [UnityTest]
+    public IEnumerator InventoryStacksSplitSortAndRestoreExactInstances() => Run("InventoryStacks");
+    [UnityTest]
+    public IEnumerator CityJumpSprintAndModalMovementUseRealInput() => Run("Movement");
+
+    [UnityTest]
+    public IEnumerator WorkshopCraftsStayHiddenUntilPurchased() => Run("WorkshopPresentation");
+
     private static IEnumerator Run(string scenario)
     {
         Assert.That(EditorApplication.isPlayingOrWillChangePlaymode, Is.False);

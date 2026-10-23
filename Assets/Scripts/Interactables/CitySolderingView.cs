@@ -28,7 +28,7 @@ namespace Interactables
 
         private void SolderingShop()
         {
-            ProductCard("Паяльная станция", "Стол, паяльник, держатель, коврик и лоток · место отмечено в мастерской", "$300", lampIcon,
+            ProductCard("Паяльная станция", "Стол, паяльник, держатель, коврик и лоток · справа от верстака", "$300", lampIcon,
                 () => Execute("station"), session.CanBuyStation && session.Balance >= 300 && StationPlaceAvailable(),
                 session.CanBuyStation ? "Нужны $300 и свободное место" : "Продай всю первую партию", session.StationOwned);
             if (!session.StationOwned)

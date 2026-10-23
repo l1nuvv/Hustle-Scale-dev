@@ -74,6 +74,8 @@ namespace Inventory
     [Serializable]
     public sealed class CityWorldData
     {
+        public int[] InventoryLampStacks;
+        public int InventorySort;
         public Vector3 PlayerPosition;
         public float PlayerYaw, CameraPitch;
         public CityCrateDock CrateDock;

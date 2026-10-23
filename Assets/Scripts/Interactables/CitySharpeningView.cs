@@ -41,7 +41,7 @@ namespace Interactables
         }
         private void SharpeningShop()
         {
-            ProductCard("Заточной станок", "Комплект M6 · после продажи первой партии · независимо от пайки", "$400", knifeIcon,
+            ProductCard("Заточной станок", "Станок со столом · после продажи первой партии · независимо от пайки", "$400", knifeIcon,
                 () => Execute("sharpstation"), session.CanBuySharpeningStation && session.Balance >= 400 && sharpeningSite.PlaceAvailable(),
                 session.CanBuySharpeningStation ? "Нужны $400 и свободное место" : "Продай всю первую партию", session.SharpeningStationOwned);
             if (session.SharpeningStationOwned)
