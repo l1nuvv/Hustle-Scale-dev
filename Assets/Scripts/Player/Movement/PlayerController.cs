@@ -27,6 +27,9 @@ namespace Player.Movement
         private float _verticalSpeed;
         public bool CanInteract => _movementEnabled && _cameraControlEnabled && _cursorLocked;
         public float CameraPitch => _pitch;
+        public float CheatSpeedMultiplier { get; private set; } = 1;
+        public void SetCheatSpeed(float multiplier) => CheatSpeedMultiplier =
+            float.IsNaN(multiplier) || float.IsInfinity(multiplier) ? 1 : Mathf.Clamp(multiplier, 1, 5);
 
         public void RestorePose(Vector3 position, float yaw, float pitch)
         {
@@ -87,7 +90,7 @@ namespace Player.Movement
         {
             if (!_movementEnabled || _body == null || !_body.enabled) return;
             var input = _cursorLocked ? Vector2.ClampMagnitude(_input.MoveInput, 1f) : Vector2.zero;
-            var speed = baseMovementSpeed * (_input.IsSprinting ? speedMultiplier : 1f);
+            var speed = baseMovementSpeed * (_input.IsSprinting ? speedMultiplier : 1f) * CheatSpeedMultiplier;
             var velocity = (transform.forward * input.y + transform.right * input.x) * speed;
             if (_body.isGrounded)
             {

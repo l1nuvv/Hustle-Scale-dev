@@ -53,6 +53,9 @@ namespace Interactables
             save = GetComponent<CitySaveController>(); walk = GetComponent<CityGreyboxWalk>();
             player = GetComponent<PlayerController>(); input = GetComponent<Player.PlayerInput>();
             eye = GetComponentInChildren<Camera>();
+            cheats = GetComponent<CheatMenu>();
+            if (cheats == null) cheats = gameObject.AddComponent<CheatMenu>();
+            cheats.Changed += CheatChanged;
             raycast = GetComponent<PlayerRaycast>();
             if (raycast == null) raycast = gameObject.AddComponent<PlayerRaycast>();
             // Low targets must not be hidden by the capsule containing the camera.
@@ -77,8 +80,11 @@ namespace Interactables
 
         private void Bind()
         {
+            CheatsMenuOpen = false; pauseSignature = null;
             if (session != null) session.Changed -= Refresh;
             session = save.Session;
+            cheats.Bind(session, player, () => save.CheatClockMultiplier, save.SetCheatClock,
+                sceneBindings.PlayerSpawn, save.RequestSave);
             Array.Clear(selected, 0, selected.Length);
             message = "";
             HideProductTooltip();
@@ -150,7 +156,8 @@ namespace Interactables
                 lamps[i].localPosition = unit.Location == FlashlightLocation.Hands ? new Vector3(0.35f, -0.22f, 0.82f) :
                     unit.Location == FlashlightLocation.Bench ? Vector3.zero : new Vector3(i == 3 ? 0 : (i - 1) * 0.36f, 0.415f, i == 3 ? 0.26f : 0);
             }
-            hud.text = "<b>$" + session.Balance + "</b>  ·  " + WorkshopView.Clock(session.ElapsedSeconds);
+            hud.text = "<b>$" + session.Balance + "</b>  ·  " + WorkshopView.Clock(session.ElapsedSeconds) +
+                (session.CheatsUsed ? "  ·  ЧИТЫ · F8" : "");
             RefreshInventoryBar();
             var activeA = session.Order(DealOrderId.A).State == DealOrderState.Accepted;
             var activeB = session.Order(DealOrderId.B).State == DealOrderState.Accepted;
@@ -504,6 +511,7 @@ namespace Interactables
         }
         private void OnDestroy()
         {
+            if (cheats != null) cheats.Changed -= CheatChanged;
             if (session != null) session.Changed -= Refresh;
             if (save != null) { save.SessionReplaced -= Bind; save.BeforeSave -= CaptureWorld; }
             if (input != null)

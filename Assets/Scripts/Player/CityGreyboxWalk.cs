@@ -43,15 +43,17 @@ namespace Player
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
             if ((SolderingStation != null && SolderingStation.IsActive || SharpeningStation != null && SharpeningStation.Active) && !_paused) return;
+            if (keyboard.f8Key.wasPressedThisFrame) { _trade.ToggleCheatsMenu(); return; }
             if (keyboard.escapeKey.wasPressedThisFrame)
             {
+                if (_trade.CheatsMenuOpen) { _trade.ToggleCheatsMenu(); return; }
                 if (_trade.MenuOpen) { _trade.CloseMenu(); return; }
                 if (_confirmNewGame) _confirmNewGame = false;
                 else { SetPaused(!_paused); SolderingStation?.ConsumeInputFrame(); }
                 return;
             }
             // The trade/map window owns input while it covers the pause menu.
-            if (!_paused || _trade.MenuOpen) return;
+            if (!_paused || _trade.MenuOpen || _trade.CheatsMenuOpen) return;
             if (_confirmNewGame)
             {
                 if (keyboard.enterKey.wasPressedThisFrame) { _confirmNewGame = false; _save.NewGame(); }
@@ -68,6 +70,7 @@ namespace Player
             if (!paused && _save != null && _save.Session == null) paused = true;
             var changed = _paused != paused;
             _paused = paused;
+            if (!paused) _trade?.CloseCheatsMenu();
             if (!paused) _confirmNewGame = false;
             if (_save != null && _save.Session != null) _save.Session.SetPaused(paused);
             _player.SetMovementEnabled(!paused);

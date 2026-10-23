@@ -14,6 +14,35 @@ namespace Interactables
         private bool pauseConfirm;
         private int pauseBalance;
         private float pauseTextScale;
+        private CheatMenu cheats;
+        public bool CheatsMenuOpen { get; private set; }
+
+        public void ToggleCheatsMenu()
+        {
+            if (session == null || save.IsDriving || MenuOpen || walk.ConfirmNewGame ||
+                walk.SolderingStation != null && walk.SolderingStation.IsActive ||
+                walk.SharpeningStation != null && walk.SharpeningStation.Active) return;
+            if (!walk.IsPaused) walk.SetPaused(true);
+            CheatsMenuOpen = !CheatsMenuOpen;
+            pauseSignature = null;
+        }
+
+        public bool CheatAction(string command) => CheatsMenuOpen && walk.IsPaused && !save.IsDriving && cheats.Execute(command);
+        private void CheatChanged() => pauseSignature = null;
+        public void CloseCheatsMenu() { CheatsMenuOpen = false; pauseSignature = null; }
+
+        private Button BuildCheatActions()
+        {
+            pauseHeading.text = "ЧИТ-МЕНЮ · F8";
+            pauseStatus.text = cheats.Status;
+            var first = ActionButton(pauseContent, "Назад к паузе · Esc / F8", ToggleCheatsMenu);
+            foreach (var entry in CheatMenu.Entries)
+            {
+                var command = entry.Command;
+                ActionButton(pauseContent, entry.Label, () => CheatAction(command), cheats.Available(command));
+            }
+            return first;
+        }
 
         private void BuildPauseUI(Transform safe)
         {
@@ -38,6 +67,9 @@ namespace Interactables
             layout.childForceExpandHeight = false;
             pauseContent.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             pauseScroll.viewport = actions; pauseScroll.content = pauseContent;
+            var hint = Rect("Pause scroll hint", card, new Vector2(.06f, .015f), new Vector2(.94f, .065f));
+            var hintText = Label(hint, "↑ ↓ / колесо мыши — прокрутка списка", 13);
+            hintText.color = Muted; hintText.alignment = TextAnchor.MiddleLeft;
             pausePanel.SetActive(false);
         }
 
@@ -52,6 +84,9 @@ namespace Interactables
             var balance = session != null ? session.Balance : 0;
             if (pauseSignature != save.Message || pauseConfirm != walk.ConfirmNewGame || pauseBalance != balance || pauseTextScale != textScale)
             {
+                var focusedBefore = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+                var selectedName = CheatsMenuOpen && focusedBefore != null && focusedBefore.transform.IsChildOf(pauseContent) ? focusedBefore.name : null;
+                var scrollBefore = pauseScroll.verticalNormalizedPosition;
                 pauseSignature = save.Message; pauseConfirm = walk.ConfirmNewGame; pauseBalance = balance; pauseTextScale = textScale;
                 foreach (Transform child in pauseContent) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
                 pauseHeading.fontSize = Mathf.RoundToInt(32 * textScale);
@@ -60,7 +95,9 @@ namespace Interactables
                 pauseStatus.text = pauseConfirm ? "Сбросить текущую игру?\n\nДеньги, фонари и заказы будут потеряны." :
                     "$" + balance + " · " + save.Message;
                 Button first;
-                if (pauseConfirm)
+                if (CheatsMenuOpen && session != null)
+                    first = BuildCheatActions();
+                else if (pauseConfirm)
                 {
                     first = ActionButton(pauseContent, "Назад · Esc", () => walk.PauseAction("cancel"));
                     ActionButton(pauseContent, "Начать новую игру · Enter", () => walk.PauseAction("confirm"));
@@ -73,9 +110,14 @@ namespace Interactables
                     ActionButton(pauseContent, "Загрузить · F9", () => walk.PauseAction("load"));
                     ActionButton(pauseContent, "Резервная копия · B", () => walk.PauseAction("backup"), save.HasBackup);
                     ActionButton(pauseContent, "Новая игра… · N", () => walk.PauseAction("new"));
+                    ActionButton(pauseContent, "Чит-меню · F8", ToggleCheatsMenu, session != null);
                 }
-                EventSystem.current?.SetSelectedGameObject(first.gameObject);
-                Canvas.ForceUpdateCanvases(); pauseScroll.verticalNormalizedPosition = 1;
+                var nextFocus = first.gameObject;
+                if (selectedName != null)
+                    foreach (Transform child in pauseContent)
+                        if (child.gameObject.activeSelf && child.name == selectedName) { nextFocus = child.gameObject; break; }
+                EventSystem.current?.SetSelectedGameObject(nextFocus);
+                Canvas.ForceUpdateCanvases(); pauseScroll.verticalNormalizedPosition = nextFocus == first.gameObject ? 1 : scrollBefore;
             }
             var focused = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
             if (focused == pauseLastFocused) return;

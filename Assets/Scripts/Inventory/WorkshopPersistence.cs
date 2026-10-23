@@ -23,7 +23,8 @@ namespace Inventory
             if (!IsCity) throw new InvalidOperationException("Only city sessions use this save format.");
             var data = new CitySaveData
             {
-                Version = 7, Sharpening = CaptureSharpening(), Soldering = CaptureSoldering(), Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
+                Version = 8, CheatMoneyAdjustment = CheatMoneyAdjustment, CheatsUsed = CheatsUsed,
+                Sharpening = CaptureSharpening(), Soldering = CaptureSoldering(), Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
                 Expenses = Expenses, SpareBatteries = SpareBatteries, RepairSeconds = RepairSeconds,
                 LotPurchased = LotPurchased, HasTransportedCrate = HasTransportedCrate,
                 IsCrateCarried = IsCrateCarried, ElapsedSeconds = ElapsedSeconds, World = world,
@@ -76,6 +77,8 @@ namespace Inventory
             if (!ValidateCity(data, out message)) return false;
             var restored = CreateCity();
             restored.Balance = data.Balance;
+            restored.CheatMoneyAdjustment = data.CheatMoneyAdjustment;
+            restored.CheatsUsed = data.CheatsUsed;
             restored.Revenue = data.Revenue;
             restored.Expenses = data.Expenses;
             restored.SpareBatteries = data.SpareBatteries;
@@ -118,10 +121,13 @@ namespace Inventory
         private static bool ValidateCity(CitySaveData data, out string message)
         {
             message = "Некорректное или несовместимое сохранение города.";
-            if (data == null || data.Version < 1 || data.Version > 7 || data.InitialBalance != 300 || data.Balance < 0 ||
+            if (data == null || data.Version < 1 || data.Version > 8 || data.InitialBalance != 300 || data.Balance < 0 ||
+                data.CheatMoneyAdjustment < -MaxCheatAdjustment || data.CheatMoneyAdjustment > MaxCheatAdjustment ||
+                (data.Version < 8 && (data.CheatMoneyAdjustment != 0 || data.CheatsUsed)) ||
+                (!data.CheatsUsed && data.CheatMoneyAdjustment != 0) ||
                 data.Revenue < 0 || data.Expenses < 0 || data.Revenue > int.MaxValue ||
                 data.Expenses > (long)int.MaxValue * 55 + 700 || data.SpareBatteries < 0 ||
-                (long)data.InitialBalance + data.Revenue - data.Expenses != data.Balance ||
+                (long)data.InitialBalance + data.Revenue - data.Expenses + data.CheatMoneyAdjustment != data.Balance ||
                 !Finite(data.ElapsedSeconds) || data.ElapsedSeconds < data.RepairSeconds ||
                 data.ElapsedSeconds > int.MaxValue || data.RepairSeconds < 0 || data.RepairSeconds > 1440 || data.RepairSeconds % 240 != 0 ||
                 data.Lamps == null || data.Lamps.Length != 3 || data.Orders == null || data.Orders.Length != 2)

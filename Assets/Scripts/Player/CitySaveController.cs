@@ -27,6 +27,9 @@ namespace Player
         public string Message { get; private set; } = "";
         public bool HasBackup => store != null && store.BackupExists;
         public bool IsDriving => vehicle != null && vehicle.IsDriving;
+        public float CheatClockMultiplier { get; private set; } = 1;
+        public void SetCheatClock(float multiplier) => CheatClockMultiplier =
+            float.IsNaN(multiplier) || float.IsInfinity(multiplier) ? 1 : Mathf.Clamp(multiplier, 0, 10);
 
         private void Awake()
         {
@@ -64,7 +67,7 @@ namespace Player
         {
             if (Session == null) return;
             Session.SetPaused(IsDriving ? vehicle.IsPaused : walk.IsPaused);
-            Session.AdvanceActiveSeconds(Time.deltaTime);
+            Session.AdvanceActiveSeconds(Time.deltaTime * CheatClockMultiplier);
         }
 
         private void LateUpdate()
@@ -78,6 +81,8 @@ namespace Player
         {
             if (Session != null) Session.TransactionCompleted -= RequestSave;
             Session = session;
+            SetCheatClock(1);
+            player.SetCheatSpeed(1);
             World = world;
             if (vehicle != null) vehicle.RestoreCityPose(world);
             Session.TransactionCompleted += RequestSave;

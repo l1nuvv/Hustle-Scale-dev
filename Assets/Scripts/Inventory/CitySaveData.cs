@@ -10,6 +10,8 @@ namespace Inventory
         public int Version;
         public int Balance, InitialBalance, SpareBatteries, RepairSeconds;
         public long Revenue, Expenses;
+        public long CheatMoneyAdjustment;
+        public bool CheatsUsed;
         public bool LotPurchased, HasTransportedCrate, IsCrateCarried;
         public bool IsCrateInVehicle;
         public int PurchasedLots;
