@@ -29,6 +29,7 @@ namespace Interactables
         private float angle = 35, savedFov, rotation;
         private CursorLockMode savedLock;
         private bool savedVisible, active, consumed, exitRequested, gripping, focused = true;
+        private bool inspectionPending;
         private int enteredFrame;
         private ParticleSystem sparks;
         private AudioSource sound;
@@ -48,6 +49,7 @@ namespace Interactables
         public Vector3 EdgeOrigin => origin;
         public bool EffectsPlaying => sparks.isEmitting || sound.isPlaying;
         public string Instruction { get; private set; } = "";
+        public bool CanInspect => state.Placed && (!gripping || SharpeningTrialState.HasWheelClearance(origin, angle));
 
         private void Awake()
         {
@@ -103,6 +105,7 @@ namespace Interactables
         {
             if (!active) return;
             active = false;
+            inspectionPending = false;
             gripping = false;
             lastCutTime = float.NegativeInfinity;
             if (title != null) title.gameObject.SetActive(true);
@@ -133,6 +136,7 @@ namespace Interactables
             gripping = false;
             lastCutTime = float.NegativeInfinity;
             result = "";
+            inspectionPending = false;
             coatingPattern = new Vector4((float)coatingRandom.NextDouble(), (float)coatingRandom.NextDouble(),
                 .85f + (float)coatingRandom.NextDouble() * .4f, .8f + (float)coatingRandom.NextDouble() * .4f);
             StopEffects();
@@ -163,7 +167,7 @@ namespace Interactables
                 state.Place();
                 consumed = true;
             }
-            if (motor.WasPressedThisFrame()) { state.ToggleMotor(); result = ""; }
+            if (motor.WasPressedThisFrame()) { state.ToggleMotor(); result = ""; inspectionPending = false; }
             var working = state.Placed && hold.IsPressed() && !consumed;
             gripping = working;
             var previous = origin;
@@ -180,13 +184,16 @@ namespace Interactables
             }
             state.Sweep(previous, origin, angle, Time.deltaTime, working,
                 targetAngle, angleTolerance, requiredTravel, processingSpeed);
-            if (state.Cutting) lastCutTime = Time.unscaledTime;
+            if (state.Cutting) { lastCutTime = Time.unscaledTime; inspectionPending = false; }
             if (!working || !state.Contact || Mathf.Abs(angle - targetAngle) > angleTolerance)
                 lastCutTime = float.NegativeInfinity;
             if (inspect.WasPressedThisFrame())
-                result = origin.z > -0.035f ? "Сначала отведите нож от круга движением мыши вниз." :
+            {
+                inspectionPending = state.Placed && !CanInspect;
+                result = !state.Placed ? "Сначала положите нож на рабочее место." : inspectionPending ? "" :
                     state.Complete ? "Проверка: вся кромка обработана. Нож готов. R — повторить." :
                     "Кромка обработана не полностью. Проведите светящиеся участки через круг.";
+            }
             if (state.Running)
             {
                 rotation = Mathf.Repeat(rotation + 900 * Time.deltaTime, 360);
@@ -238,7 +245,8 @@ namespace Interactables
         private void RefreshInstruction()
         {
             Instruction = result.Length > 0 ? result : !state.Placed ? "ЛКМ — положить нож" :
-                state.Complete ? "Кромка готова — отведите нож и нажмите F" :
+                inspectionPending || state.Complete ? CanInspect ? "Нож отведён — F: проверить кромку" :
+                    "Удерживайте ЛКМ и отведите нож от круга мышью вниз" :
                 !state.Running ? "Пробел — включить станок" :
                 !gripping ? "Удерживайте ЛКМ — возьмите нож" :
                 !state.Contact ? "Мышь вверх — подведите светящуюся кромку к кругу" :

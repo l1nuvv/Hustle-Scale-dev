@@ -111,6 +111,12 @@ public static class SharpeningTrialVerification
             }
         }
         Check(state.Complete, "full edge can finish while continuously pushing against the wheel stop");
+        Check(!SharpeningTrialState.HasWheelClearance(SharpeningTrialState.ConstrainOrigin(Point(0, .05f), 20), 20),
+            "inspection requires clearance at the real cutting curve");
+        Check(SharpeningTrialState.HasWheelClearance(Point(0, -.015f), 20),
+            "visible retreat clears inspection before the old arbitrary depth threshold");
+        Check(SharpeningTrialState.HasWheelClearance(Point(.4f, .012f), 20),
+            "knife moved sideways away from wheel can be inspected");
         File.AppendAllText(Log, "STATE PASS " + checks + " assertions\n");
         Debug.Log("M6 STATE PASS " + checks);
     }
@@ -207,11 +213,26 @@ public static class SharpeningTrialVerification
         steps.Add(() => Time.timeScale = 0);
         steps.Add(() => { Check(!trial.State.Contact && !trial.EffectsPlaying, "pause clears contact and effects"); Time.timeScale = 1; });
         steps.Add(() => { Check(!trial.State.Contact, "release clears contact"); Check(!trial.GetComponentInChildren<ParticleSystem>().isEmitting, "release stops sparks"); key(Key.F); });
-        steps.Add(() => { Check(((string)Get(trial, "result")).Contains("отведите"), "inspection refuses knife at wheel"); key(null); Set(trial, "origin", Point(0, -.1f)); });
+        steps.Add(() => { Check(((string)Get(trial, "result")).Contains("не полностью"), "released knife on the bench can be inspected despite previous near-wheel origin"); key(null); });
+        steps.Add(() => { Set(trial, "origin", Point(0)); pointer(true, Vector2.zero); });
+        steps.Add(() => key(Key.F));
+        steps.Add(() => { Check(!trial.CanInspect && trial.Instruction.Contains("отведите"), "held knife at wheel still asks for retreat"); key(null); pointer(true, new Vector2(0, -80)); });
+        steps.Add(() => { Check(trial.CanInspect && trial.Instruction.Contains("F:") && !trial.Instruction.Contains("отведите"), "real downward mouse input replaces refusal with inspection-ready hint"); });
         steps.Add(() => key(Key.F));
         steps.Add(() => { Check(((string)Get(trial, "result")).Contains("не полностью"), "inspection reports unfinished edge"); key(null); });
-        steps.Add(() => { Pass(trial.State, .012f, 20); Pass(trial.State, .012f, 20); key(Key.F); });
+        steps.Add(() =>
+        {
+            Pass(trial.State, .012f, 20); Pass(trial.State, .012f, 20);
+            Set(trial, "result", ""); trial.SendMessage("RefreshInstruction");
+            Check(!trial.Instruction.Contains("отведите"), "completed knife already away does not keep asking to retreat");
+            key(Key.F);
+        });
         steps.Add(() => { Check(trial.State.Complete && ((string)Get(trial, "result")).Contains("Нож готов"), "finished inspection after real coverage"); key(null); });
+        steps.Add(() => { Set(trial, "result", ""); Set(trial, "origin", Point(0)); pointer(true, Vector2.zero); });
+        steps.Add(() => { Check(!trial.CanInspect && trial.Instruction.Contains("отведите"), "completed edge at wheel still needs physical retreat"); key(Key.F); });
+        steps.Add(() => { key(null); pointer(false, Vector2.zero); });
+        steps.Add(() => { Check(trial.CanInspect && !trial.Instruction.Contains("отведите"), "releasing completed knife clears pending retreat hint"); key(Key.F); });
+        steps.Add(() => { Check(trial.Instruction.Contains("Нож готов"), "completed parked knife inspection succeeds without moving hidden origin"); key(null); });
         Vector4 previousPattern = Vector4.zero;
         steps.Add(() => { previousPattern = (Vector4)Get(trial, "coatingPattern"); key(Key.R); });
         steps.Add(() => { Check(!trial.State.Placed && !trial.State.Running && !trial.EffectsPlaying, "R resets state and effects"); key(null); });

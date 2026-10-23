@@ -14,6 +14,20 @@ namespace Interactables
         // Blender's authored edge and marker positions are verified against this curve.
         public static Vector3 EdgePoint(float along) => new Vector3((along - .5f) * EdgeLength, 0, -.03f * Mathf.Pow(1 - along, 4));
         public static Vector3 EdgeSample(int section) => EdgePoint((section + .5f) / Sections);
+        public static bool HasWheelClearance(Vector3 origin, float angle)
+        {
+            var rotation = Quaternion.Euler(angle, 0, 0);
+            for (var i = 0; i <= Sections * SamplesPerSection; i++)
+            {
+                var point = origin + rotation * EdgePoint((float)i / (Sections * SamplesPerSection));
+                var radial = new Vector2(point.y - WheelCenter.y, point.z - WheelCenter.z).magnitude - WheelRadius;
+                var axial = Mathf.Abs(point.x) - .0225f;
+                var outside = new Vector2(Mathf.Max(axial, 0), Mathf.Max(radial, 0)).magnitude;
+                var distance = outside + Mathf.Min(Mathf.Max(axial, radial), 0);
+                if (distance < .015f) return false;
+            }
+            return true;
+        }
         public static Vector3 ConstrainOrigin(Vector3 origin, float angle)
         {
             var rotation = Quaternion.Euler(angle, 0, 0);
