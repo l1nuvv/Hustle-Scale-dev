@@ -11,6 +11,7 @@ namespace Interactables
         public static readonly Vector3 WheelCenter = new Vector3(0, 1.25f, 0.14f);
         public const float WheelRadius = 0.13f;
         private readonly float[] passes = new float[Sections];
+        private readonly bool[] contacts = new bool[Sections];
         public bool Placed { get; private set; }
         public bool Running { get; private set; }
         public bool Complete
@@ -20,11 +21,25 @@ namespace Interactables
         public bool Contact { get; private set; }
         public bool Cutting { get; private set; }
         public Vector3 ContactPoint { get; private set; }
+        public bool ContactNeedsWork { get; private set; }
+        public int FinishedSections
+        {
+            get { var count = 0; for (var i = 0; i < Sections; i++) if (passes[i] >= 1) count++; return count; }
+        }
+        public float Progress
+        {
+            get { var sum = 0f; for (var i = 0; i < Sections; i++) sum += passes[i]; return sum / Sections; }
+        }
         public float Coverage(int section) => passes[section];
+        public bool SectionContact(int section) => contacts[section];
         public void Place() => Placed = true;
         public void ToggleMotor() { if (Placed) Running = !Running; StopContact(); }
         public void StopMotor() { Running = false; StopContact(); }
-        public void StopContact() { Contact = false; Cutting = false; }
+        public void StopContact()
+        {
+            Contact = false; Cutting = false; ContactNeedsWork = false;
+            Array.Clear(contacts, 0, contacts.Length);
+        }
         public void Reset() { Array.Clear(passes, 0, passes.Length); Placed = false; StopMotor(); }
 
         public void Sweep(Vector3 from, Vector3 to, float angle, float seconds, bool held,
@@ -46,12 +61,16 @@ namespace Interactables
                     var radial = new Vector2(point.y - WheelCenter.y, point.z - WheelCenter.z);
                     if (Mathf.Abs(point.x) > 0.0225f || Mathf.Abs(radial.magnitude - WheelRadius) > 0.006f || point.z >= WheelCenter.z) continue;
                     Contact = true;
+                    contacts[section] = true;
                     ContactPoint = point;
                     if (Mathf.Abs(angle - targetAngle) > tolerance || credit <= 0 || Complete) continue;
-                    passes[section] = Mathf.Clamp01(passes[section] + credit / Mathf.Max(0.001f, requiredTravel));
-                    Cutting = true;
+                    var previous = passes[section];
+                    passes[section] = Mathf.Clamp01(previous + credit / Mathf.Max(0.001f, requiredTravel));
+                    if (passes[section] > previous) Cutting = true;
                 }
             }
+            for (var i = 0; i < Sections; i++)
+                if (contacts[i] && passes[i] < 1) ContactNeedsWork = true;
         }
     }
 }

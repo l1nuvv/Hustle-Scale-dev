@@ -35,6 +35,9 @@ namespace Interactables
         private AudioSource sound;
         private AudioClip soundClip;
         private Material sparkMaterial;
+        private MaterialPropertyBlock edgeProperties;
+        private static readonly Color CoatingColor = new Color(0.04f, 0.78f, 1f);
+        private float lastCutTime = float.NegativeInfinity;
         private TextMesh title;
         private GUIStyle hudStyle;
         private string result = "";
@@ -43,6 +46,7 @@ namespace Interactables
         public SharpeningTrialState State => state;
         public Vector3 EdgeOrigin => origin;
         public bool EffectsPlaying => sparks.isEmitting || sound.isPlaying;
+        public string Instruction { get; private set; } = "";
 
         private void Awake()
         {
@@ -58,6 +62,7 @@ namespace Interactables
             leave = actions.AddAction("Exit", InputActionType.Button, "<Keyboard>/escape");
             wheelHome = wheel.localRotation;
             title = GetComponentInChildren<TextMesh>();
+            edgeProperties = new MaterialPropertyBlock();
             BuildEffects();
             ResetTrial();
         }
@@ -83,6 +88,7 @@ namespace Interactables
             enteredFrame = Time.frameCount;
             consumed = true;
             SetCamera(false);
+            RefreshInstruction();
         }
 
         private void Suspend(Behaviour item)
@@ -97,12 +103,14 @@ namespace Interactables
             if (!active) return;
             active = false;
             gripping = false;
+            lastCutTime = float.NegativeInfinity;
             if (title != null) title.gameObject.SetActive(true);
             exitRequested = false;
             actions.Disable();
             state.StopMotor();
             StopEffects();
             RefreshKnife();
+            RefreshInstruction();
             foreach (var item in suspended) if (item != null) item.enabled = true;
             suspended.Clear();
             if (view != null)
@@ -122,9 +130,11 @@ namespace Interactables
             angle = 35;
             consumed = true;
             gripping = false;
+            lastCutTime = float.NegativeInfinity;
             result = "";
             StopEffects();
             RefreshKnife();
+            RefreshInstruction();
         }
 
         private void Update()
@@ -135,10 +145,12 @@ namespace Interactables
             {
                 consumed = true;
                 gripping = false;
+                lastCutTime = float.NegativeInfinity;
                 state.StopContact();
                 StopEffects();
                 RefreshKnife();
                 SetCamera(false);
+                RefreshInstruction();
                 return;
             }
             if (!hold.IsPressed()) consumed = false;
@@ -148,7 +160,7 @@ namespace Interactables
                 state.Place();
                 consumed = true;
             }
-            if (motor.WasPressedThisFrame()) state.ToggleMotor();
+            if (motor.WasPressedThisFrame()) { state.ToggleMotor(); result = ""; }
             var working = state.Placed && hold.IsPressed() && !consumed;
             gripping = working;
             var previous = origin;
@@ -160,14 +172,17 @@ namespace Interactables
                 origin.x = Mathf.Clamp(origin.x, -0.22f, 0.22f);
                 origin.z = Mathf.Clamp(origin.z, -0.23f, 0.014f);
                 angle = Mathf.Clamp(angle + tilt.ReadValue<float>() * 25 * Time.deltaTime, 0, 50);
-                result = "";
+                if (delta.sqrMagnitude > 0.01f || Mathf.Abs(tilt.ReadValue<float>()) > 0.01f) result = "";
             }
             state.Sweep(previous, origin, angle, Time.deltaTime, working,
                 targetAngle, angleTolerance, requiredTravel, processingSpeed);
+            if (state.Cutting) lastCutTime = Time.unscaledTime;
+            if (!working || !state.Contact || Mathf.Abs(angle - targetAngle) > angleTolerance)
+                lastCutTime = float.NegativeInfinity;
             if (inspect.WasPressedThisFrame())
                 result = origin.z > -0.035f ? "Сначала отведите нож от круга движением мыши вниз." :
                     state.Complete ? "Проверка: вся кромка обработана. Нож готов. R — повторить." :
-                    "Проверка: кромка обработана не полностью. Тёмные участки требуют прохода.";
+                    "Кромка обработана не полностью. Проведите светящиеся участки через круг.";
             if (state.Running)
             {
                 rotation = Mathf.Repeat(rotation + 900 * Time.deltaTime, 360);
@@ -188,6 +203,7 @@ namespace Interactables
                 if (!sound.isPlaying) sound.Play();
             }
             else sound.Stop();
+            RefreshInstruction();
             SetCamera(zoom.IsPressed());
         }
 
@@ -209,7 +225,27 @@ namespace Interactables
             knife.localPosition = gripping ? origin : new Vector3(state.Placed ? 0.05f : 0.28f, 1.04f, -0.18f);
             knife.localRotation = Quaternion.Euler(gripping ? angle : 0, 0, 0);
             for (var i = 0; i < edgeSections.Length; i++)
+            {
                 edgeSections[i].sharedMaterial = state.Coverage(i) >= 1 ? honedEdge : unfinishedEdge;
+                // A visible coating fades with actual local work, leaving the authored steel bevel.
+                var remaining = 1 - state.Coverage(i);
+                edgeProperties.SetColor("_BaseColor", Color.Lerp(honedEdge.color, CoatingColor, remaining));
+                edgeProperties.SetColor("_EmissionColor", CoatingColor * remaining * 1.5f);
+                edgeSections[i].SetPropertyBlock(edgeProperties);
+            }
+        }
+
+        private void RefreshInstruction()
+        {
+            Instruction = result.Length > 0 ? result : !state.Placed ? "ЛКМ — положить нож" :
+                state.Complete ? "Кромка готова — отведите нож и нажмите F" :
+                !state.Running ? "Пробел — включить станок" :
+                !gripping ? "Удерживайте ЛКМ — возьмите нож" :
+                !state.Contact ? "Мышь вверх — подведите светящуюся кромку к кругу" :
+                Mathf.Abs(angle - targetAngle) > angleTolerance ? "Контакт есть · Q / E — выставьте угол" :
+                !state.ContactNeedsWork ? "Этот участок готов — подведите к кругу оставшееся покрытие" :
+                Time.unscaledTime - lastCutTime <= 0.25f ? "Обрабатываем кромку — покрытие снимается" :
+                "Контакт есть · ведите светящуюся кромку влево / вправо";
         }
 
         private void BuildEffects()
@@ -249,10 +285,11 @@ namespace Interactables
             focused = hasFocus;
             consumed = true;
             gripping = false;
+            lastCutTime = float.NegativeInfinity;
             state.StopContact();
             StopEffects();
             if (active && !hasFocus) state.StopMotor();
-            if (active) RefreshKnife();
+            if (active) { RefreshKnife(); RefreshInstruction(); }
             if (active) player.SetCursorLocked(hasFocus);
         }
         private void OnDisable() => Exit();
@@ -269,22 +306,45 @@ namespace Interactables
             var matrix = GUI.matrix;
             var scale = Mathf.Clamp(Screen.height / 900f, 0.65f, 1.5f);
             GUI.matrix = Matrix4x4.Scale(Vector3.one * scale);
-            if (hudStyle == null) hudStyle = new GUIStyle(GUI.skin.box)
+            if (hudStyle == null) hudStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 18, alignment = TextAnchor.UpperLeft, wordWrap = true,
-                padding = new RectOffset(12, 12, 8, 8)
+                fontSize = 19, alignment = TextAnchor.MiddleCenter, wordWrap = true
             };
-            var width = Mathf.Min(940, Screen.width / scale - 30);
-            var instruction = !state.Placed ? "ЛКМ — положить нож на рабочее место" :
-                !state.Running ? "Пробел — включить станок" : state.Complete ? "Кромка готова: отведите нож и нажмите F" :
-                !hold.IsPressed() ? "Удерживайте ЛКМ, чтобы взять нож и вести кромку" :
-                !state.Contact ? "Нет контакта: мышь вверх — к кругу; влево/вправо — вдоль кромки" :
-                Mathf.Abs(angle - targetAngle) > angleTolerance ? "Неверный угол: Q / E — наклонить нож" :
-                !state.Cutting ? "Контакт есть: ведите кромку влево / вправо" : "Идёт обработка: проведите всю кромку";
-            GUI.Box(new Rect(15, 14, width, 155), "M6 — ОДИН НОЖ / ИЗОЛИРОВАННАЯ ПРОБА\n" + instruction +
-                $"\nУгол {angle:0}° | ориентир {targetAngle:0}° ± {angleTolerance:0}° | станок: {(state.Running ? "ВКЛ" : "ВЫКЛ")}" +
-                "\nЛКМ держать + мышь — вести; Q/E — угол; ПКМ — ближе\nПробел — станок; F — проверить вдали от круга; R — сброс; Esc — выйти", hudStyle);
-            if (result.Length > 0) GUI.Box(new Rect(15, 175, width, 65), result, hudStyle);
+            var width = Screen.width / scale;
+            var height = Screen.height / scale;
+            var hintWidth = Mathf.Min(730, width - 30);
+            var center = width / 2;
+            // The M3 layout: one contextual hint above, compact readings, controls along the bottom.
+            GUI.Box(new Rect(center - hintWidth / 2, 18, hintWidth, 48), "");
+            GUI.Label(new Rect(center - hintWidth / 2 + 8, 18, hintWidth - 16, 48), Instruction, hudStyle);
+            if (state.Placed)
+            {
+                var color = GUI.color;
+                GUI.color = Mathf.Abs(angle - targetAngle) <= angleTolerance ? new Color(.65f, 1, .75f) : new Color(1, .78f, .4f);
+                GUI.Label(new Rect(center - 270, 72, 540, 28),
+                    $"Угол {angle:0}° / {targetAngle:0}° ± {angleTolerance:0}° · Станок {(state.Running ? "включён" : "выключен")}", hudStyle);
+                GUI.color = color;
+                GUI.Label(new Rect(center - 270, 103, 540, 28),
+                    $"Кромка: {state.Progress:P0} · Готово {state.FinishedSections} из {SharpeningTrialState.Sections} участков", hudStyle);
+                var mapWidth = Mathf.Min(420, width - 40);
+                var cellWidth = mapWidth / SharpeningTrialState.Sections;
+                for (var i = 0; i < SharpeningTrialState.Sections; i++)
+                {
+                    var rect = new Rect(center - mapWidth / 2 + i * cellWidth, 137, cellWidth - 3, 14);
+                    GUI.color = state.SectionContact(i) ? Color.white : new Color(.22f, .28f, .30f);
+                    GUI.DrawTexture(rect, Texture2D.whiteTexture);
+                    GUI.color = state.Coverage(i) >= 1 ? new Color(.72f, .84f, .80f) : CoatingColor;
+                    GUI.DrawTexture(new Rect(rect.x + 2, rect.y + 2, rect.width - 4, rect.height - 4), Texture2D.whiteTexture);
+                    GUI.color = new Color(.72f, .84f, .80f);
+                    GUI.DrawTexture(new Rect(rect.x + 2, rect.y + 2, (rect.width - 4) * state.Coverage(i), rect.height - 4), Texture2D.whiteTexture);
+                }
+                GUI.color = color;
+                GUI.Label(new Rect(center - 310, 154, 620, 25), "Голубое покрытие — ещё обработать · Под кругом — белая рамка", hudStyle);
+            }
+            GUI.Label(new Rect(15, height - 83, width - 30, 30),
+                "ЛКМ удерживать + мышь — вести нож · Q/E — угол · ПКМ — ближе", hudStyle);
+            GUI.Label(new Rect(15, height - 51, width - 30, 30),
+                "Пробел — станок · F — проверить · R — заново · Esc — отойти", hudStyle);
             GUI.matrix = matrix;
         }
     }

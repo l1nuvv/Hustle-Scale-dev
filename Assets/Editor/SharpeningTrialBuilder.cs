@@ -43,7 +43,7 @@ public static class SharpeningTrialBuilder
         sections.arraySize = SharpeningTrialState.Sections;
         for (var i = 0; i < sections.arraySize; i++)
             sections.GetArrayElementAtIndex(i).objectReferenceValue = knife.GetComponentsInChildren<Renderer>().Single(r => r.name == $"Edge_{i:00}");
-        data.FindProperty("unfinishedEdge").objectReferenceValue = Material("M6_UnfinishedEdge", new Color(.20f, .22f, .24f), .5f);
+        data.FindProperty("unfinishedEdge").objectReferenceValue = Material("M6_UnfinishedEdge", new Color(.04f, .78f, 1), .15f);
         data.FindProperty("honedEdge").objectReferenceValue = Material("M6_HonedEdge", new Color(.70f, .77f, .80f), .8f);
         data.ApplyModifiedPropertiesWithoutUndo();
         var collider = root.AddComponent<BoxCollider>();
@@ -78,6 +78,12 @@ public static class SharpeningTrialBuilder
         material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         material.name = name; material.color = color;
         material.SetFloat("_Metallic", metal); material.SetFloat("_Smoothness", .28f);
+        if (name == "M6_UnfinishedEdge")
+        {
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;
+            material.EnableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", color * 1.5f);
+        }
         AssetDatabase.CreateAsset(material, path);
         return material;
     }

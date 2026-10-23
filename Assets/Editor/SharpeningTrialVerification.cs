@@ -54,12 +54,21 @@ public static class SharpeningTrialVerification
         Check(Sum(state) == 0, "teleport cannot complete a pass");
         state.Sweep(Point(0), Point(.01f), 20, .1f, true, 20, 5, .04f, .12f);
         Check(Sum(state) > 0 && !state.Complete && state.Cutting, "correct short pass processes only touched sections");
+        for (var i = 0; i < 20; i++) state.Sweep(Point(0), Point(.01f), 20, .1f, true, 20, 5, .04f, .12f);
+        var beforeRepeat = Sum(state);
+        state.Sweep(Point(0), Point(.01f), 20, .1f, true, 20, 5, .04f, .12f);
+        Check(Sum(state) == beforeRepeat && !state.Complete && !state.Cutting,
+            "revisiting finished sections does not report cutting while other sections still need work");
+        Check(state.Contact && !state.ContactNeedsWork && state.FinishedSections > 0 && state.Progress < 1,
+            "contact with finished spot is distinguishable from remaining edge work");
         Pass(state, .012f, 20); Pass(state, .012f, 20);
         Check(state.Complete, "whole-edge passes complete all sections");
         state.StopMotor();
         Check(!state.Running && !state.Contact && !state.Cutting && state.Complete, "stop clears contact and preserves result");
         state.Reset();
         Check(!state.Complete && !state.Placed && !state.Running && Sum(state) == 0, "reset clears trial");
+        Check(state.Progress == 0 && state.FinishedSections == 0 && !state.ContactNeedsWork,
+            "reset clears section feedback");
         state.Place(); state.ToggleMotor(); Pass(state, .012f, 20); Pass(state, .012f, 20);
         Check(state.Complete, "second complete operation after reset");
         File.AppendAllText(Log, "STATE PASS " + checks + " assertions\n");
@@ -118,7 +127,25 @@ public static class SharpeningTrialVerification
                 "physical contact emits sparks and abrasive sound");
             Set(trial, "angle", 20f); pointer(true, new Vector2(10, 0));
         });
-        steps.Add(() => { Check(Sum(trial.State) > 0, "real mouse sweep at correct contact processes"); pointer(false, Vector2.zero); });
+        steps.Add(() =>
+        {
+            Check(Sum(trial.State) > 0, "real mouse sweep at correct contact processes");
+            // Reproduce mouse-event frames followed by zero-delta frames without granting extra work.
+            Set(trial, "lastCutTime", Time.unscaledTime);
+            var before = Sum(trial.State);
+            trial.State.Sweep(trial.EdgeOrigin, trial.EdgeOrigin, 20, .016f, true, 20, 5, .04f, .12f);
+            trial.SendMessage("RefreshInstruction");
+            Check(!trial.State.Cutting && Sum(trial.State) == before && trial.Instruction.Contains("Обрабатываем"),
+                "zero-delta input frame preserves recent-cut wording without creating progress");
+            Set(trial, "lastCutTime", Time.unscaledTime - 1);
+            trial.SendMessage("RefreshInstruction");
+            Check(trial.Instruction.Contains("ведите"), "stationary contact eventually asks to move again");
+            var renderer = (Renderer)new SerializedObject(trial).FindProperty("edgeSections").GetArrayElementAtIndex(0).objectReferenceValue;
+            var properties = new MaterialPropertyBlock(); renderer.GetPropertyBlock(properties);
+            Check(properties.GetColor("_EmissionColor").maxColorComponent > 0 && renderer.sharedMaterial.IsKeywordEnabled("_EMISSION"),
+                "unfinished authored edge has luminous coating");
+            pointer(false, Vector2.zero);
+        });
         steps.Add(() => Time.timeScale = 0);
         steps.Add(() => { Check(!trial.State.Contact && !trial.EffectsPlaying, "pause clears contact and effects"); Time.timeScale = 1; });
         steps.Add(() => { Check(!trial.State.Contact, "release clears contact"); Check(!trial.GetComponentInChildren<ParticleSystem>().isEmitting, "release stops sparks"); key(Key.F); });

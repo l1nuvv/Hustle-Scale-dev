@@ -16,7 +16,9 @@ def mat(name, color, metal=0):
     return m
 paint=mat('M6_SageEnamel',(.20,.29,.28)); steel=mat('M6_Steel',(.43,.48,.50),.65)
 stone=mat('M6_Abrasive',(.24,.25,.27)); rubber=mat('M6_Rubber',(.055,.065,.065))
-edge=mat('M6_UnfinishedEdge',(.20,.22,.24),.5); bright=mat('M6_HonedEdge',(.70,.77,.80),.8)
+edge=mat('M6_UnfinishedEdge',(.04,.78,1),.15); bright=mat('M6_HonedEdge',(.70,.77,.80),.8)
+edge.node_tree.nodes.get('Principled BSDF').inputs['Emission Color'].default_value=(.04,.78,1,1)
+edge.node_tree.nodes.get('Principled BSDF').inputs['Emission Strength'].default_value=1.5
 def root(name):
     o=bpy.data.objects.new(name,None); bpy.context.collection.objects.link(o); return o
 def finish(o,name,parent,material,bevel=.003):
@@ -54,7 +56,8 @@ for x in (.185,.235):
     box('HandlePin',(x,.022,-.027),(.008,.002,.008),knife,steel,.003)
 for i in range(12):
     x=-.14+(i+.5)*.28/12
-    box('Edge_%02d'%i,(x,.001,-.0015),(.28/12,.0015,.003),knife,edge,.0003)
+    # Raised just above the blade face: a readable coating, not a hidden strip inside the steel.
+    box('Edge_%02d'%i,(x,.0048,-.0035),(.28/12,.0015,.007),knife,edge,.0003)
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'SourceArt/SharpeningTrial/M6_Sharpening.blend'))
 for group in (machine,knife):
     bpy.ops.object.select_all(action='DESELECT'); group.select_set(True)
