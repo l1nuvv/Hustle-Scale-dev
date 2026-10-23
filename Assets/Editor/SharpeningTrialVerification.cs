@@ -15,6 +15,7 @@ public static class SharpeningTrialVerification
 {
     private const string Log = "Logs/Codex-M6-verification.log";
     private static int checks;
+    private static bool controlsRunning;
     private static void Check(bool condition, string label)
     {
         File.AppendAllText(Log, (condition ? "PASS " : "FAIL ") + label + "\n");
@@ -28,7 +29,9 @@ public static class SharpeningTrialVerification
         for (var i = 0; i < 160; i++)
         {
             var x = -0.20f + i * .0025f;
-            state.Sweep(Point(x, z), Point(x + .0025f, z), angle, .025f, held, 20, 5, .04f, .12f);
+            var fromCurve = Quaternion.Euler(angle, 0, 0) * SharpeningTrialState.EdgePoint(Mathf.Clamp01(.5f - x / SharpeningTrialState.EdgeLength));
+            var toCurve = Quaternion.Euler(angle, 0, 0) * SharpeningTrialState.EdgePoint(Mathf.Clamp01(.5f - (x + .0025f) / SharpeningTrialState.EdgeLength));
+            state.Sweep(Point(x, z - fromCurve.z), Point(x + .0025f, z - toCurve.z), angle, .025f, held, 20, 5, .04f, .12f);
         }
     }
 
@@ -71,6 +74,43 @@ public static class SharpeningTrialVerification
             "reset clears section feedback");
         state.Place(); state.ToggleMotor(); Pass(state, .012f, 20); Pass(state, .012f, 20);
         Check(state.Complete, "second complete operation after reset");
+        for (var i = 0; i < SharpeningTrialState.Sections; i++)
+        {
+            state.Reset(); state.Place(); state.ToggleMotor();
+            var offset = Quaternion.Euler(20, 0, 0) * SharpeningTrialState.EdgeSample(i);
+            var origin = Point(-offset.x, .012f - offset.z);
+            state.Sweep(origin, origin + Vector3.right * .001f, 20, .025f, true, 20, 5, .04f, .12f);
+            Check(state.SectionContact(i) && state.Cutting, "curved cutting edge can process section " + i);
+        }
+        state.Reset(); state.Place(); state.ToggleMotor();
+        var spine = Quaternion.Euler(20, 0, 0) * new Vector3(0, 0, -.0603f);
+        var spineOrigin = Point(0, .012f - spine.z);
+        state.Sweep(spineOrigin, spineOrigin + Vector3.right * .003f, 20, .025f, true, 20, 5, .04f, .12f);
+        Check(!state.Contact && state.Progress == 0, "placing the thick spine at the wheel does not sharpen the knife");
+        for (var i = 0; i < SharpeningTrialState.Sections; i++)
+        {
+            var offset = Quaternion.Euler(20, 0, 0) * SharpeningTrialState.EdgeSample(i);
+            var clamped = SharpeningTrialState.ConstrainOrigin(Point(-offset.x, .2f), 20);
+            var stable = SharpeningTrialState.ConstrainOrigin(clamped + Vector3.forward, 20);
+            Check(Vector3.Distance(clamped, stable) < .00001f, "forward push stays on wheel surface for section " + i);
+            state.Reset(); state.Place(); state.ToggleMotor();
+            state.Sweep(clamped - Vector3.right * .001f, clamped, 20, .025f, true, 20, 5, .04f, .12f);
+            Check(state.Contact && state.Cutting, "manual sweep still processes at constrained contact " + i);
+        }
+        var away = Point(.4f, .04f);
+        Check(SharpeningTrialState.ConstrainOrigin(away, 20) == away, "wheel constraint does not snap knife when laterally away");
+        state.Reset(); state.Place(); state.ToggleMotor();
+        for (var pass = 0; pass < 8 && !state.Complete; pass++)
+        {
+            for (var i = 0; i < 160; i++)
+            {
+                var x = -.2f + i * .0025f;
+                var from = SharpeningTrialState.ConstrainOrigin(Point(x, .05f), 20);
+                var to = SharpeningTrialState.ConstrainOrigin(Point(x + .0025f, .05f), 20);
+                state.Sweep(from, to, 20, .025f, true, 20, 5, .04f, .12f);
+            }
+        }
+        Check(state.Complete, "full edge can finish while continuously pushing against the wheel stop");
         File.AppendAllText(Log, "STATE PASS " + checks + " assertions\n");
         Debug.Log("M6 STATE PASS " + checks);
     }
@@ -79,6 +119,8 @@ public static class SharpeningTrialVerification
     public static void VerifyControls()
     {
         if (!EditorApplication.isPlaying || EditorApplication.isPaused) throw new InvalidOperationException("Run sandbox unpaused first.");
+        if (controlsRunning) return;
+        controlsRunning = true;
         var trial = UnityEngine.Object.FindAnyObjectByType<SharpeningTrial>();
         var player = (PlayerController)new SerializedObject(trial).FindProperty("player").objectReferenceValue;
         var deal = UnityEngine.Object.FindAnyObjectByType<FirstDealView>();
@@ -104,20 +146,35 @@ public static class SharpeningTrialVerification
         steps.Add(() =>
         {
             var data = new SerializedObject(trial);
-            var sections = data.FindProperty("edgeSections");
+            var sections = data.FindProperty("edgeSamples");
             var pivot = (Transform)data.FindProperty("knife").objectReferenceValue;
             for (var i = 0; i < sections.arraySize; i++)
             {
-                var renderer = (Renderer)sections.GetArrayElementAtIndex(i).objectReferenceValue;
-                var expected = pivot.localPosition + pivot.localRotation * (Vector3.right * ((i + .5f) / sections.arraySize - .5f) * SharpeningTrialState.EdgeLength);
-                Check(Vector3.Distance(trial.transform.InverseTransformPoint(renderer.bounds.center), expected) < .006f,
-                    "authored visible edge matches physical section " + i);
+                var marker = (Transform)sections.GetArrayElementAtIndex(i).objectReferenceValue;
+                var expected = pivot.localPosition + pivot.localRotation * SharpeningTrialState.EdgeSample(i);
+                Check(Vector3.Distance(trial.transform.InverseTransformPoint(marker.position), expected) < .0002f,
+                    "authored cutting edge marker matches physical section " + i);
             }
+            Check(!pivot.GetComponentsInChildren<Renderer>().Any(r => r.name.StartsWith("Edge_")), "knife has no geometric section strips");
+            Check(pivot.GetComponentsInChildren<Renderer>().Single(r => r.name == "Blade").sharedMaterials.Length == 2,
+                "continuous kitchen blade has separate steel face and thin cutting bevel");
+            Check(pivot.GetComponentsInChildren<Renderer>().Single(r => r.name == "Blade").sharedMaterials.Any(m => m.name == "M6_CuttingBevel"),
+                "cutting bevel keeps its authored material after reimport");
         });
         steps.Add(() => pointer(true, new Vector2(8, 0)));
         steps.Add(() => key(Key.Q));
         steps.Add(() => { Check((float)Get(trial, "angle") < 35, "Q changes held knife angle through Input System"); key(null); });
         steps.Add(() => { Check(Sum(trial.State) == 0, "real held input away gives no progress"); pointer(false, Vector2.zero); });
+        steps.Add(() => { Set(trial, "origin", Point(0, .05f)); Set(trial, "angle", 20f); pointer(true, new Vector2(0, 200)); });
+        steps.Add(() =>
+        {
+            var constrained = SharpeningTrialState.ConstrainOrigin(trial.EdgeOrigin, 20);
+            Check(Vector3.Distance(trial.EdgeOrigin, constrained) < .00001f && trial.State.Contact,
+                "held mouse forward input cannot push the cutting edge through the wheel: " +
+                trial.EdgeOrigin + ", expected " + constrained + ", contact=" + trial.State.Contact +
+                ", focus=" + Application.isFocused + ", held=" + mouse.leftButton.isPressed);
+            pointer(false, Vector2.zero); trial.ResetTrial(); trial.State.Place(); trial.State.ToggleMotor();
+        });
         // Inject the physical pose only; actual InputAction processing still owns cutting.
         steps.Add(() => { Set(trial, "origin", Point(-.10f)); Set(trial, "angle", 35f); pointer(true, new Vector2(10, 0)); });
         steps.Add(() =>
@@ -140,10 +197,11 @@ public static class SharpeningTrialVerification
             Set(trial, "lastCutTime", Time.unscaledTime - 1);
             trial.SendMessage("RefreshInstruction");
             Check(trial.Instruction.Contains("ведите"), "stationary contact eventually asks to move again");
-            var renderer = (Renderer)new SerializedObject(trial).FindProperty("edgeSections").GetArrayElementAtIndex(0).objectReferenceValue;
+            var renderer = (Renderer)new SerializedObject(trial).FindProperty("coating").objectReferenceValue;
             var properties = new MaterialPropertyBlock(); renderer.GetPropertyBlock(properties);
-            Check(properties.GetColor("_EmissionColor").maxColorComponent > 0 && renderer.sharedMaterial.IsKeywordEnabled("_EMISSION"),
-                "unfinished authored edge has luminous coating");
+            Check(renderer.sharedMaterial.shader.name == "HustleScale/M6PowderCoating" && renderer.sharedMaterial.GetTexture("_PowderMask") != null,
+                "one continuous coating uses the generated powder mask");
+            Check(properties.GetVector("_Coverage2").z == trial.State.Coverage(10), "coating receives actual local progress");
             pointer(false, Vector2.zero);
         });
         steps.Add(() => Time.timeScale = 0);
@@ -154,8 +212,10 @@ public static class SharpeningTrialVerification
         steps.Add(() => { Check(((string)Get(trial, "result")).Contains("не полностью"), "inspection reports unfinished edge"); key(null); });
         steps.Add(() => { Pass(trial.State, .012f, 20); Pass(trial.State, .012f, 20); key(Key.F); });
         steps.Add(() => { Check(trial.State.Complete && ((string)Get(trial, "result")).Contains("Нож готов"), "finished inspection after real coverage"); key(null); });
-        steps.Add(() => key(Key.R));
+        Vector4 previousPattern = Vector4.zero;
+        steps.Add(() => { previousPattern = (Vector4)Get(trial, "coatingPattern"); key(Key.R); });
         steps.Add(() => { Check(!trial.State.Placed && !trial.State.Running && !trial.EffectsPlaying, "R resets state and effects"); key(null); });
+        steps.Add(() => Check((Vector4)Get(trial, "coatingPattern") != previousPattern, "reset randomizes powder distribution without adding progress"));
         steps.Add(() => InputSystem.QueueStateEvent(mouse, new MouseState { buttons = 2 }));
         steps.Add(() => { Check(Camera.main.fieldOfView < fov * .7f, "RMB magnifies work FOV"); pointer(false, Vector2.zero); });
         steps.Add(() => Check(Mathf.Abs(Camera.main.fieldOfView - fov * .8f) < .01f, "release RMB restores work FOV"));
@@ -169,6 +229,7 @@ public static class SharpeningTrialVerification
         Action cleanup = () =>
         {
             EditorApplication.update -= runner;
+            controlsRunning = false;
             trial.Exit(); InputSystem.RemoveDevice(keyboard); InputSystem.RemoveDevice(mouse);
             Application.runInBackground = background;
             Time.timeScale = 1;

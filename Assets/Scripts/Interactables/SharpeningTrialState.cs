@@ -3,13 +3,34 @@ using UnityEngine;
 
 namespace Interactables
 {
-    // Experiment only: coverage of a straight edge, independent of orders and saves.
+    // Experiment only: coverage of the kitchen knife's cutting curve, independent of orders/saves.
     public sealed class SharpeningTrialState
     {
         public const int Sections = 12;
         public const float EdgeLength = 0.28f;
         public static readonly Vector3 WheelCenter = new Vector3(0, 1.25f, 0.14f);
         public const float WheelRadius = 0.13f;
+        private const int SamplesPerSection = 8;
+        // Blender's authored edge and marker positions are verified against this curve.
+        public static Vector3 EdgePoint(float along) => new Vector3((along - .5f) * EdgeLength, 0, -.03f * Mathf.Pow(1 - along, 4));
+        public static Vector3 EdgeSample(int section) => EdgePoint((section + .5f) / Sections);
+        public static Vector3 ConstrainOrigin(Vector3 origin, float angle)
+        {
+            var rotation = Quaternion.Euler(angle, 0, 0);
+            var maxDepth = float.PositiveInfinity;
+            for (var i = 0; i <= Sections * SamplesPerSection; i++)
+            {
+                var offset = rotation * EdgePoint((float)i / (Sections * SamplesPerSection));
+                var point = origin + offset;
+                if (Mathf.Abs(point.x) > .0225f) continue;
+                var height = point.y - WheelCenter.y;
+                if (Mathf.Abs(height) >= WheelRadius) continue;
+                var surface = WheelCenter.z - Mathf.Sqrt(WheelRadius * WheelRadius - height * height);
+                maxDepth = Mathf.Min(maxDepth, surface - offset.z);
+            }
+            origin.z = Mathf.Min(origin.z, maxDepth);
+            return origin;
+        }
         private readonly float[] passes = new float[Sections];
         private readonly bool[] contacts = new bool[Sections];
         public bool Placed { get; private set; }
@@ -48,6 +69,7 @@ namespace Interactables
             StopContact();
             if (!Placed || !Running || !held || seconds <= 0) return;
             var travel = Mathf.Abs(to.x - from.x);
+            var edgeRotation = Quaternion.Euler(angle, 0, 0);
             // Teleports/re-entry cannot process an unseen path.
             if (Vector3.Distance(from, to) > 0.08f) return;
             var steps = Mathf.Max(1, Mathf.CeilToInt(Vector3.Distance(from, to) / 0.002f));
@@ -57,9 +79,16 @@ namespace Interactables
                 var origin = Vector3.Lerp(from, to, (float)step / steps);
                 for (var section = 0; section < Sections; section++)
                 {
-                    var point = origin + Vector3.right * ((section + 0.5f) / Sections - 0.5f) * EdgeLength;
-                    var radial = new Vector2(point.y - WheelCenter.y, point.z - WheelCenter.z);
-                    if (Mathf.Abs(point.x) > 0.0225f || Mathf.Abs(radial.magnitude - WheelRadius) > 0.006f || point.z >= WheelCenter.z) continue;
+                    var touching = false;
+                    var point = Vector3.zero;
+                    for (var sample = 0; sample < SamplesPerSection; sample++)
+                    {
+                        point = origin + edgeRotation * EdgePoint((section + (sample + .5f) / SamplesPerSection) / Sections);
+                        var radial = new Vector2(point.y - WheelCenter.y, point.z - WheelCenter.z);
+                        if (Mathf.Abs(point.x) <= .0225f && Mathf.Abs(radial.magnitude - WheelRadius) <= .006f && point.z < WheelCenter.z)
+                        { touching = true; break; }
+                    }
+                    if (!touching) continue;
                     Contact = true;
                     contacts[section] = true;
                     ContactPoint = point;

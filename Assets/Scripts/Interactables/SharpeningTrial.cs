@@ -14,9 +14,8 @@ namespace Interactables
         [SerializeField] private Transform knife;
         [SerializeField] private Transform wheel;
         [SerializeField] private Transform wheelMark;
-        [SerializeField] private Renderer[] edgeSections;
-        [SerializeField] private Material unfinishedEdge;
-        [SerializeField] private Material honedEdge;
+        [SerializeField] private Renderer coating;
+        [SerializeField] private Transform[] edgeSamples;
         [SerializeField, Range(5, 40)] private float targetAngle = 20;
         [SerializeField, Range(1, 12)] private float angleTolerance = 5;
         [SerializeField, Min(0.001f)] private float requiredTravel = 0.04f;
@@ -36,6 +35,8 @@ namespace Interactables
         private AudioClip soundClip;
         private Material sparkMaterial;
         private MaterialPropertyBlock edgeProperties;
+        private readonly System.Random coatingRandom = new System.Random();
+        private Vector4 coatingPattern;
         private static readonly Color CoatingColor = new Color(0.04f, 0.78f, 1f);
         private float lastCutTime = float.NegativeInfinity;
         private TextMesh title;
@@ -132,6 +133,8 @@ namespace Interactables
             gripping = false;
             lastCutTime = float.NegativeInfinity;
             result = "";
+            coatingPattern = new Vector4((float)coatingRandom.NextDouble(), (float)coatingRandom.NextDouble(),
+                .85f + (float)coatingRandom.NextDouble() * .4f, .8f + (float)coatingRandom.NextDouble() * .4f);
             StopEffects();
             RefreshKnife();
             RefreshInstruction();
@@ -170,8 +173,9 @@ namespace Interactables
                 var displacement = Vector3.ClampMagnitude(new Vector3(delta.x * 0.0007f, 0, delta.y * 0.0005f), 0.025f);
                 origin += displacement;
                 origin.x = Mathf.Clamp(origin.x, -0.22f, 0.22f);
-                origin.z = Mathf.Clamp(origin.z, -0.23f, 0.014f);
+                origin.z = Mathf.Clamp(origin.z, -0.23f, 0.05f);
                 angle = Mathf.Clamp(angle + tilt.ReadValue<float>() * 25 * Time.deltaTime, 0, 50);
+                origin = SharpeningTrialState.ConstrainOrigin(origin, angle);
                 if (delta.sqrMagnitude > 0.01f || Mathf.Abs(tilt.ReadValue<float>()) > 0.01f) result = "";
             }
             state.Sweep(previous, origin, angle, Time.deltaTime, working,
@@ -224,15 +228,11 @@ namespace Interactables
         {
             knife.localPosition = gripping ? origin : new Vector3(state.Placed ? 0.05f : 0.28f, 1.04f, -0.18f);
             knife.localRotation = Quaternion.Euler(gripping ? angle : 0, 0, 0);
-            for (var i = 0; i < edgeSections.Length; i++)
-            {
-                edgeSections[i].sharedMaterial = state.Coverage(i) >= 1 ? honedEdge : unfinishedEdge;
-                // A visible coating fades with actual local work, leaving the authored steel bevel.
-                var remaining = 1 - state.Coverage(i);
-                edgeProperties.SetColor("_BaseColor", Color.Lerp(honedEdge.color, CoatingColor, remaining));
-                edgeProperties.SetColor("_EmissionColor", CoatingColor * remaining * 1.5f);
-                edgeSections[i].SetPropertyBlock(edgeProperties);
-            }
+            edgeProperties.SetVector("_Pattern", coatingPattern);
+            edgeProperties.SetVector("_Coverage0", new Vector4(state.Coverage(0), state.Coverage(1), state.Coverage(2), state.Coverage(3)));
+            edgeProperties.SetVector("_Coverage1", new Vector4(state.Coverage(4), state.Coverage(5), state.Coverage(6), state.Coverage(7)));
+            edgeProperties.SetVector("_Coverage2", new Vector4(state.Coverage(8), state.Coverage(9), state.Coverage(10), state.Coverage(11)));
+            coating.SetPropertyBlock(edgeProperties);
         }
 
         private void RefreshInstruction()

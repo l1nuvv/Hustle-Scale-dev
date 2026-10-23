@@ -39,13 +39,8 @@ public static class SharpeningTrialBuilder
         data.FindProperty("knife").objectReferenceValue = knifePivot;
         data.FindProperty("wheel").objectReferenceValue = machine.GetComponentsInChildren<Transform>().Single(t => t.name == "Wheel");
         data.FindProperty("wheelMark").objectReferenceValue = machine.GetComponentsInChildren<Transform>().Single(t => t.name == "WheelMark");
-        var sections = data.FindProperty("edgeSections");
-        sections.arraySize = SharpeningTrialState.Sections;
-        for (var i = 0; i < sections.arraySize; i++)
-            sections.GetArrayElementAtIndex(i).objectReferenceValue = knife.GetComponentsInChildren<Renderer>().Single(r => r.name == $"Edge_{i:00}");
-        data.FindProperty("unfinishedEdge").objectReferenceValue = Material("M6_UnfinishedEdge", new Color(.04f, .78f, 1), .15f);
-        data.FindProperty("honedEdge").objectReferenceValue = Material("M6_HonedEdge", new Color(.70f, .77f, .80f), .8f);
         data.ApplyModifiedPropertiesWithoutUndo();
+        ConfigureKnife(trial);
         var collider = root.AddComponent<BoxCollider>();
         collider.center = new Vector3(0, 1.05f, 0);
         collider.size = new Vector3(1.05f, .30f, .62f);
@@ -57,6 +52,59 @@ public static class SharpeningTrialBuilder
         AssetDatabase.SaveAssets();
         EditorSceneManager.SaveScene(scene);
         Debug.Log("M6 installed beside M3 at " + root.transform.position);
+    }
+
+    [MenuItem("Tools/Development Sandbox/Apply M6 Kitchen Models")]
+    public static void ApplyKitchenModels()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || UnityEngine.SceneManagement.SceneManager.GetActiveScene().isDirty)
+            throw new InvalidOperationException("Stop Play Mode and preserve scene edits first.");
+        var trial = UnityEngine.Object.FindAnyObjectByType<SharpeningTrial>();
+        if (trial == null) throw new InvalidOperationException("Open the sandbox with M6 first.");
+        // Rebind materials on the reimported FBX instances; preserve the station/camera/player setup.
+        foreach (var renderer in trial.GetComponentsInChildren<Renderer>().Where(r => r.GetComponentInParent<TextMesh>() == null))
+        {
+            if (!renderer.transform.IsChildOf(trial.transform.Find("Workbench")))
+            {
+                var source = PrefabUtility.GetCorrespondingObjectFromSource(renderer);
+                var materials = source != null ? source.sharedMaterials : renderer.sharedMaterials;
+                renderer.sharedMaterials = materials.Select(m =>
+                    Material(m.name, m.color, m.name.Contains("Steel") || m.name.Contains("Bevel") ? .7f : 0)).ToArray();
+                PrefabUtility.RecordPrefabInstancePropertyModifications(renderer);
+            }
+        }
+        ConfigureKnife(trial);
+        AssetDatabase.SaveAssets();
+        EditorSceneManager.SaveScene(trial.gameObject.scene);
+    }
+
+    private static void ConfigureKnife(SharpeningTrial trial)
+    {
+        var importer = (TextureImporter)AssetImporter.GetAtPath(Art + "M6PowderSpray.png");
+        importer.alphaSource = TextureImporterAlphaSource.FromInput;
+        importer.alphaIsTransparency = true;
+        importer.wrapModeU = TextureWrapMode.Repeat; importer.wrapModeV = TextureWrapMode.Clamp;
+        importer.maxTextureSize = 2048; importer.SaveAndReimport();
+        var path = Art + "M6_PowderCoating.mat";
+        var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (material == null)
+        {
+            material = new Material(Shader.Find("HustleScale/M6PowderCoating"));
+            AssetDatabase.CreateAsset(material, path);
+        }
+        material.SetTexture("_PowderMask", AssetDatabase.LoadAssetAtPath<Texture2D>(Art + "M6PowderSpray.png"));
+        material.SetColor("_Tint", new Color(.04f, .78f, 1));
+        EditorUtility.SetDirty(material);
+        var data = new SerializedObject(trial);
+        var knife = (Transform)data.FindProperty("knife").objectReferenceValue;
+        var coating = knife.GetComponentsInChildren<Renderer>().Single(r => r.name == "PowderCoating");
+        coating.sharedMaterial = material;
+        PrefabUtility.RecordPrefabInstancePropertyModifications(coating);
+        data.FindProperty("coating").objectReferenceValue = coating;
+        var samples = data.FindProperty("edgeSamples"); samples.arraySize = SharpeningTrialState.Sections;
+        for (var i = 0; i < samples.arraySize; i++)
+            samples.GetArrayElementAtIndex(i).objectReferenceValue = knife.GetComponentsInChildren<Transform>().Single(t => t.name == $"CuttingEdge_{i:00}");
+        data.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static GameObject Model(string name, Transform parent)
@@ -78,6 +126,15 @@ public static class SharpeningTrialBuilder
         material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         material.name = name; material.color = color;
         material.SetFloat("_Metallic", metal); material.SetFloat("_Smoothness", .28f);
+        if (name == "M6_ClearShield")
+        {
+            material.color = new Color(.55f, .68f, .69f, .16f);
+            material.SetFloat("_Surface", 1); material.SetFloat("_ZWrite", 0);
+            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.SetOverrideTag("RenderType", "Transparent"); material.renderQueue = 3000;
+        }
         if (name == "M6_UnfinishedEdge")
         {
             material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;
