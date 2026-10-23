@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Inventory;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Rendering.Universal;
 
 namespace Interactables
 {
@@ -48,37 +49,155 @@ namespace Interactables
             };
         }
 
+        private Camera neighbourhoodCamera;
+        private RenderTexture neighbourhoodTexture;
+        private Rect neighbourhoodBounds;
+        private bool wholeCityMap;
+        private Button mapCloseButton;
+        private Sprite mapPlayerArrow;
+        private Texture2D mapPlayerArrowTexture;
+
         private Vector2 MapPosition(float x, float z)
         {
-            var bounds = sceneBindings.MapBounds;
+            var bounds = neighbourhoodBounds;
             return new Vector2((x - bounds.xMin) / bounds.width, (z - bounds.yMin) / bounds.height);
         }
-        private void BuildLocalMap()
+
+        private void PrepareNeighbourhoodCamera()
         {
-            Line("МЕСТА РЯДОМ · вид сверху · север ↑", 21);
-            var map = Rect("Карта района", menuContent, Vector2.zero, Vector2.one);
-            map.gameObject.AddComponent<LayoutElement>().minHeight = 300 * textScale;
-            map.gameObject.AddComponent<Image>().color = new Color(0.07f, 0.13f, 0.14f);
-            foreach (var site in sceneBindings.Sites)
-                MapLabel(map, Title(site.Role), site.transform.position.x, site.transform.position.z);
-            MapLabel(map, "ПАЙКА", StationPosition.x, StationPosition.z);
-            var p = transform.position;
-            if (sceneBindings.MapBounds.Contains(new Vector2(p.x, p.z)))
+            var bounds = sceneBindings.MapBounds;
+            // Include the surrounding street junctions, not just the trading points.
+            neighbourhoodBounds = UnityEngine.Rect.MinMaxRect(bounds.xMin - 60, bounds.yMin - 60, bounds.xMax + 60, bounds.yMax + 60);
+            if (wholeCityMap)
             {
-                var marker = Rect("Ты здесь", map, MapPosition(p.x, p.z), MapPosition(p.x, p.z));
-                marker.sizeDelta = new Vector2(14, 14); marker.gameObject.AddComponent<Image>().color = new Color(1, 0.78f, 0.2f);
+                foreach (var sceneRoot in gameObject.scene.GetRootGameObjects())
+                    foreach (var renderer in sceneRoot.GetComponentsInChildren<Renderer>())
+                        if (renderer.name.StartsWith("Continuous ground", StringComparison.Ordinal))
+                        {
+                            var ground = renderer.bounds;
+                            neighbourhoodBounds = UnityEngine.Rect.MinMaxRect(ground.min.x, ground.min.z, ground.max.x, ground.max.z);
+                        }
             }
-            Line(!sceneBindings.MapBounds.Contains(new Vector2(p.x, p.z)) ?
-                "Ты за пределами области карты." :
-                "Жёлтый квадрат — ты. Точки соответствуют объектам сцены. Выбирай любую сделку; обязательного маршрута нет.");
+            else if (!neighbourhoodBounds.Contains(new Vector2(transform.position.x, transform.position.z)))
+                neighbourhoodBounds.center = new Vector2(transform.position.x, transform.position.z);
+
+            var aspect = neighbourhoodBounds.width / neighbourhoodBounds.height;
+            var height = Mathf.RoundToInt(1536 / aspect);
+            if (neighbourhoodTexture == null || neighbourhoodTexture.height != height)
+            {
+                if (neighbourhoodCamera != null) neighbourhoodCamera.targetTexture = null;
+                if (neighbourhoodTexture != null) { neighbourhoodTexture.Release(); Destroy(neighbourhoodTexture); }
+                neighbourhoodTexture = new RenderTexture(1536, height, 24) { name = "Neighbourhood terrain" };
+                neighbourhoodTexture.Create();
+            }
+            if (neighbourhoodCamera == null)
+            {
+                var cameraObject = new GameObject("Neighbourhood map camera", typeof(Camera), typeof(UniversalAdditionalCameraData));
+                cameraObject.transform.SetParent(root, false);
+                neighbourhoodCamera = cameraObject.GetComponent<Camera>();
+                neighbourhoodCamera.orthographic = true;
+                neighbourhoodCamera.clearFlags = CameraClearFlags.SolidColor;
+                neighbourhoodCamera.backgroundColor = SlotPaper;
+                neighbourhoodCamera.nearClipPlane = .1f; neighbourhoodCamera.farClipPlane = 180;
+                neighbourhoodCamera.cullingMask = eye.cullingMask & ~(1 << 2);
+                neighbourhoodCamera.useOcclusionCulling = false;
+                neighbourhoodCamera.allowHDR = false; neighbourhoodCamera.allowMSAA = false;
+                var data = cameraObject.GetComponent<UniversalAdditionalCameraData>();
+                data.renderPostProcessing = false;
+            }
+            neighbourhoodCamera.targetTexture = neighbourhoodTexture;
+            neighbourhoodCamera.aspect = aspect;
+            neighbourhoodCamera.orthographicSize = neighbourhoodBounds.height * .5f;
+            neighbourhoodCamera.transform.SetPositionAndRotation(new Vector3(neighbourhoodBounds.center.x, 120, neighbourhoodBounds.center.y),
+                Quaternion.Euler(90, 0, 0));
+            neighbourhoodCamera.enabled = false;
+            DrawCartographicMap();
         }
 
-        private void MapLabel(Transform map, string value, float x, float z)
+        private void BuildLocalMap()
         {
-            var label = Label(map, value, 15); label.alignment = TextAnchor.MiddleCenter;
-            label.rectTransform.anchorMin = label.rectTransform.anchorMax = MapPosition(x, z);
-            label.rectTransform.sizeDelta = new Vector2(205, 48 * textScale);
-            label.rectTransform.sizeDelta = new Vector2(205, Mathf.Max(48 * textScale, label.preferredHeight + 4));
+            PrepareNeighbourhoodCamera();
+            var controls = Rect("Map controls", menuContent, Vector2.zero, Vector2.one);
+            controls.gameObject.AddComponent<LayoutElement>().preferredHeight = 44 * textScale;
+            var controlsLayout = controls.gameObject.AddComponent<HorizontalLayoutGroup>();
+            controlsLayout.spacing = 8;
+            controlsLayout.childControlWidth = controlsLayout.childControlHeight = true;
+            ActionButton(controls, "Инвентарь", () => { showInventoryMap = false; RebuildMenu(); });
+            ActionButton(controls, wholeCityMap ? "Приблизить район" : "Весь город", () => { wholeCityMap = !wholeCityMap; RebuildMenu(); });
+            mapCloseButton = ActionButton(controls, "Закрыть карту", CloseMenu);
+            foreach (var button in controls.GetComponentsInChildren<Button>())
+            {
+                var colors = button.colors; colors.normalColor = Color.clear;
+                colors.highlightedColor = colors.selectedColor = new Color(.64f, .86f, .73f, .12f);
+                button.colors = colors;
+            }
+            var frame = Rect("Map viewport", menuContent, Vector2.zero, Vector2.one);
+            frame.gameObject.AddComponent<LayoutElement>().preferredHeight = Mathf.Max(140,
+                Mathf.Min(400, safeArea.rect.height * .53f, safeArea.rect.height * .88f - 156 - 60 * textScale));
+            var map = Rect("Карта района", frame, Vector2.zero, Vector2.one);
+            var image = map.gameObject.AddComponent<RawImage>(); image.texture = neighbourhoodTexture;
+            var fit = map.gameObject.AddComponent<AspectRatioFitter>();
+            fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            fit.aspectRatio = neighbourhoodBounds.width / neighbourhoodBounds.height;
+            var labelPositions = new System.Collections.Generic.List<UnityEngine.Rect>();
+            foreach (var site in sceneBindings.Sites)
+            {
+                var position = site.transform.position;
+                if (wholeCityMap && site.Role != CityTradeKind.Workshop) continue;
+                if (!neighbourhoodBounds.Contains(new Vector2(position.x, position.z))) continue;
+                MapLabel(map, Title(site.Role), position.x, position.z, labelPositions);
+            }
+            var p = transform.position;
+            if (neighbourhoodBounds.Contains(new Vector2(p.x, p.z)))
+            {
+                var marker = Rect("Ты здесь", map, MapPosition(p.x, p.z), MapPosition(p.x, p.z));
+                if (mapPlayerArrow == null)
+                {
+                    mapPlayerArrowTexture = new Texture2D(32, 32, TextureFormat.RGBA32, false);
+                    for (var y = 0; y < 32; y++)
+                        for (var x = 0; x < 32; x++)
+                            mapPlayerArrowTexture.SetPixel(x, y, y >= 5 && y <= 29 && Mathf.Abs(x - 15.5f) <= (29 - y) * .45f ? Color.white : Color.clear);
+                    mapPlayerArrowTexture.Apply(false, true);
+                    mapPlayerArrow = Sprite.Create(mapPlayerArrowTexture, new UnityEngine.Rect(0, 0, 32, 32), Vector2.one * .5f);
+                }
+                marker.sizeDelta = new Vector2(22, 22);
+                marker.localRotation = Quaternion.Euler(0, 0, -transform.eulerAngles.y);
+                var arrow = marker.gameObject.AddComponent<Image>(); arrow.sprite = mapPlayerArrow;
+                arrow.color = new Color(.9f, .5f, .07f);
+            }
+            Line("Север — вверху · жёлтая метка — ты", 16);
+        }
+
+        private void MapLabel(Transform map, string value, float x, float z, System.Collections.Generic.List<UnityEngine.Rect> occupied)
+        {
+            Canvas.ForceUpdateCanvases();
+            var label = Label(map, value, 12); label.color = Ink;
+            var position = MapPosition(x, z);
+            label.rectTransform.anchorMin = label.rectTransform.anchorMax = position;
+            var size = new Vector2(label.preferredWidth + 8, 22 * textScale);
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.rectTransform.sizeDelta = size;
+            var mapRect = (RectTransform)map;
+            var center = Vector2.Scale(position, mapRect.rect.size);
+            var offset = Vector2.up * 14;
+            for (var attempt = 0; attempt < 12; attempt++)
+            {
+                var candidate = new UnityEngine.Rect(center + offset - size * .5f, size);
+                if (!occupied.Exists(other => other.Overlaps(candidate))) { occupied.Add(candidate); break; }
+                offset.y += size.y * (attempt % 2 == 0 ? -1 : 1) * (attempt + 1);
+            }
+            label.rectTransform.anchoredPosition = offset;
+            label.rectTransform.anchoredPosition = new Vector2(
+                Mathf.Clamp(center.x + offset.x, size.x * .5f, mapRect.rect.width - size.x * .5f) - center.x,
+                Mathf.Clamp(center.y + offset.y, size.y * .5f, mapRect.rect.height - size.y * .5f) - center.y);
+        }
+
+        private void DisposeNeighbourhoodMap()
+        {
+            if (neighbourhoodCamera != null) { neighbourhoodCamera.targetTexture = null; Destroy(neighbourhoodCamera.gameObject); }
+            if (neighbourhoodTexture != null) { neighbourhoodTexture.Release(); Destroy(neighbourhoodTexture); }
+            DisposeCartography();
+            Destroy(mapPlayerArrow); Destroy(mapPlayerArrowTexture);
         }
     }
 }

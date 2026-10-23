@@ -32,6 +32,7 @@ namespace Interactables
             if (feedbackLabel != null) feedbackLabel.fontSize = Mathf.RoundToInt(18 * textScale);
             if (menuHeading != null) menuHeading.fontSize = Mathf.RoundToInt(24 * textScale);
             if (textSizeButton != null) textSizeButton.GetComponentInChildren<Text>().fontSize = Mathf.RoundToInt(18 * textScale);
+            foreach (var count in inventoryCounts) if (count != null) count.fontSize = Mathf.RoundToInt(17 * textScale);
             ResizeHud();
             if (MenuOpen) RebuildMenu();
             pauseSignature = null;
@@ -87,9 +88,8 @@ namespace Interactables
             orderHud = Label(orders, "", 18); orderHud.alignment = TextAnchor.MiddleLeft;
             orderHud.rectTransform.offsetMin = new Vector2(18, 10); orderHud.rectTransform.offsetMax = new Vector2(-14, -10);
             BuildInventoryBar(safe);
-            var context = Rect("Action context", safe, new Vector2(0.18f, 0.19f), new Vector2(0.82f, 0.19f));
+            var context = Rect("Action context", safe, new Vector2(0.18f, 0.13f), new Vector2(0.82f, 0.13f));
             bottomContext = context; context.pivot = new Vector2(0.5f, 0);
-            Round(context, new Color(0.055f, 0.07f, 0.085f, 0.94f));
             var contextLayout = context.gameObject.AddComponent<VerticalLayoutGroup>();
             contextLayout.padding = new RectOffset(10, 10, 8, 8); contextLayout.spacing = 4;
             contextLayout.childControlWidth = contextLayout.childControlHeight = true;
@@ -170,32 +170,43 @@ namespace Interactables
             try
             {
                 HideProductTooltip();
+                panel.GetComponent<Image>().enabled = current != null;
+                panel.GetComponent<Shadow>().enabled = current != null;
                 menuContent.GetComponent<VerticalLayoutGroup>().spacing = current == null ? 6 : 12;
                 var focused = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
                 var focusName = focused != null && focused.transform.IsChildOf(menuContent) ? focused.name.Replace("[x]", "[ ]") : null;
                 var scrollPosition = menuScroll.verticalNormalizedPosition;
                 foreach (Transform child in menuContent) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
-                menuHeading.text = current != null ? Title(current.Kind) : "Инвентарь";
+                menuHeading.text = current != null ? Title(current.Kind) : showInventoryMap ? "Карта района" : "Инвентарь";
                 menuWallet.text = "$" + session.Balance;
-                if (message.Length > 0 && (displayedMessage != message || Time.unscaledTime < messageUntil)) Line(CityMessage(message));
+                if ((current != null || !showInventoryMap) && message.Length > 0 && (displayedMessage != message || Time.unscaledTime < messageUntil)) Line(CityMessage(message));
                 if (current == null)
                 {
-                    BuildInventoryGrid();
-                    Button(showInventoryMap ? "Скрыть карту" : "Карта окрестности", () => { showInventoryMap = !showInventoryMap; RebuildMenu(); });
-                    if (showInventoryMap) BuildLocalMap();
-                    if (Reachable(crate.GetComponent<CityTradePoint>()))
+                    if (showInventoryMap)
                     {
-                        Button("Ящик: забрать содержимое", () => Execute("contents"));
-                        if (session.InHands != null)
-                        {
-                            var heldSlot = -1;
-                            for (var i = 0; i < lamps.Length; i++)
-                                if (session.CityUnit(i) == session.InHands) heldSlot = i;
-                            Button("Положить фонарь в ящик", () => Execute("unit", heldSlot));
-                        }
+                        BuildLocalMap();
                     }
-                    Button(showControls ? "Скрыть управление" : "Управление", () => { showControls = !showControls; RebuildMenu(); });
-                    if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — поставить · F — свет\nУ верстака: T — тест · R — замена батареи\nTab — инвентарь · Esc — пауза · F5 / F9 в паузе — сохранить / загрузить");
+                    else
+                    {
+                        BuildInventoryGrid();
+                        Button("Карта окрестности", () => { showInventoryMap = true; RebuildMenu(); });
+                    }
+                    if (!showInventoryMap)
+                    {
+                        if (Reachable(crate.GetComponent<CityTradePoint>()))
+                        {
+                            Button("Ящик: забрать содержимое", () => Execute("contents"));
+                            if (session.InHands != null)
+                            {
+                                var heldSlot = -1;
+                                for (var i = 0; i < lamps.Length; i++)
+                                    if (session.CityUnit(i) == session.InHands) heldSlot = i;
+                                Button("Положить фонарь в ящик", () => Execute("unit", heldSlot));
+                            }
+                        }
+                        Button(showControls ? "Скрыть управление" : "Управление", () => { showControls = !showControls; RebuildMenu(); });
+                        if (showControls) Line("E — действие · 1–3 — фонарь · G — убрать · Q — поставить · F — свет\nУ верстака: T — тест · R — замена батареи\nTab — карта · Esc — пауза · F5 / F9 в паузе — сохранить / загрузить");
+                    }
                 }
                 else switch (current.Kind)
                     {
@@ -249,7 +260,7 @@ namespace Interactables
                             Line("После теста: исправный $60 · неисправный $35");
                             SelectGoods(); Button("Продать выбранные остатки", () => Execute("sell")); break;
                     }
-                var close = BackButton();
+                var close = current == null && showInventoryMap ? mapCloseButton : BackButton();
                 Button first = null, restore = null;
                 foreach (var button in menuContent.GetComponentsInChildren<Button>())
                 {
@@ -300,6 +311,14 @@ namespace Interactables
         private Button Button(string value, Action action, bool enabled = true)
         {
             var button = ActionButton(menuContent, value, action, enabled);
+            if (current == null)
+            {
+                var colors = button.colors;
+                colors.normalColor = Color.clear;
+                colors.highlightedColor = colors.selectedColor = new Color(.64f, .86f, .73f, .12f);
+                colors.pressedColor = new Color(.64f, .86f, .73f, .2f);
+                button.colors = colors;
+            }
             if (value == "Принять заказ" || value.StartsWith("Передать", StringComparison.Ordinal)) SetButtonTone(button, true);
             return button;
         }

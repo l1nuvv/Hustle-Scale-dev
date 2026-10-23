@@ -29,7 +29,60 @@ public static class UIInteractionVerification
         {
             save.NewGame();
             walk.SetPaused(false);
-            if (scenario == "Inventory")
+            if (scenario == "Map")
+            {
+                trade.SendMessage("Inventory"); yield return null; yield return null;
+                var map = GameObject.Find("Карта района").GetComponent<RawImage>();
+                var camera = GameObject.Find("Neighbourhood map camera").GetComponent<Camera>();
+                check(!camera.enabled && camera.orthographic && camera.targetTexture == map.texture, "map draws scene meshes once as a cartographic plan");
+                check(camera.transform.forward.y < -.99f && camera.transform.up.z > .99f, "map is top down with north up");
+                check(GameObject.Find("Inventory grid") == null, "map replaces inventory grid");
+                var target = camera.targetTexture;
+                check(Mathf.Abs(map.rectTransform.rect.width / map.rectTransform.rect.height - camera.aspect) < .01f,
+                    "terrain aspect is preserved");
+                var landmark = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                landmark.transform.position = new Vector3(camera.transform.position.x, 45, camera.transform.position.z);
+                landmark.transform.localScale = new Vector3(12, 2, 12);
+                var pixels = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
+                var previous = RenderTexture.active;
+                try
+                {
+                    RenderTexture.active = target;
+                    pixels.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); pixels.Apply();
+                    var roadPosition = camera.WorldToViewportPoint(new Vector3(0, .1f, 60));
+                    var roadColor = pixels.GetPixel(Mathf.RoundToInt(roadPosition.x * (target.width - 1)), Mathf.RoundToInt(roadPosition.y * (target.height - 1)));
+                    check(roadColor.r > .94f && roadColor.b > .9f, "existing asphalt is drawn as a light road, not invented vegetation: " + roadColor);
+                    var before = pixels.GetPixel(target.width / 2, target.height / 2);
+                    trade.SendMessage("RebuildMenu");
+                    RenderTexture.active = target;
+                    pixels.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); pixels.Apply();
+                    var after = pixels.GetPixel(target.width / 2, target.height / 2);
+                    File.WriteAllBytes(Path.Combine(output, "map-diagnostic.png"), pixels.EncodeToPNG());
+                    check(Vector3.Distance(new Vector3(before.r, before.g, before.b), new Vector3(after.r, after.g, after.b)) > .05f,
+                        "adding a real scene object changes its matching map coordinate: " + before + " -> " + after);
+                }
+                finally
+                {
+                    RenderTexture.active = previous;
+                    UnityEngine.Object.Destroy(pixels); UnityEngine.Object.Destroy(landmark);
+                }
+                yield return null; yield return null;
+                trade.SendMessage("RebuildMenu"); yield return null; yield return null;
+                Layout(check, "terrain map");
+                ScreenCapture.CaptureScreenshot(Path.Combine(output, "map-terrain.png"));
+                yield return null; yield return null;
+                GameObject.Find("Весь город").GetComponent<Button>().onClick.Invoke();
+                yield return null; yield return null; yield return null;
+                check(camera.orthographicSize > 500, "city view covers actual ground extents");
+                ScreenCapture.CaptureScreenshot(Path.Combine(output, "map-city.png"));
+                yield return null; yield return null;
+                GameObject.Find("Инвентарь").GetComponent<Button>().onClick.Invoke();
+                yield return null; yield return null;
+                check(!camera.enabled && GameObject.Find("Inventory grid") != null, "map camera stops rendering when inventory returns");
+                trade.CloseMenu(); yield return null; yield return null;
+                check(!camera.enabled, "map camera stays disabled in gameplay");
+            }
+            else if (scenario == "Inventory")
             {
                 var session = trade.Session;
                 check(session.PurchaseCityLamp(out _), "buy first inventory instance");
@@ -38,6 +91,11 @@ public static class UIInteractionVerification
                 var firstId = session.CityUnit(0).InstanceId;
                 var canvas = GameObject.Find("City trading UI").transform;
                 var bar = canvas.Find("Safe area/Inventory bar");
+                check(bar.GetComponent<Image>() == null && bar.GetComponentsInChildren<Outline>().Length == 0,
+                    "hotbar has no enclosing background or black outlines");
+                Canvas.ForceUpdateCanvases();
+                check(bar.Find("Quick slots").Cast<Transform>().All(t => Mathf.Abs(((RectTransform)t).rect.width - ((RectTransform)t).rect.height) < .1f),
+                    "hotbar consists of small square cells");
                 Func<int, string> barCount = i => bar.Find("Quick slots/Quick slot " + i).GetComponentsInChildren<Text>(true).Last().text;
                 check(barCount(0) == "×2" && barCount(1) == "×1" && barCount(2) == "" && barCount(5) == "",
                     "hotbar uses owned instances and actual battery quantity");
@@ -45,10 +103,12 @@ public static class UIInteractionVerification
                 yield return null; yield return null;
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                 yield return null; yield return null;
-                check(trade.MenuOpen && walk.IsPaused && session.IsPaused, "real Tab opens modal inventory");
+                check(trade.MenuOpen && walk.IsPaused && session.IsPaused && GameObject.Find("Карта района") != null, "real Tab opens modal scene map");
+                GameObject.Find("Инвентарь").GetComponent<Button>().onClick.Invoke();
+                yield return null; yield return null;
                 check(!bar.gameObject.activeInHierarchy, "modal inventory hides duplicate hotbar");
                 check(GameObject.Find("Inventory grid") != null && GameObject.Find("Карта окрестности") != null,
-                    "Tab defaults to item grid with map available separately");
+                    "inventory grid is available directly from map");
                 var grid = GameObject.Find("Inventory grid").transform;
                 check(grid.childCount == 24 && grid.GetComponentsInChildren<Image>().Count(i => i.name == "Thumbnail" && i.sprite != null) == 2,
                     "24 cells contain only the two owned item types");
@@ -99,6 +159,7 @@ public static class UIInteractionVerification
                 check(session.ToggleBench(out _), "move held item to bench");
                 check(barCount(0) == "×1", "bench item no longer counts in hotbar stack");
                 trade.SendMessage("Inventory"); yield return null; yield return null;
+                GameObject.Find("Инвентарь").GetComponent<Button>().onClick.Invoke(); yield return null; yield return null;
                 grid = GameObject.Find("Inventory grid").transform;
                 grid.GetChild(0).GetComponent<Button>().onClick.Invoke();
                 yield return null; yield return null;
@@ -242,9 +303,16 @@ public static class UIInteractionVerification
                             }
                             trade.CloseMenu(); trade.SendMessage("Inventory");
                             yield return null; yield return null;
+                            GameObject.Find("Инвентарь").GetComponent<Button>().onClick.Invoke();
+                            yield return null; yield return null;
                             Layout(check, size + " map " + scale);
                             if (size == sizes[0] && scale == 1.5f)
                             { ScreenCapture.CaptureScreenshot(Path.Combine(output, "map-1280x720.png")); yield return null; }
+                            GameObject.Find("Карта окрестности").GetComponent<Button>().onClick.Invoke();
+                            yield return null; yield return null; yield return null;
+                            Layout(check, size + " terrain map " + scale);
+                            GameObject.Find("Инвентарь").GetComponent<Button>().onClick.Invoke();
+                            yield return null; yield return null;
                             var controls = GameObject.Find("Управление");
                             if (controls != null) controls.GetComponent<Button>().onClick.Invoke();
                             yield return null; yield return null;

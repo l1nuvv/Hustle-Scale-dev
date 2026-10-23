@@ -229,7 +229,7 @@ namespace Interactables
             if (MenuOpen) { CloseMenu(); return; }
             if (!Allowed) return;
             current = null;
-            showInventoryMap = false;
+            showInventoryMap = true;
             inventorySelection = -1;
             UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
             walk.SetPaused(true); panel.SetActive(true); RebuildMenu();
@@ -489,6 +489,7 @@ namespace Interactables
             if (ownedEventSystem != null) Destroy(ownedEventSystem);
             DisposeFeedback();
             DisposeUiArtwork();
+            DisposeNeighbourhoodMap();
         }
     }
 }

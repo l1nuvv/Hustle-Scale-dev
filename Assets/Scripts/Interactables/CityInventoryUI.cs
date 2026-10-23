@@ -60,10 +60,9 @@ namespace Interactables
             solderTexture.Apply(false, true);
             solderIcon = Sprite.Create(solderTexture, new Rect(0, 0, 96, 96), Vector2.one * .5f);
             inventoryBar = Rect("Inventory bar", parent, new Vector2(.5f, .025f), new Vector2(.5f, .025f));
-            inventoryBar.pivot = new Vector2(.5f, 0); inventoryBar.sizeDelta = new Vector2(510, 104);
-            Round(inventoryBar, new Color(.055f, .07f, .085f, .96f));
+            inventoryBar.pivot = new Vector2(.5f, 0); inventoryBar.sizeDelta = new Vector2(385, 60);
             var row = Rect("Quick slots", inventoryBar, Vector2.zero, Vector2.one);
-            row.offsetMin = new Vector2(9, 30); row.offsetMax = new Vector2(-9, -8);
+            row.offsetMin = row.offsetMax = Vector2.zero;
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = 5; layout.childControlWidth = layout.childControlHeight = true;
             layout.childForceExpandWidth = layout.childForceExpandHeight = true;
@@ -71,7 +70,8 @@ namespace Interactables
             {
                 var slot = Rect("Quick slot " + i, row, Vector2.zero, Vector2.one);
                 slot.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
-                inventoryFrames[i] = Round(slot, SlotPaper);
+                inventoryFrames[i] = slot.gameObject.AddComponent<Image>();
+                inventoryFrames[i].color = SlotPaper;
                 var image = Rect("Thumbnail", slot, Vector2.zero, Vector2.one).gameObject.AddComponent<Image>();
                 image.rectTransform.offsetMin = new Vector2(9, 9); image.rectTransform.offsetMax = new Vector2(-9, -9);
                 image.preserveAspect = true; image.raycastTarget = false; inventoryPictures[i] = image;
@@ -80,9 +80,6 @@ namespace Interactables
                 count.rectTransform.offsetMin = new Vector2(0, 2); count.rectTransform.offsetMax = new Vector2(-4, 0);
                 inventoryCounts[i] = count;
             }
-            var hint = Label(inventoryBar, "Tab · инвентарь     1–3 · фонарь     G · убрать", 13);
-            hint.color = Muted; hint.rectTransform.anchorMax = new Vector2(1, 0);
-            hint.rectTransform.pivot = new Vector2(.5f, 0); hint.rectTransform.sizeDelta = new Vector2(0, 28);
         }
 
         private void RefreshInventoryBar()
@@ -114,7 +111,8 @@ namespace Interactables
             {
                 var slot = Rect("Inventory cell " + i, grid, Vector2.zero, Vector2.one);
                 var kind = i < items.Count ? items[i] : -1;
-                var background = Round(slot, kind >= 0 && (inventorySelection == kind || InventoryHeld(kind)) ? Mint : SlotPaper);
+                var background = slot.gameObject.AddComponent<Image>();
+                background.color = kind >= 0 && (inventorySelection == kind || InventoryHeld(kind)) ? Mint : SlotPaper;
                 if (kind < 0) continue;
                 var art = Rect("Thumbnail", slot, Vector2.zero, Vector2.one).gameObject.AddComponent<Image>();
                 art.rectTransform.offsetMin = Vector2.one * 10; art.rectTransform.offsetMax = Vector2.one * -10;

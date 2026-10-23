@@ -28,6 +28,8 @@ public sealed class UIInteractionTests
     public IEnumerator ResumingVehicleDoesNotExitIt() => Run("VehiclePause");
     [UnityTest]
     public IEnumerator InventoryThumbnailsFollowItemsAndModalInput() => Run("Inventory");
+    [UnityTest]
+    public IEnumerator NeighbourhoodMapShowsActualSceneTerrain() => Run("Map");
 
     private static IEnumerator Run(string scenario)
     {
