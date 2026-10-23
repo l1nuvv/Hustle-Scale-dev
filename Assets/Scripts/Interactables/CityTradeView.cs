@@ -173,6 +173,9 @@ namespace Interactables
             var collider = point.GetComponent<Collider>();
             if (collider == null || !collider.enabled) return false;
             var target = collider.bounds.center;
+            // A merchant behind a counter is visible at chest/head height; a ray to
+            // the full-body collider's waist would incorrectly hit the counter.
+            if (point.GetComponent<CityTradeReaction>() != null) target.y += collider.bounds.extents.y * .6f;
             return Vector3.Distance(eye.transform.position, collider.ClosestPoint(eye.transform.position)) <= 2.5f &&
                 Physics.Linecast(eye.transform.position, target, out var hit, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
                 hit.collider == collider;

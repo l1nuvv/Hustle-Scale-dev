@@ -60,7 +60,7 @@ namespace Interactables
             if (name.Contains("dashed line") || name.Contains("road marking")) return 7;
             if (name.StartsWith("tree", StringComparison.Ordinal) || materialName.Contains("park") || materialName.Contains("grass")) return 4;
             if (path.Contains("vehicle")) return 6;
-            if (path.Contains("building |") || name.Contains("roof") || name.Contains("wall")) return 3;
+            if (path.Contains("building |") || name.StartsWith("building surface", StringComparison.Ordinal) || name.Contains("roof") || name.Contains("wall")) return 3;
             if (materialName.Contains("asphalt") || name.Contains("street") && !name.Contains("sidewalk") && !name.Contains("curb")) return 1;
             if (materialName.Contains("pavement") || name.Contains("pavement") || name.Contains("sidewalk") || name.Contains("yard") || name.Contains("courtyard") || name.Contains("curb")) return 2;
             return 5;
@@ -112,6 +112,9 @@ namespace Interactables
 
         private static void AddRoofContour(MeshRenderer renderer, List<Vector3> vertices, List<int> triangles)
         {
+            // DCC roofs already contain their eaves, gutters and ridges. Their combined
+            // mesh bounds would draw a fictitious rectangle across separate buildings.
+            if (renderer.GetComponent<MeshFilter>().sharedMesh.vertexCount > 24) return;
             var bounds = renderer.localBounds;
             var top = bounds.max.y + .025f;
             var corners = new[] { new Vector3(bounds.min.x, top, bounds.min.z), new Vector3(bounds.max.x, top, bounds.min.z),

@@ -38,14 +38,12 @@ public static class UIInteractionVerification
                 var expectedPayment = s.CityUnit(0).LastTestPassed ? 60 : 35;
                 var seller = trade.Points.First(p => p.Kind == CityTradeKind.Seller && p.GetComponent<CityTradeReaction>() != null);
                 var collider = seller.GetComponent<Collider>();
-                foreach (var direction in new[] { seller.transform.forward, -seller.transform.forward, seller.transform.right, -seller.transform.right })
-                {
-                    var origin = collider.bounds.center + direction * 1.8f; origin.y = 1.73f;
-                    if (!Physics.Linecast(origin, collider.bounds.center, out var hit) || hit.collider != collider) continue;
-                    var rotation = Quaternion.LookRotation(collider.bounds.center - origin).eulerAngles;
-                    player.RestorePose(new Vector3(origin.x, .08f, origin.z), rotation.y, Mathf.DeltaAngle(0, rotation.x));
-                    Physics.SyncTransforms(); break;
-                }
+                var customer = new Vector3(collider.bounds.center.x, .08f, collider.bounds.center.z - 2);
+                player.RestorePose(customer, 0, 0);
+                Physics.SyncTransforms();
+                var counter = GameObject.Find("CitySeller").transform.Find("Прилавок фонарей").GetComponent<Collider>();
+                check(collider.bounds.min.z > counter.bounds.max.z, "seller stands behind the counter on staff side");
+                check(trade.Reachable(seller), "seller is reachable across the counter from customer side");
                 trade.Open(seller); yield return null; yield return null;
                 check(trade.MenuOpen, "nearby dealer opens purchase menu");
                 GameObject.Find("Продать фонари").GetComponent<Button>().onClick.Invoke();
