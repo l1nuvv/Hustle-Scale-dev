@@ -15,6 +15,7 @@ namespace Player
         [SerializeField, HideInInspector] private GameObject solderingStationPrefab;
         public GameObject SolderingStationPrefab => solderingStationPrefab;
         public Interactables.SolderingTrial SolderingStation { get; set; }
+        public Interactables.SharpeningTrial SharpeningStation { get; set; }
         private PlayerController _player;
         private bool _paused;
         private bool _confirmNewGame;
@@ -41,7 +42,7 @@ namespace Player
             if (_trade == null || !_trade.enabled) return;
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
-            if (SolderingStation != null && SolderingStation.IsActive && !_paused) return;
+            if ((SolderingStation != null && SolderingStation.IsActive || SharpeningStation != null && SharpeningStation.Active) && !_paused) return;
             if (keyboard.escapeKey.wasPressedThisFrame)
             {
                 if (_trade.MenuOpen) { _trade.CloseMenu(); return; }

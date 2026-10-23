@@ -59,7 +59,7 @@ namespace Inventory
         {
             if (!CanHandleItems(out message)) return false;
             if (IsCrateInVehicle) return Reject("Сначала возьми ящик из багажника.", out message);
-            if (InHands != null) return Reject("Return the lamp before carrying the crate.", out message);
+            if (InHands != null || KnifeInHands) return Reject("Return the lamp before carrying the crate.", out message);
             IsCrateCarried = !IsCrateCarried;
             if (IsCrateCarried) HasTransportedCrate = true;
             return Complete(IsCrateCarried ? "Crate in hands. All stored lamps move with it." :
@@ -80,7 +80,7 @@ namespace Inventory
                 return Complete("Lamp returned to the crate.", out message);
             }
             if (unit.Location != FlashlightLocation.Crate) return Reject("This lamp is not in your crate.", out message);
-            if (InHands != null) return Reject("Hands occupied. Store or place that lamp first.", out message);
+            if (InHands != null || KnifeInHands) return Reject("Hands occupied. Store or place that lamp first.", out message);
             unit.Location = FlashlightLocation.Hands;
             return Complete("Lamp in hands: " + unit.KnownCondition, out message);
         }
@@ -92,7 +92,7 @@ namespace Inventory
             if (IsCrateCarried) return Reject("Dock the crate first.", out message);
             if (OnBench != null)
             {
-                if (InHands != null) return Reject("Hands occupied; bench already contains a lamp.", out message);
+                if (InHands != null || KnifeInHands) return Reject("Hands occupied; bench already contains a lamp.", out message);
                 OnBench.Location = FlashlightLocation.Hands;
                 return Complete("Lamp retrieved from bench.", out message);
             }

@@ -20,6 +20,22 @@ namespace Inventory
         public CityOrderData[] Orders;
         public CityWorldData World;
         public CitySolderingData Soldering;
+        public CitySharpeningData Sharpening;
+    }
+
+    public enum KnifeLocation { Pocket, Hands, World, Station, Buyer, BoughtBack }
+
+    [Serializable]
+    public sealed class CitySharpeningData
+    {
+        public bool StationOwned, KnifePurchased, FinalTest;
+        public string InstanceId, DeliveredId;
+        public KnifeLocation Location;
+        public Vector3 Position;
+        public float Yaw;
+        public float[] Coverage = new float[12];
+        public int CoatingSeed;
+        public CityOrderData Order = new CityOrderData { Id = DealOrderId.Sharpen, State = DealOrderState.Locked };
     }
 
     [Serializable]

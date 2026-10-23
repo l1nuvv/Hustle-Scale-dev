@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Interactables
 {
-    public enum CityTradeKind { Seller, Battery, Buyback, A, B, Workshop, SellerDock, WorkshopDock, Crate, Lamp, Cargo }
+    public enum CityTradeKind { Seller, Battery, Buyback, A, B, Workshop, SellerDock, WorkshopDock, Crate, Lamp, Cargo, Knife }
 
     public sealed class CityTradePoint : MonoBehaviour, IWorldInteraction, IPickupTarget
     {
@@ -21,6 +21,7 @@ namespace Interactables
             View = view; this.kind = kind; this.index = index;
             // The raycast reads this every frame. Static point text changes only on Bind.
             prompt = kind == CityTradeKind.Crate ? "E — взять ящик · Tab рядом — содержимое" :
+                kind == CityTradeKind.Knife ? "E — подобрать кухонный нож" :
                 kind == CityTradeKind.Lamp ? "E — Подобрать фонарь " + (index + 1) : "E — " + CityTradeView.Title(kind);
         }
         public void Interact() { if (View != null) View.Open(this); }

@@ -22,7 +22,7 @@ namespace Inventory
         public bool LoadVehicleCrate(out string message)
         {
             if (!CanHandleItems(out message)) return false;
-            if (!IsCity || IsCrateInVehicle || !IsCrateCarried || InHands != null)
+            if (!IsCity || IsCrateInVehicle || !IsCrateCarried || KnifeInHands || InHands != null)
                 return Reject("Возьми ящик в руки; с фонарём в руках погрузка невозможна.", out message);
             IsCrateCarried = false;
             IsCrateInVehicle = true;
@@ -33,7 +33,7 @@ namespace Inventory
         public bool UnloadVehicleCrate(out string message)
         {
             if (!CanHandleItems(out message)) return false;
-            if (!IsCity || !IsCrateInVehicle || IsCrateCarried || InHands != null)
+            if (!IsCity || !IsCrateInVehicle || IsCrateCarried || KnifeInHands || InHands != null)
                 return Reject("Для выгрузки ящика освободи руки.", out message);
             IsCrateInVehicle = false;
             IsCrateCarried = true;
@@ -45,6 +45,7 @@ namespace Inventory
         public bool StowHeld(out string message)
         {
             if (!CanHandleItems(out message)) return false;
+            if (KnifeInHands) return EquipKnife(out message);
             var held = InHands;
             if (held == null) return Reject("В руках нет фонаря.", out message);
             held.IsPowered = false;
@@ -60,7 +61,7 @@ namespace Inventory
             var unit = CityUnit(index);
             if (unit.Location != FlashlightLocation.Pocket && unit.Location != FlashlightLocation.Hands)
                 return Reject("Слот пуст: сначала забери фонарь из ящика, со стола или с поверхности.", out message);
-            if (IsCrateCarried) return Reject("Сначала поставь ящик.", out message);
+            if (IsCrateCarried || KnifeInHands) return Reject(KnifeInHands ? "Сначала убери или поставь нож." : "Сначала поставь ящик.", out message);
             if (unit.Location == FlashlightLocation.Hands) return StowHeld(out message);
             var held = InHands;
             if (held != null)
@@ -86,7 +87,7 @@ namespace Inventory
             if (!CanHandleItems(out message)) return false;
             if (CityUnit(index) == null || CityUnit(index).Location != FlashlightLocation.World)
                 return Reject("Здесь нет твоего свободно стоящего фонаря.", out message);
-            if (IsCrateCarried) return Reject("Сначала поставь ящик.", out message);
+            if (IsCrateCarried || KnifeInHands) return Reject(KnifeInHands ? "Сначала убери или поставь нож." : "Сначала поставь ящик.", out message);
             var held = InHands;
             if (held != null)
             {

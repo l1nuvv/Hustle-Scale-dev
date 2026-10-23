@@ -7,7 +7,7 @@ using UnityEngine.InputSystem;
 namespace Interactables
 {
     [DefaultExecutionOrder(200)]
-    public sealed class SharpeningTrial : MonoBehaviour, IWorldInteraction
+    public sealed partial class SharpeningTrial : MonoBehaviour, IWorldInteraction
     {
         [SerializeField] private PlayerController player;
         [SerializeField] private Camera view;
@@ -20,7 +20,7 @@ namespace Interactables
         [SerializeField, Range(1, 12)] private float angleTolerance = 5;
         [SerializeField, Min(0.001f)] private float requiredTravel = 0.04f;
         [SerializeField, Min(0.01f)] private float processingSpeed = 0.12f;
-        private readonly SharpeningTrialState state = new SharpeningTrialState();
+        private SharpeningTrialState state = new SharpeningTrialState();
         private readonly List<Behaviour> suspended = new List<Behaviour>();
         private InputActionMap actions;
         private InputAction move, hold, zoom, tilt, motor, inspect, reset, leave;
@@ -43,7 +43,7 @@ namespace Interactables
         private TextMesh title;
         private GUIStyle hudStyle;
         private string result = "";
-        public string Prompt => "E — M6: ручная заточка ножа";
+        public string Prompt => IsCityOperation ? CityPrompt : "E — M6: ручная заточка ножа";
         public bool Active => active;
         public SharpeningTrialState State => state;
         public Vector3 EdgeOrigin => origin;
@@ -73,6 +73,7 @@ namespace Interactables
         public void Interact()
         {
             if (active || !enabled || player == null || !player.CanInteract) return;
+            if (IsCityOperation && !EnterCity()) return;
             active = true;
             if (title != null) title.gameObject.SetActive(false);
             savedCameraPosition = view.transform.position;
@@ -85,6 +86,7 @@ namespace Interactables
             Suspend(player);
             Suspend(FindAnyObjectByType<FirstDealView>());
             Suspend(FindAnyObjectByType<DevelopmentSandbox>());
+            if (IsCityOperation) Suspend(cityTrade);
             foreach (var canvas in FindObjectsByType<Canvas>()) Suspend(canvas);
             player.SetCursorLocked(true);
             actions.Enable();
@@ -92,6 +94,7 @@ namespace Interactables
             consumed = true;
             SetCamera(false);
             RefreshInstruction();
+            if (IsCityOperation) cityTrade.RefreshSolderingWorld();
         }
 
         private void Suspend(Behaviour item)
@@ -125,10 +128,12 @@ namespace Interactables
             if (player != null) player.SetCursorLocked(focused && savedLock == CursorLockMode.Locked);
             Cursor.lockState = focused ? savedLock : CursorLockMode.None;
             Cursor.visible = !focused || savedVisible;
+            if (IsCityOperation) LeaveCity();
         }
 
         public void ResetTrial()
         {
+            if (IsCityOperation) return;
             state.Reset();
             origin = new Vector3(0, 1.27f, -0.14f);
             angle = 35;
@@ -147,13 +152,15 @@ namespace Interactables
         private void Update()
         {
             if (!active || Time.frameCount == enteredFrame) return;
+            if (IsCityOperation && UnityEngine.InputSystem.Keyboard.current?.pKey.wasPressedThisFrame == true)
+            { Exit(); cityWalk.SetPaused(true); return; }
             if (leave.WasPressedThisFrame()) { exitRequested = true; return; }
-            if (!focused || !Application.isFocused || Time.timeScale <= 0)
+            if (!focused || !Application.isFocused || Time.timeScale <= 0 || IsCityOperation && citySave.Session.IsPaused)
             {
                 consumed = true;
                 gripping = false;
                 lastCutTime = float.NegativeInfinity;
-                state.StopContact();
+                if (IsCityOperation) state.StopMotor(); else state.StopContact();
                 StopEffects();
                 RefreshKnife();
                 SetCamera(false);
@@ -161,7 +168,7 @@ namespace Interactables
                 return;
             }
             if (!hold.IsPressed()) consumed = false;
-            if (reset.WasPressedThisFrame()) ResetTrial();
+            if (!IsCityOperation && reset.WasPressedThisFrame()) ResetTrial();
             if (!state.Placed && hold.WasPressedThisFrame() && !consumed)
             {
                 state.Place();
@@ -191,9 +198,10 @@ namespace Interactables
             {
                 inspectionPending = state.Placed && !CanInspect;
                 result = !state.Placed ? "Сначала положите нож на рабочее место." : inspectionPending ? "" :
-                    state.Complete ? "Проверка: вся кромка обработана. Нож готов. R — повторить." :
+                    state.Complete ? IsCityOperation ? "Нож готов · Esc — отойти · E — забрать" : "Проверка: вся кромка обработана. Нож готов. R — повторить." :
                     "Кромка обработана не полностью. Проведите светящиеся участки через круг.";
             }
+            if (IsCityOperation && inspect.WasPressedThisFrame()) citySave.Session.InspectKnife(CanInspect, out result);
             if (state.Running)
             {
                 rotation = Mathf.Repeat(rotation + 900 * Time.deltaTime, 360);
@@ -291,6 +299,7 @@ namespace Interactables
         private void OnApplicationFocus(bool hasFocus)
         {
             focused = hasFocus;
+            if (IsCityOperation && active && !hasFocus) { Exit(); cityWalk.SetPaused(true); return; }
             consumed = true;
             gripping = false;
             lastCutTime = float.NegativeInfinity;
@@ -301,9 +310,12 @@ namespace Interactables
             if (active) player.SetCursorLocked(hasFocus);
         }
         private void OnDisable() => Exit();
+        private void OnEnable() { if (IsCityOperation) BindCityKnife(); }
         private void OnDestroy()
         {
-            Exit(); actions?.Dispose();
+            Exit();
+            if (citySave != null) { citySave.SessionReplaced -= BindCityKnife; citySave.BeforeExplicitSave -= NormalizeCityKnife; }
+            actions?.Dispose();
             if (soundClip != null) Destroy(soundClip);
             if (sparkMaterial != null) Destroy(sparkMaterial);
         }
@@ -352,7 +364,7 @@ namespace Interactables
             GUI.Label(new Rect(15, height - 83, width - 30, 30),
                 "ЛКМ удерживать + мышь — вести нож · Q/E — угол · ПКМ — ближе", hudStyle);
             GUI.Label(new Rect(15, height - 51, width - 30, 30),
-                "Пробел — станок · F — проверить · R — заново · Esc — отойти", hudStyle);
+                IsCityOperation ? "Пробел — станок · F — проверить · Esc — отойти · P — пауза" : "Пробел — станок · F — проверить · R — заново · Esc — отойти", hudStyle);
             GUI.matrix = matrix;
         }
     }

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Interactables
 {
-    // Experiment only: coverage of the kitchen knife's cutting curve, independent of orders/saves.
+    // Coverage of the kitchen knife's cutting curve; city ownership and payouts live in WorkshopSession.
     public sealed class SharpeningTrialState
     {
         public const int Sections = 12;
@@ -47,6 +47,15 @@ namespace Interactables
         }
         private readonly float[] passes = new float[Sections];
         private readonly bool[] contacts = new bool[Sections];
+        public Func<bool> OperatingAllowed;
+        public event Action Changed;
+        public float[] CaptureCoverage() => (float[])passes.Clone();
+        public void Restore(float[] coverage, bool placed)
+        {
+            Array.Copy(coverage, passes, Sections);
+            Placed = placed;
+            StopMotor();
+        }
         public bool Placed { get; private set; }
         public bool Running { get; private set; }
         public bool Complete
@@ -81,7 +90,7 @@ namespace Interactables
             float targetAngle, float tolerance, float requiredTravel, float processingSpeed)
         {
             StopContact();
-            if (!Placed || !Running || !held || seconds <= 0) return;
+            if (!Placed || !Running || !held || seconds <= 0 || OperatingAllowed != null && !OperatingAllowed()) return;
             var travel = Mathf.Abs(to.x - from.x);
             var edgeRotation = Quaternion.Euler(angle, 0, 0);
             // Teleports/re-entry cannot process an unseen path.
@@ -114,6 +123,7 @@ namespace Interactables
             }
             for (var i = 0; i < Sections; i++)
                 if (contacts[i] && passes[i] < 1) ContactNeedsWork = true;
+            if (Cutting) Changed?.Invoke();
         }
     }
 }

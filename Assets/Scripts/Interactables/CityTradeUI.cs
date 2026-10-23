@@ -212,7 +212,7 @@ namespace Interactables
                 else switch (current.Kind)
                     {
                         case CityTradeKind.Seller:
-                            Button(sellerBuyback ? "К покупке товаров" : "Продать фонари", () =>
+                            Button(sellerBuyback ? "К покупке товаров" : "Продать вещи", () =>
                             {
                                 sellerBuyback = !sellerBuyback;
                                 if (sellerBuyback)
@@ -223,6 +223,7 @@ namespace Interactables
                             {
                                 Line("Скупка после теста: исправный $60 · неисправный $35");
                                 SelectGoods();
+                                KnifeBuyback();
                                 Button("Продать выбранные остатки", () => Execute("sell"), Selection().Count > 0);
                                 break;
                             }
@@ -233,6 +234,7 @@ namespace Interactables
                             ProductCard("Батарея", "1 шт. · для ремонта", "$50", batteryIcon,
                                 () => Execute("battery"), session.Balance >= 50);
                             SolderingShop();
+                            SharpeningShop();
                             break;
                         case CityTradeKind.Battery:
                             Line("Баланс $" + session.Balance + " · Батареи: " + session.SpareBatteries);
@@ -269,11 +271,11 @@ namespace Interactables
                                 SelectGoods();
                                 Button("Передать · " + Selection().Count + "/" + order.Quantity, () => Execute("deliver"), Selection().Count == order.Quantity);
                             }
-                            if (current.Kind == CityTradeKind.B) SolderingOffer();
+                            if (current.Kind == CityTradeKind.B) { SolderingOffer(); SharpeningOffer(); }
                             break;
                         case CityTradeKind.Buyback:
                             Line("После теста: исправный $60 · неисправный $35");
-                            SelectGoods(); Button("Продать выбранные остатки", () => Execute("sell")); break;
+                            KnifeBuyback(); SelectGoods(); Button("Продать выбранные остатки", () => Execute("sell")); break;
                     }
                 var close = current == null && showInventoryMap ? mapCloseButton : BackButton();
                 Button first = null, restore = null;

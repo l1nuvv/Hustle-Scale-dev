@@ -12,7 +12,7 @@ namespace Interactables
     {
         [SerializeField] private CitySceneBindings sceneBindings;
         [SerializeField] private GameObject cratePrefab;
-        public bool HasSceneConfiguration(CitySceneBindings owner) => sceneBindings == owner && cratePrefab != null &&
+        public bool HasSceneConfiguration(CitySceneBindings owner) => sceneBindings == owner && sharpeningSite != null && sharpeningSite.Station != null && sharpeningSite.KnifePrefab != null && cratePrefab != null &&
             cratePrefab.GetComponent<Collider>() != null && GetComponent<CityGreyboxWalk>()?.WorklightPrefab != null;
         private CitySaveController save;
         private CityGreyboxWalk walk;
@@ -125,6 +125,7 @@ namespace Interactables
                 Quaternion.Euler(0, save.World.CrateYaw, 0) : Quaternion.identity;
             crate.GetComponent<Collider>().enabled = !session.IsCrateCarried && !session.IsCrateInVehicle;
             RefreshSolderingStation();
+            RefreshSharpening();
             for (var i = 0; i < lamps.Length; i++)
             {
                 var unit = session.CityUnit(i);
@@ -155,7 +156,9 @@ namespace Interactables
             var solderOrder = session.Order(DealOrderId.Solder);
             if (solderOrder.State == DealOrderState.Accepted)
                 orderHud.text += (orderHud.text.Length > 0 ? "\n" : "") + "Пайка · " + WorkshopView.Clock(Math.Max(0, solderOrder.DeadlineSeconds - session.ElapsedSeconds));
-            orderHud.transform.parent.gameObject.SetActive(activeA || activeB || solderOrder.State == DealOrderState.Accepted);
+            var sharpOrder = session.Order(DealOrderId.Sharpen);
+            if (sharpOrder.State == DealOrderState.Accepted) orderHud.text += (orderHud.text.Length > 0 ? "\n" : "") + "Заточка · " + WorkshopView.Clock(Math.Max(0, sharpOrder.DeadlineSeconds - session.ElapsedSeconds));
+            orderHud.transform.parent.gameObject.SetActive(activeA || activeB || solderOrder.State == DealOrderState.Accepted || sharpOrder.State == DealOrderState.Accepted);
             ResizeHud();
             if (MenuOpen && !executingCommand) RebuildMenu();
         }
@@ -186,6 +189,7 @@ namespace Interactables
             if (!Allowed || !Reachable(point)) return null;
             switch (point.Kind)
             {
+                case CityTradeKind.Knife: return session.KnifeOwned && session.KnifePlace == KnifeLocation.World && !session.KnifeInHands && session.InHands == null && !session.IsCrateCarried ? cityKnife : null;
                 case CityTradeKind.Lamp:
                     return session.CityUnit(point.Index).Location == FlashlightLocation.Bench ?
                         session.CanPickUpBench ? lamps[point.Index] : null :
@@ -204,6 +208,8 @@ namespace Interactables
         public void Open(CityTradePoint point)
         {
             if (!Allowed || !Reachable(point)) return;
+            if (point.Kind == CityTradeKind.Knife)
+            { ActionFeedback("unit", session.MoveKnife(KnifeLocation.Hands, Vector3.zero, 0, out message)); Refresh(); return; }
             if (point.Kind == CityTradeKind.Cargo) { TransferCargo(); return; }
             if (point.Kind == CityTradeKind.Crate)
             { ActionFeedback("crate", session.ToggleCrate(out message)); Refresh(); return; }
@@ -261,6 +267,13 @@ namespace Interactables
                 session.SetPaused(false);
                 switch (command)
                 {
+                    case "sharpstation" when kind == CityTradeKind.Seller: success = session.PurchaseSharpeningStation(sharpeningSite.PlaceAvailable(), out message); break;
+                    case "knife" when kind == CityTradeKind.Seller: success = session.PurchaseKnife(out message); break;
+                    case "knifeequip" when kind == null: success = session.EquipKnife(out message); break;
+                    case "sharpaccept" when kind == CityTradeKind.B: success = session.AcceptOrder(DealOrderId.Sharpen, out message); break;
+                    case "sharpclose" when kind == CityTradeKind.B: success = session.CloseOrder(DealOrderId.Sharpen, out message); break;
+                    case "sharpdeliver" when kind == CityTradeKind.B: success = session.DeliverKnife(new[] { session.KnifeId }, out message); break;
+                    case "knifesell" when kind == CityTradeKind.Seller || kind == CityTradeKind.Buyback: success = session.SellKnife(session.KnifeId, out message); break;
                     case "station" when kind == CityTradeKind.Seller: success = session.PurchaseStation(StationPlaceAvailable(), out message); break;
                     case "solderlamp" when kind == CityTradeKind.Seller: success = session.PurchaseSolderingLamp(out message); break;
                     case "dose" when kind == CityTradeKind.Seller: success = session.BuySolderDose(out message); break;
@@ -377,7 +390,7 @@ namespace Interactables
 
         public bool DropHeld()
         {
-            if (!Allowed || session.InHands == null && !session.IsCrateCarried) return false;
+            if (!Allowed || session.InHands == null && !session.IsCrateCarried && !session.KnifeInHands) return false;
             var forward = Vector3.ProjectOnPlane(eye.transform.forward, Vector3.up).normalized;
             if (!Physics.Raycast(eye.transform.position, eye.transform.forward, out var hit, 2.5f,
                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.85f)
@@ -388,7 +401,7 @@ namespace Interactables
                 { message = "Перед тобой нет свободного места."; return false; }
             }
             var isCrate = session.IsCrateCarried;
-            var half = isCrate ? new Vector3(0.625f, 0.175f, 0.325f) : new Vector3(0.16f, 0.24f, 0.14f);
+            var half = isCrate ? new Vector3(0.625f, 0.175f, 0.325f) : session.KnifeInHands ? new Vector3(.30f, .025f, .08f) : new Vector3(0.16f, 0.24f, 0.14f);
             var position = hit.point + Vector3.up * (half.y + 0.015f);
             var rotation = Quaternion.Euler(0, eye.transform.eulerAngles.y, 0);
             if (Physics.Linecast(eye.transform.position, position + Vector3.up * half.y,
@@ -396,6 +409,11 @@ namespace Interactables
                 // Aiming ignores the walking capsule; placement occupancy must include it.
                 Physics.CheckBox(position, half, rotation, ~0, QueryTriggerInteraction.Ignore))
             { message = "Недостаточно свободного места."; return false; }
+            if (session.KnifeInHands)
+            {
+                var success = session.MoveKnife(KnifeLocation.World, position, rotation.eulerAngles.y, out message);
+                ActionFeedback("place", success); Refresh(); return success;
+            }
             if (isCrate)
             {
                 var oldPose = save.World.HasCratePose; var oldPosition = save.World.CratePosition; var oldYaw = save.World.CrateYaw;
@@ -446,6 +464,7 @@ namespace Interactables
             }
             BindSceneFeedback();
             BuildSolderingStation();
+            BuildSharpening();
         }
 
         private CityTradePoint AddPoint(Transform target, CityTradeKind kind, int index = -1)

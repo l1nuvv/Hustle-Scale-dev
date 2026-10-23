@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Inventory
 {
-    public enum DealOrderId { A, B, RepeatB, Solder }
+    public enum DealOrderId { A, B, RepeatB, Solder, Sharpen }
     public enum DealOrderState { Locked, Available, Accepted, Completed, Expired, Failed, Declined, Cancelled, Unavailable }
 
     public sealed class DealOrder
@@ -55,6 +55,7 @@ namespace Inventory
         public DealOrder Order(DealOrderId id)
         {
             if (id == DealOrderId.Solder && IsCity) return solderingOrder;
+            if (id == DealOrderId.Sharpen && IsCity) return sharpeningOrder;
             if ((int)id < 0 || (int)id >= orders.Length) throw new ArgumentOutOfRangeException(nameof(id));
             return orders[(int)id];
         }
@@ -192,6 +193,8 @@ namespace Inventory
             }
             if (IsCity && solderingOrder.State == DealOrderState.Accepted && ElapsedSeconds >= solderingOrder.DeadlineSeconds)
                 solderingOrder.State = DealOrderState.Failed;
+            if (IsCity && sharpeningOrder.State == DealOrderState.Accepted && ElapsedSeconds >= sharpeningOrder.DeadlineSeconds)
+                sharpeningOrder.State = DealOrderState.Failed;
         }
 
         public bool AcceptOrder(DealOrderId id, out string message)
@@ -219,6 +222,7 @@ namespace Inventory
         public bool DeliverOrder(DealOrderId id, IReadOnlyList<string> presentedIds, out string message)
         {
             if (IsCity && id == DealOrderId.Solder) return DeliverSoldering(presentedIds, out message);
+            if (IsCity && id == DealOrderId.Sharpen) return DeliverKnife(presentedIds, out message);
             var order = Order(id);
             if (!CanHandleItems(out message)) return false;
             if (order.State == DealOrderState.Unavailable) return Reject(OrderUnavailableReason(id), out message);

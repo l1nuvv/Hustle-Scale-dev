@@ -23,7 +23,7 @@ namespace Inventory
             if (!IsCity) throw new InvalidOperationException("Only city sessions use this save format.");
             var data = new CitySaveData
             {
-                Version = 6, Soldering = CaptureSoldering(), Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
+                Version = 7, Sharpening = CaptureSharpening(), Soldering = CaptureSoldering(), Balance = Balance, InitialBalance = InitialBalance, Revenue = Revenue,
                 Expenses = Expenses, SpareBatteries = SpareBatteries, RepairSeconds = RepairSeconds,
                 LotPurchased = LotPurchased, HasTransportedCrate = HasTransportedCrate,
                 IsCrateCarried = IsCrateCarried, ElapsedSeconds = ElapsedSeconds, World = world,
@@ -103,6 +103,7 @@ namespace Inventory
                 restored.orders[i].DeadlineSeconds = data.Orders[i].DeadlineSeconds;
             }
             if (data.Version >= 5) restored.RestoreSoldering(data.Soldering);
+            if (data.Version >= 7) restored.RestoreSharpening(data.Sharpening);
             session = restored;
             message = "Состояние восстановлено. Игра на паузе.";
             return true;
@@ -117,7 +118,7 @@ namespace Inventory
         private static bool ValidateCity(CitySaveData data, out string message)
         {
             message = "Некорректное или несовместимое сохранение города.";
-            if (data == null || data.Version < 1 || data.Version > 6 || data.InitialBalance != 300 || data.Balance < 0 ||
+            if (data == null || data.Version < 1 || data.Version > 7 || data.InitialBalance != 300 || data.Balance < 0 ||
                 data.Revenue < 0 || data.Expenses < 0 || data.Revenue > int.MaxValue ||
                 data.Expenses > (long)int.MaxValue * 55 + 700 || data.SpareBatteries < 0 ||
                 (long)data.InitialBalance + data.Revenue - data.Expenses != data.Balance ||
@@ -209,11 +210,12 @@ namespace Inventory
                 }
             }
             if (!ValidateSoldering(data, ids, ref hands, ref benches, ref revenue, out var solderingExpenses)) return false;
+            if (!ValidateSharpening(data, ids, ref hands, ref revenue, out var sharpeningExpenses)) return false;
             if (hands > 1 || benches > 1 || (data.IsCrateCarried && hands != 0) ||
                 (data.IsCrateInVehicle && (data.Version < 2 || data.IsCrateCarried || !data.LotPurchased || !data.HasTransportedCrate)) ||
                 (!data.LotPurchased && (data.IsCrateCarried || data.HasTransportedCrate)) ||
                 (data.IsCrateCarried && !data.HasTransportedCrate) ||
-                data.Expenses != (data.Version >= 6 ? purchasedLamps * 60L : lots * 180L) + ((long)data.SpareBatteries + repairs) * 50 + solderingExpenses ||
+                data.Expenses != (data.Version >= 6 ? purchasedLamps * 60L : lots * 180L) + ((long)data.SpareBatteries + repairs) * 50 + solderingExpenses + sharpeningExpenses ||
                 data.RepairSeconds != repairs * 240 || data.Revenue != revenue) return false;
 
             var world = data.World;

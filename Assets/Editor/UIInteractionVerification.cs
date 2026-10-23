@@ -46,7 +46,7 @@ public static class UIInteractionVerification
                 check(trade.Reachable(seller), "seller is reachable across the counter from customer side");
                 trade.Open(seller); yield return null; yield return null;
                 check(trade.MenuOpen, "nearby dealer opens purchase menu");
-                GameObject.Find("Продать фонари").GetComponent<Button>().onClick.Invoke();
+                GameObject.Find("Продать вещи").GetComponent<Button>().onClick.Invoke();
                 yield return null; yield return null;
                 check(GameObject.Find("К покупке товаров") != null, "same dealer offers purchase and buyback");
                 var untested = UnityEngine.Object.FindObjectsByType<Button>(FindObjectsSortMode.None).Single(b => b.name.StartsWith("[ ] Фонарь 2", StringComparison.Ordinal));

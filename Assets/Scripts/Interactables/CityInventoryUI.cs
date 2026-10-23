@@ -30,18 +30,18 @@ namespace Interactables
                 return count;
             }
             return kind == 1 ? InInventory(session.CityUnit(3)) ? 1 : 0 :
-                kind == 2 ? session.SpareBatteries : kind == 3 ? session.SolderDoses : 0;
+                kind == 2 ? session.SpareBatteries : kind == 3 ? session.SolderDoses : kind == 4 && session.KnifePresented ? 1 : 0;
         }
 
         private List<int> InventoryItems()
         {
             var items = new List<int>();
-            for (var kind = 0; kind < 4; kind++) if (InventoryCount(kind) > 0) items.Add(kind);
+            for (var kind = 0; kind < 5; kind++) if (InventoryCount(kind) > 0) items.Add(kind);
             return items;
         }
 
-        private Sprite InventoryIcon(int kind) => kind < 2 ? lampIcon : kind == 2 ? batteryIcon : solderIcon;
-        private bool InventoryHeld(int kind) => session.InHands != null &&
+        private Sprite InventoryIcon(int kind) => kind == 4 ? knifeIcon : kind < 2 ? lampIcon : kind == 2 ? batteryIcon : solderIcon;
+        private bool InventoryHeld(int kind) => kind == 4 ? session.KnifeInHands : session.InHands != null &&
             (kind == 0 && session.InHands != session.SolderingLamp || kind == 1 && session.InHands == session.SolderingLamp);
 
         private void BuildInventoryBar(Transform parent)
@@ -136,6 +136,9 @@ namespace Interactables
                         " · " + CityCondition(unit), () => Execute("equip", index), !session.IsCrateCarried);
                 }
             }
+            else if (inventorySelection == 4)
+                Button((session.KnifeInHands ? "Убрать" : "Взять") + " · кухонный нож · " + (session.KnifeReady ? "проверен" : "нужна заточка / проверка"),
+                    () => Execute("knifeequip"), !session.IsCrateCarried && session.InHands == null);
             else Line(inventorySelection == 2 ? "Батареи ×" + session.SpareBatteries + " · замена на верстаке: R" :
                 "Припой ×" + session.SolderDoses + " · дозы для паяльной станции");
         }

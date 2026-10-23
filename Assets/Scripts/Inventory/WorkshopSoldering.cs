@@ -78,7 +78,7 @@ namespace Inventory
         {
             if (!IsCity || IsPaused || !StationOwned || SolderingLamp != null)
                 return Reject("Нужна станция; этот фонарик покупается один раз.", out message);
-            if (InHands != null || IsCrateCarried) return Reject("Освободи руки.", out message);
+            if (KnifeInHands || InHands != null || IsCrateCarried) return Reject("Освободи руки.", out message);
             if (Balance < 40) return Reject("Фонарик стоит $40.", out message);
             SolderingLamp = new FlashlightUnit(FlashlightCondition.ConnectionFault) { Location = FlashlightLocation.Hands };
             Balance -= 40; Expenses += 40;
@@ -99,7 +99,7 @@ namespace Inventory
             if (!CanHandleItems(out message)) return false;
             if (!StationOwned || SolderingLamp == null || !IsOwned(SolderingLamp) || !ConnectionDiagnosed)
                 return Reject("Нужен свой фонарик с диагностированным дефектом соединения.", out message);
-            if (IsCrateCarried || InHands != null && InHands != SolderingLamp ||
+            if (IsCrateCarried || KnifeInHands || InHands != null && InHands != SolderingLamp ||
                 OnBench != null && (!AtSolderingStation || OnBench != SolderingLamp))
                 return Reject("Освободи руки и обычный верстак.", out message);
             if (!AtSolderingStation && SolderingLamp.Location != FlashlightLocation.Hands)
@@ -110,7 +110,7 @@ namespace Inventory
         public bool RetrieveSolderingLamp(out string message)
         {
             if (!CanHandleItems(out message)) return false;
-            if (!AtSolderingStation || !SolderingAssembled || InHands != null || IsCrateCarried)
+            if (!AtSolderingStation || !SolderingAssembled || KnifeInHands || InHands != null || IsCrateCarried)
                 return Reject("Сначала вручную собери фонарик и освободи руки.", out message);
             var tested = repairState.Tested;
             repairState.Restore(false, true, true, true, tested);
